@@ -3,111 +3,182 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================
+   SEQUENCY - Neo-Institutional Design System
+   Filosofía: Reducción de estrés visual
+   ============================================ */
+
 :root {
-  --background: oklch(0.98 0.002 250);
-  --foreground: oklch(0.18 0.02 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 260);
-  --primary: oklch(0.45 0.18 250);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 250);
-  --secondary-foreground: oklch(0.25 0.03 250);
-  --muted: oklch(0.96 0.005 250);
-  --muted-foreground: oklch(0.50 0.02 250);
-  --accent: oklch(0.94 0.02 250);
-  --accent-foreground: oklch(0.25 0.03 250);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.90 0.01 250);
-  --input: oklch(0.90 0.01 250);
-  --ring: oklch(0.45 0.18 250);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.99 0 0);
-  --sidebar-foreground: oklch(0.18 0.02 260);
-  --sidebar-primary: oklch(0.45 0.18 250);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.01 250);
-  --sidebar-accent-foreground: oklch(0.25 0.03 250);
-  --sidebar-border: oklch(0.90 0.01 250);
-  --sidebar-ring: oklch(0.45 0.18 250);
+  /* === SOFT PAPER MODE (Light) ===
+     Base en tonos hueso/zinc suave para reducir rebote de luz azul */
+  --background: oklch(0.975 0.005 85);       /* Hueso cálido suave */
+  --foreground: oklch(0.25 0.015 250);       /* Gris azulado profundo - NO negro puro */
   
-  /* Sequency semantic colors */
-  --status-present: oklch(0.65 0.18 145);
-  --status-present-foreground: oklch(0.98 0 0);
-  --status-absent: oklch(0.55 0.22 25);
-  --status-absent-foreground: oklch(0.98 0 0);
-  --status-tardy: oklch(0.75 0.15 75);
-  --status-tardy-foreground: oklch(0.25 0.05 75);
-  --status-license: oklch(0.70 0.01 250);
+  --card: oklch(0.995 0.002 85);             /* Casi blanco cálido */
+  --card-foreground: oklch(0.25 0.015 250);
+  
+  --popover: oklch(0.995 0.002 85);
+  --popover-foreground: oklch(0.25 0.015 250);
+  
+  /* Primary: Azul institucional calmado */
+  --primary: oklch(0.50 0.14 250);
+  --primary-foreground: oklch(0.98 0.005 85);
+  
+  /* Secondary: Gris cálido */
+  --secondary: oklch(0.94 0.008 85);
+  --secondary-foreground: oklch(0.35 0.02 250);
+  
+  /* Muted: Para textos secundarios */
+  --muted: oklch(0.94 0.006 85);
+  --muted-foreground: oklch(0.45 0.015 250);
+  
+  /* Accent: Toque sutil */
+  --accent: oklch(0.92 0.01 85);
+  --accent-foreground: oklch(0.30 0.02 250);
+  
+  /* Destructive: Terracota suave en lugar de rojo agresivo */
+  --destructive: oklch(0.58 0.16 25);
+  --destructive-foreground: oklch(0.98 0.005 85);
+  
+  /* Borders & Inputs */
+  --border: oklch(0.90 0.008 85);
+  --input: oklch(0.92 0.006 85);
+  --ring: oklch(0.50 0.14 250);
+  
+  /* Charts */
+  --chart-1: oklch(0.60 0.15 250);
+  --chart-2: oklch(0.65 0.12 165);
+  --chart-3: oklch(0.55 0.10 320);
+  --chart-4: oklch(0.70 0.14 85);
+  --chart-5: oklch(0.60 0.14 25);
+  
+  --radius: 0.625rem;
+  
+  /* Sidebar */
+  --sidebar: oklch(0.98 0.004 85);
+  --sidebar-foreground: oklch(0.25 0.015 250);
+  --sidebar-primary: oklch(0.50 0.14 250);
+  --sidebar-primary-foreground: oklch(0.98 0.005 85);
+  --sidebar-accent: oklch(0.94 0.008 85);
+  --sidebar-accent-foreground: oklch(0.35 0.02 250);
+  --sidebar-border: oklch(0.90 0.008 85);
+  --sidebar-ring: oklch(0.50 0.14 250);
+  
+  /* === SEQUENCY SEMANTIC COLORS (Pasteles Saturados) === */
+  
+  /* Presente: Verde Eucalipto - calmante y positivo */
+  --status-present: oklch(0.72 0.12 155);
+  --status-present-foreground: oklch(0.22 0.04 155);
+  --status-present-soft: oklch(0.92 0.04 155);
+  
+  /* Ausente: Terracota Suave - alerta sin agresividad */
+  --status-absent: oklch(0.65 0.14 25);
+  --status-absent-foreground: oklch(0.98 0.01 25);
+  --status-absent-soft: oklch(0.92 0.05 25);
+  
+  /* Tarde: Lavanda/Mauve - neutral pero distintivo */
+  --status-tardy: oklch(0.72 0.10 300);
+  --status-tardy-foreground: oklch(0.25 0.05 300);
+  --status-tardy-soft: oklch(0.94 0.04 300);
+  
+  /* Licencia: Gris azulado neutro */
+  --status-license: oklch(0.75 0.02 250);
   --status-license-foreground: oklch(0.35 0.02 250);
+  --status-license-soft: oklch(0.94 0.01 250);
+  
+  /* Glass effect variables */
+  --glass-bg: oklch(0.98 0.004 85 / 0.8);
+  --glass-border: oklch(0.90 0.008 85 / 0.6);
 }
 
 .dark {
-  --background: oklch(0.16 0.015 250);
-  --foreground: oklch(0.96 0.005 250);
-  --card: oklch(0.20 0.015 250);
-  --card-foreground: oklch(0.96 0.005 250);
-  --popover: oklch(0.20 0.015 250);
-  --popover-foreground: oklch(0.96 0.005 250);
-  --primary: oklch(0.60 0.18 250);
-  --primary-foreground: oklch(0.12 0.02 250);
-  --secondary: oklch(0.28 0.02 250);
-  --secondary-foreground: oklch(0.96 0.005 250);
-  --muted: oklch(0.25 0.015 250);
-  --muted-foreground: oklch(0.65 0.02 250);
-  --accent: oklch(0.28 0.02 250);
-  --accent-foreground: oklch(0.96 0.005 250);
-  --destructive: oklch(0.50 0.20 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.30 0.015 250);
-  --input: oklch(0.30 0.015 250);
-  --ring: oklch(0.60 0.18 250);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.18 0.015 250);
-  --sidebar-foreground: oklch(0.96 0.005 250);
-  --sidebar-primary: oklch(0.60 0.18 250);
-  --sidebar-primary-foreground: oklch(0.12 0.02 250);
-  --sidebar-accent: oklch(0.28 0.02 250);
-  --sidebar-accent-foreground: oklch(0.96 0.005 250);
-  --sidebar-border: oklch(0.30 0.015 250);
-  --sidebar-ring: oklch(0.60 0.18 250);
+  /* === DEEP SLATE MODE (Dark) ===
+     Gris azulado profundo para evitar sangrado de letras blancas */
+  --background: oklch(0.18 0.02 250);        /* Slate profundo - NO negro puro */
+  --foreground: oklch(0.92 0.01 85);         /* Hueso claro - NO blanco puro */
   
-  /* Sequency semantic colors - dark mode */
-  --status-present: oklch(0.60 0.16 145);
-  --status-present-foreground: oklch(0.98 0 0);
-  --status-absent: oklch(0.50 0.20 25);
-  --status-absent-foreground: oklch(0.98 0 0);
-  --status-tardy: oklch(0.70 0.14 75);
-  --status-tardy-foreground: oklch(0.20 0.04 75);
-  --status-license: oklch(0.50 0.01 250);
+  --card: oklch(0.22 0.018 250);             /* Elevación sutil */
+  --card-foreground: oklch(0.92 0.01 85);
+  
+  --popover: oklch(0.24 0.018 250);
+  --popover-foreground: oklch(0.92 0.01 85);
+  
+  /* Primary: Azul más luminoso para contraste */
+  --primary: oklch(0.65 0.16 250);
+  --primary-foreground: oklch(0.15 0.02 250);
+  
+  /* Secondary */
+  --secondary: oklch(0.28 0.02 250);
+  --secondary-foreground: oklch(0.88 0.01 85);
+  
+  /* Muted */
+  --muted: oklch(0.26 0.015 250);
+  --muted-foreground: oklch(0.65 0.015 250);
+  
+  /* Accent */
+  --accent: oklch(0.30 0.02 250);
+  --accent-foreground: oklch(0.90 0.01 85);
+  
+  /* Destructive */
+  --destructive: oklch(0.55 0.18 25);
+  --destructive-foreground: oklch(0.95 0.01 85);
+  
+  /* Borders & Inputs */
+  --border: oklch(0.32 0.015 250);
+  --input: oklch(0.28 0.015 250);
+  --ring: oklch(0.65 0.16 250);
+  
+  /* Charts - más vibrantes en dark mode */
+  --chart-1: oklch(0.65 0.18 250);
+  --chart-2: oklch(0.70 0.15 165);
+  --chart-3: oklch(0.60 0.12 320);
+  --chart-4: oklch(0.75 0.16 85);
+  --chart-5: oklch(0.65 0.16 25);
+  
+  /* Sidebar */
+  --sidebar: oklch(0.16 0.018 250);
+  --sidebar-foreground: oklch(0.92 0.01 85);
+  --sidebar-primary: oklch(0.65 0.16 250);
+  --sidebar-primary-foreground: oklch(0.15 0.02 250);
+  --sidebar-accent: oklch(0.28 0.02 250);
+  --sidebar-accent-foreground: oklch(0.88 0.01 85);
+  --sidebar-border: oklch(0.30 0.015 250);
+  --sidebar-ring: oklch(0.65 0.16 250);
+  
+  /* === SEQUENCY SEMANTIC COLORS - Dark Mode === */
+  
+  /* Presente: Verde Eucalipto - ajustado para dark */
+  --status-present: oklch(0.68 0.14 155);
+  --status-present-foreground: oklch(0.15 0.03 155);
+  --status-present-soft: oklch(0.30 0.06 155);
+  
+  /* Ausente: Terracota */
+  --status-absent: oklch(0.62 0.16 25);
+  --status-absent-foreground: oklch(0.95 0.01 25);
+  --status-absent-soft: oklch(0.30 0.08 25);
+  
+  /* Tarde: Lavanda */
+  --status-tardy: oklch(0.68 0.12 300);
+  --status-tardy-foreground: oklch(0.18 0.04 300);
+  --status-tardy-soft: oklch(0.32 0.06 300);
+  
+  /* Licencia */
+  --status-license: oklch(0.55 0.03 250);
   --status-license-foreground: oklch(0.85 0.01 250);
+  --status-license-soft: oklch(0.28 0.02 250);
+  
+  /* Glass effect - dark mode */
+  --glass-bg: oklch(0.22 0.018 250 / 0.85);
+  --glass-border: oklch(0.35 0.015 250 / 0.5);
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: 'Geist', 'Geist Fallback', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  
+  /* Core colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Sequency status colors */
-  --color-status-present: var(--status-present);
-  --color-status-present-foreground: var(--status-present-foreground);
-  --color-status-absent: var(--status-absent);
-  --color-status-absent-foreground: var(--status-absent-foreground);
-  --color-status-tardy: var(--status-tardy);
-  --color-status-tardy-foreground: var(--status-tardy-foreground);
-  --color-status-license: var(--status-license);
-  --color-status-license-foreground: var(--status-license-foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -130,10 +201,26 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Sequency status colors */
+  --color-status-present: var(--status-present);
+  --color-status-present-foreground: var(--status-present-foreground);
+  --color-status-present-soft: var(--status-present-soft);
+  --color-status-absent: var(--status-absent);
+  --color-status-absent-foreground: var(--status-absent-foreground);
+  --color-status-absent-soft: var(--status-absent-soft);
+  --color-status-tardy: var(--status-tardy);
+  --color-status-tardy-foreground: var(--status-tardy-foreground);
+  --color-status-tardy-soft: var(--status-tardy-soft);
+  --color-status-license: var(--status-license);
+  --color-status-license-foreground: var(--status-license-foreground);
+  --color-status-license-soft: var(--status-license-soft);
+  
+  /* Glass morphism */
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+  
+  /* Sidebar */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -142,13 +229,128 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    /* Generous line-height for better readability */
+    line-height: 1.6;
   }
+  
+  /* Smooth theme transitions */
+  html {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer utilities {
+  /* === GLASSMORPHISM UTILITIES === */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .glass-subtle {
+    background: var(--glass-bg);
+    backdrop-filter: blur(8px) saturate(1.1);
+    -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  }
+  
+  .glass-strong {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--glass-border);
+  }
+  
+  /* === DIAGONAL STRIPES FOR LICENSE MODE === */
+  .license-stripes {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 8px,
+      var(--status-license-soft) 8px,
+      var(--status-license-soft) 10px
+    );
+  }
+  
+  /* === SMOOTH FADE TRANSITIONS === */
+  .transition-theme {
+    transition: 
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.2s ease,
+      box-shadow 0.3s ease;
+  }
+  
+  /* === TEXT BALANCE FOR HEADINGS === */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
+
+/* === THEME TOGGLE ANIMATION KEYFRAMES === */
+@keyframes sun-rise {
+  0% {
+    transform: rotate(-90deg) scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes moon-rise {
+  0% {
+    transform: rotate(90deg) scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rays-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-sun-rise {
+  animation: sun-rise 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-moon-rise {
+  animation: moon-rise 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-rays-spin {
+  animation: rays-spin 10s linear infinite;
+}
+
+/* Pause animation when not hovered for performance */
+.group:not(:hover) .animate-rays-spin {
+  animation-play-state: paused;
 }

@@ -3,6 +3,7 @@
 import { Users, UserX, Clock, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggleCompact } from "@/components/theme-toggle";
 import type { CourseInfo, AttendanceStats } from "@/lib/types/attendance";
 import { formatShift } from "@/lib/types/attendance";
 
@@ -29,62 +30,69 @@ export function AttendanceHeader({
   });
 
   return (
-    <header className="bg-card border-b border-border sticky top-0 z-10">
-      <div className="px-6 py-4">
-        {/* Top row: Course info and date */}
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-semibold text-foreground">
-                {course.year}° Año "{course.divisionName}"
+    <header className="glass sticky top-0 z-20 border-b border-glass-border">
+      <div className="px-6 py-5 lg:px-8">
+        {/* Top row: Course info, date and actions */}
+        <div className="flex items-start justify-between gap-6 mb-5">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold text-foreground tracking-tight text-balance">
+                {course.year}° Ano "{course.divisionName}"
               </h1>
-              <Badge variant="secondary" className="text-xs">
+              <Badge 
+                variant="secondary" 
+                className="text-xs font-medium bg-secondary/80"
+              >
                 {formatShift(course.shift)}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground capitalize">
+            <p className="text-sm text-muted-foreground capitalize leading-relaxed">
               {formattedDate}
             </p>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={onResetAll}
-            disabled={isSubmitting}
-            className="shrink-0"
-          >
-            <CalendarCheck className="size-4" />
-            Poner todos Presentes
-          </Button>
+          <div className="flex items-center gap-3">
+            <ThemeToggleCompact />
+            <Button
+              variant="outline"
+              onClick={onResetAll}
+              disabled={isSubmitting}
+              className="shrink-0 transition-theme"
+            >
+              <CalendarCheck className="size-4" />
+              <span className="hidden sm:inline">Poner todos Presentes</span>
+              <span className="sm:hidden">Reset</span>
+            </Button>
+          </div>
         </div>
 
-        {/* Stats row */}
-        <div className="flex items-center gap-6">
+        {/* Stats row with generous spacing */}
+        <div className="flex flex-wrap items-center gap-5 lg:gap-8">
           <StatBadge
             icon={Users}
             label="Presentes"
             value={stats.present}
             total={stats.total}
-            colorClass="bg-status-present text-status-present-foreground"
+            variant="present"
           />
           <StatBadge
             icon={UserX}
             label="Ausentes"
             value={stats.absent}
-            colorClass="bg-status-absent text-status-absent-foreground"
+            variant="absent"
           />
           <StatBadge
             icon={Clock}
             label="Tardes"
             value={stats.tardy}
-            colorClass="bg-status-tardy text-status-tardy-foreground"
+            variant="tardy"
           />
           {stats.onLicense > 0 && (
             <StatBadge
               icon={CalendarCheck}
               label="En Licencia"
               value={stats.onLicense}
-              colorClass="bg-status-license text-status-license-foreground"
+              variant="license"
             />
           )}
         </div>
@@ -98,21 +106,35 @@ interface StatBadgeProps {
   label: string;
   value: number;
   total?: number;
-  colorClass: string;
+  variant: "present" | "absent" | "tardy" | "license";
 }
 
-function StatBadge({ icon: Icon, label, value, total, colorClass }: StatBadgeProps) {
+function StatBadge({ icon: Icon, label, value, total, variant }: StatBadgeProps) {
+  const variantStyles = {
+    present: "bg-status-present text-status-present-foreground shadow-status-present/20",
+    absent: "bg-status-absent text-status-absent-foreground shadow-status-absent/20",
+    tardy: "bg-status-tardy text-status-tardy-foreground shadow-status-tardy/20",
+    license: "bg-status-license text-status-license-foreground shadow-status-license/20",
+  };
+
   return (
-    <div className="flex items-center gap-2">
-      <div className={`flex items-center justify-center size-8 rounded-lg ${colorClass}`}>
-        <Icon className="size-4" />
+    <div className="flex items-center gap-3">
+      <div 
+        className={`
+          flex items-center justify-center size-10 rounded-xl shadow-lg
+          transition-theme ${variantStyles[variant]}
+        `}
+      >
+        <Icon className="size-5" />
       </div>
-      <div className="flex flex-col">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="text-sm font-semibold text-foreground">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
+          {label}
+        </span>
+        <span className="text-base font-semibold text-foreground tabular-nums leading-none">
           {value}
           {total !== undefined && (
-            <span className="text-muted-foreground font-normal">/{total}</span>
+            <span className="text-muted-foreground font-normal text-sm">/{total}</span>
           )}
         </span>
       </div>

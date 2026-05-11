@@ -19,6 +19,7 @@ import type {
   AttendanceSubmission,
 } from "@/lib/types/attendance";
 import { roundToDecimals, getAbsenceValue, getTardyValue } from "@/lib/types/attendance";
+import { cn } from "@/lib/utils";
 
 interface AttendancePageProps {
   initialStudents: StudentAttendance[];
@@ -180,7 +181,6 @@ export function AttendancePage({
 
       await onSubmit(submission);
       setIsConfirmModalOpen(false);
-      // Could redirect or show success message here
     } catch (error) {
       console.error("Error submitting attendance:", error);
     } finally {
@@ -189,11 +189,11 @@ export function AttendancePage({
   };
 
   const currentDate = new Date();
-  const courseName = `${course.year}° Año "${course.divisionName}"`;
+  const courseName = `${course.year}° Ano "${course.divisionName}"`;
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header with stats */}
+    <div className="flex flex-col min-h-screen bg-background">
+      {/* Header with glassmorphism */}
       <AttendanceHeader
         course={course}
         stats={stats}
@@ -202,9 +202,9 @@ export function AttendancePage({
         isSubmitting={isSubmitting}
       />
 
-      {/* Student list */}
+      {/* Student list with scroll */}
       <ScrollArea className="flex-1">
-        <div className="pb-24">
+        <div className="pb-28">
           {sortedStudents.map((student, index) => (
             <StudentRow
               key={student.id}
@@ -218,26 +218,40 @@ export function AttendancePage({
         </div>
       </ScrollArea>
 
-      {/* Floating submit button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
-        <div className="max-w-4xl mx-auto pointer-events-auto">
+      {/* Floating submit button with glass gradient */}
+      <div 
+        className={cn(
+          "fixed bottom-0 left-0 right-0 p-5 pointer-events-none",
+          "bg-gradient-to-t from-background via-background/95 to-transparent"
+        )}
+      >
+        <div className="max-w-3xl mx-auto pointer-events-auto">
           <Button
             size="lg"
             onClick={() => setIsConfirmModalOpen(true)}
             disabled={isSubmitting}
-            className="w-full shadow-lg"
+            className={cn(
+              "w-full h-14 text-base font-semibold shadow-xl",
+              "transition-all duration-300 active:scale-[0.98]",
+              "shadow-primary/20 hover:shadow-primary/30"
+            )}
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="size-5 animate-spin" />
-                Enviando...
+                <span>Enviando...</span>
               </>
             ) : (
               <>
                 <Send className="size-5" />
-                Finalizar y Notificar
+                <span>Finalizar y Notificar</span>
                 {(stats.absent > 0 || stats.tardy > 0) && (
-                  <span className="ml-2 px-2 py-0.5 rounded-full bg-primary-foreground/20 text-xs">
+                  <span 
+                    className={cn(
+                      "ml-3 px-2.5 py-1 rounded-full text-xs font-bold",
+                      "bg-primary-foreground/20"
+                    )}
+                  >
                     {stats.absent + stats.tardy}
                   </span>
                 )}
