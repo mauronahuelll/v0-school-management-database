@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { GradesGrid } from "@/components/grades";
+import { AppShell } from "@/components/layout";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import type {
@@ -11,7 +12,7 @@ import type {
   AssessmentConfig,
   GradeScale,
 } from "@/lib/types/grades";
-import { calculateWeightedAverage, isPassingGrade, roundToDecimals } from "@/lib/types/grades";
+import { calculateSimpleAverage, isPassingGrade, roundToDecimals } from "@/lib/types/grades";
 
 // ============================================
 // MOCK DATA FOR DEMO
@@ -25,10 +26,10 @@ const MOCK_SCALE: GradeScale = {
 
 const MOCK_ASSESSMENTS: AssessmentConfig[] = [
   { id: "eval-1", name: "Parcial 1", type: "EXAM", weight: 1, maxValue: 10 },
-  { id: "eval-2", name: "TP 1", type: "HOMEWORK", weight: 0.5, maxValue: 10 },
+  { id: "eval-2", name: "TP 1", type: "HOMEWORK", weight: 1, maxValue: 10 },
   { id: "eval-3", name: "Parcial 2", type: "EXAM", weight: 1, maxValue: 10 },
-  { id: "eval-4", name: "TP 2", type: "PROJECT", weight: 0.5, maxValue: 10 },
-  { id: "eval-5", name: "Integradora", type: "FINAL", weight: 2, maxValue: 10 },
+  { id: "eval-4", name: "TP 2", type: "PROJECT", weight: 1, maxValue: 10 },
+  { id: "eval-5", name: "Integradora", type: "FINAL", weight: 1, maxValue: 10 },
 ];
 
 const generateMockGrade = (
@@ -77,7 +78,7 @@ const createMockStudentRow = (
   });
 
   const gradeEntries = Object.values(grades);
-  const average = calculateWeightedAverage(gradeEntries, MOCK_ASSESSMENTS);
+  const average = calculateSimpleAverage(gradeEntries);
 
   return {
     studentId: data.id,
@@ -156,9 +157,9 @@ export default function GradesPage() {
             };
           }
 
-          // Recalculate average
+          // Recalculate simple arithmetic average
           const gradeEntries = Object.values(newGrades);
-          const average = calculateWeightedAverage(gradeEntries, MOCK_ASSESSMENTS);
+          const average = calculateSimpleAverage(gradeEntries);
 
           return {
             ...student,
@@ -225,7 +226,7 @@ export default function GradesPage() {
   }, []);
 
   return (
-    <>
+    <AppShell schoolName="Escuela Tecnica N°5">
       <GradesGrid
         courseInfo={courseInfo}
         onGradeUpdate={handleGradeUpdate}
@@ -235,6 +236,6 @@ export default function GradesPage() {
         isReadOnly={false}
       />
       <Toaster position="bottom-center" />
-    </>
+    </AppShell>
   );
 }

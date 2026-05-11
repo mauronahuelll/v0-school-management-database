@@ -300,43 +300,31 @@ export function GradesGrid({
                     </button>
                   </th>
 
-                  {/* Assessment Columns */}
+                  {/* Assessment Columns - Clean headers without weight indicators */}
                   {assessments.map((assessment) => (
                     <th
                       key={assessment.id}
-                      className="px-3 py-4 text-center min-w-[80px]"
+                      className="px-4 py-5 text-center min-w-[100px]"
                     >
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold text-foreground truncate max-w-[100px]">
+                            <div className="space-y-1.5">
+                              <p className="text-sm font-semibold text-foreground truncate max-w-[120px]">
                                 {assessment.name}
                               </p>
-                              <div className="flex items-center justify-center gap-1">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] px-1.5 py-0"
-                                >
-                                  {ASSESSMENT_TYPE_LABELS[assessment.type]}
-                                </Badge>
-                                {assessment.weight !== 1 && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5 py-0"
-                                  >
-                                    x{assessment.weight}
-                                  </Badge>
-                                )}
-                              </div>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-2 py-0.5 font-medium"
+                              >
+                                {ASSESSMENT_TYPE_LABELS[assessment.type]}
+                              </Badge>
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>
-                              {assessment.name} - {ASSESSMENT_TYPE_LABELS[assessment.type]}
-                            </p>
+                            <p className="font-medium">{assessment.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              Peso: {assessment.weight}x | Max: {assessment.maxValue}
+                              {ASSESSMENT_TYPE_LABELS[assessment.type]} | Nota maxima: {assessment.maxValue}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -362,7 +350,7 @@ export function GradesGrid({
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-border/50">
+              <tbody className="divide-y divide-border/30">
                 {filteredStudents.map((student, index) => (
                   <StudentRow
                     key={student.studentId}
@@ -438,35 +426,38 @@ function StudentRow({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.02 }}
       className={cn(
-        "group hover:bg-accent/30 transition-colors",
-        !student.isComplete && "bg-status-tardy-soft/20"
+        "group transition-all duration-200",
+        // Hover state with subtle highlight for "focus mode"
+        "hover:bg-accent/40 hover:shadow-[inset_0_0_0_1px_rgba(var(--primary)/0.1)]",
+        // Incomplete indicator
+        !student.isComplete && "bg-status-tardy-soft/10"
       )}
     >
-      {/* Student Info */}
-      <td className="sticky left-0 z-10 bg-card group-hover:bg-accent/30 backdrop-blur-sm transition-colors">
-        <div className="flex items-center gap-3 px-4 py-4">
-          <Avatar className="size-10 ring-2 ring-border/50">
+      {/* Student Info - Increased padding for breathing room */}
+      <td className="sticky left-0 z-10 bg-card group-hover:bg-accent/40 backdrop-blur-sm transition-all">
+        <div className="flex items-center gap-4 px-5 py-5">
+          <Avatar className="size-11 ring-2 ring-border/40 shadow-sm">
             <AvatarImage src={student.photoUrl} alt={student.firstName} />
-            <AvatarFallback className="bg-primary/10 text-primary font-medium">
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-            <p className="font-medium text-foreground truncate">
+          <div className="min-w-0 space-y-0.5">
+            <p className="font-medium text-foreground truncate text-[15px]">
               {student.lastName}, {student.firstName}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground tracking-wide">
               Legajo: {student.enrollmentNumber}
             </p>
           </div>
         </div>
       </td>
 
-      {/* Grade Cells */}
+      {/* Grade Cells - More padding */}
       {assessments.map((assessment) => {
         const grade = student.grades[assessment.id] || null;
         return (
-          <td key={assessment.id} className="px-3 py-4 text-center">
+          <td key={assessment.id} className="px-4 py-5 text-center">
             <GradeCell
               grade={grade}
               assessmentId={assessment.id}
@@ -481,11 +472,11 @@ function StudentRow({
         );
       })}
 
-      {/* Average */}
-      <td className="px-4 py-4 text-center bg-accent/20">
+      {/* Average - Slightly larger display */}
+      <td className="px-5 py-5 text-center bg-accent/15">
         <div
           className={cn(
-            "inline-flex items-center justify-center size-12 rounded-xl font-bold text-lg transition-all",
+            "inline-flex items-center justify-center size-14 rounded-2xl font-bold text-xl transition-all shadow-sm",
             student.average !== null
               ? passing
                 ? "bg-status-present text-status-present-foreground"

@@ -1,6 +1,7 @@
 "use client";
 
 import { AttendancePage } from "@/components/attendance";
+import { AppShell } from "@/components/layout";
 import type {
   StudentAttendance,
   CourseInfo,
@@ -326,7 +327,7 @@ async function handleDeactivateLicense(studentId: string): Promise<void> {
 
 export default function AttendancePageDemo() {
   return (
-    <>
+    <AppShell schoolName="Escuela Tecnica N°5">
       <AttendancePage
         initialStudents={MOCK_STUDENTS}
         course={MOCK_COURSE}
@@ -337,6 +338,6 @@ export default function AttendancePageDemo() {
         onSaveLicense={handleSaveLicense}
         onDeactivateLicense={handleDeactivateLicense}
       />
-    </>
+    </AppShell>
   );
 }

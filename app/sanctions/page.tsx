@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AppShell } from "@/components/layout";
 import { SanctionForm } from "@/components/behavior/sanction-form";
 import type { BehaviorFormData, StudentOption } from "@/lib/types/behavior";
 
@@ -109,38 +107,21 @@ export default function SanctionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border glass">
-        <div className="container mx-auto px-6">
-          <div className="flex h-16 items-center justify-between">
-            {/* Left */}
-            <div className="flex items-center gap-4">
-              <Link href="/attendance">
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver</span>
-                </Button>
-              </Link>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <BookOpen className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-sm font-semibold text-foreground">
-                    Libro de Convivencia
-                  </h1>
-                  <p className="text-xs text-muted-foreground">
-                    4to Ano &quot;B&quot; · Turno Manana
-                  </p>
-                </div>
-              </div>
+    <AppShell schoolName="Escuela Tecnica N°5">
+      {/* Page Header */}
+      <header className="border-b border-border bg-card/50">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <BookOpen className="h-6 w-6 text-primary" />
             </div>
-
-            {/* Right */}
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">
+                Libro de Convivencia
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                4to Ano &quot;B&quot; - Turno Manana
+              </p>
             </div>
           </div>
         </div>
@@ -164,6 +145,6 @@ export default function SanctionsPage() {
           duration: 5000,
         }}
       />
-    </div>
+    </AppShell>
   );
 }

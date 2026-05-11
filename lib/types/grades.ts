@@ -142,7 +142,23 @@ export const roundToDecimals = (num: number): number =>
   Math.round(num * 100) / 100;
 
 /**
- * Calculate weighted average of grades
+ * Calculate simple arithmetic average of grades (ignoring weights)
+ */
+export const calculateSimpleAverage = (
+  grades: (GradeEntry | null)[]
+): number | null => {
+  const validGrades = grades.filter(
+    (g): g is GradeEntry => g !== null && g.value !== null
+  );
+
+  if (validGrades.length === 0) return null;
+
+  const sum = validGrades.reduce((acc, g) => acc + (g.value ?? 0), 0);
+  return roundToDecimals(sum / validGrades.length);
+};
+
+/**
+ * Calculate weighted average of grades (for advanced use cases)
  */
 export const calculateWeightedAverage = (
   grades: (GradeEntry | null)[],
