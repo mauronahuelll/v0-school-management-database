@@ -11,6 +11,12 @@ import type { AttendanceRecord, StudentStats } from "../types";
 const FUNCTION_NAME = "syncAttendanceStats";
 
 /**
+ * Rounds a number to 2 decimal places to avoid JavaScript floating-point errors.
+ * Example: 0.1 + 0.2 = 0.30000000000000004 -> 0.3
+ */
+const roundToDecimals = (num: number): number => Math.round(num * 100) / 100;
+
+/**
  * Cloud Function: Sync Attendance Statistics
  *
  * Triggered on any write (create, update, delete) to the attendance collection.
@@ -161,14 +167,14 @@ async function updateStudentStats(
       unacknowledgedSanctions: 0,
     };
 
-    // Update totals
+    // Update totals (rounded to avoid floating-point precision errors)
     const newTotalAbsences = Math.max(
       0,
-      currentStats.totalAbsences + delta.absenceDelta
+      roundToDecimals(currentStats.totalAbsences + delta.absenceDelta)
     );
     const newTotalTardies = Math.max(
       0,
-      currentStats.totalTardies + delta.tardyDelta
+      roundToDecimals(currentStats.totalTardies + delta.tardyDelta)
     );
 
     // Update period-specific absences
@@ -180,13 +186,14 @@ async function updateStudentStats(
       if (before) {
         absencesByPeriod[delta.oldPeriodId] = Math.max(
           0,
-          (absencesByPeriod[delta.oldPeriodId] ?? 0) - before.absenceValue
+          roundToDecimals((absencesByPeriod[delta.oldPeriodId] ?? 0) - before.absenceValue)
         );
       }
       // Add to new period
       if (after) {
-        absencesByPeriod[delta.periodId] =
-          (absencesByPeriod[delta.periodId] ?? 0) + after.absenceValue;
+        absencesByPeriod[delta.periodId] = roundToDecimals(
+          (absencesByPeriod[delta.periodId] ?? 0) + after.absenceValue
+        );
       }
     } else {
       // Same period or create/delete - just apply the delta
@@ -194,7 +201,7 @@ async function updateStudentStats(
       if (periodId) {
         absencesByPeriod[periodId] = Math.max(
           0,
-          (absencesByPeriod[periodId] ?? 0) + delta.absenceDelta
+          roundToDecimals((absencesByPeriod[periodId] ?? 0) + delta.absenceDelta)
         );
       }
     }
