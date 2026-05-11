@@ -1,0 +1,173 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getUserSchoolRole(schoolId) {
+      let userData = getUserData();
+      return userData.schoolRoles[schoolId];
+    }
+
+    function hasSchoolAccess(schoolId) {
+      return isAuthenticated() && 
+        getUserSchoolRole(schoolId) != null &&
+        getUserSchoolRole(schoolId).status == 'ACTIVE';
+    }
+
+    function hasRole(schoolId, allowedRoles) {
+      return hasSchoolAccess(schoolId) && 
+        getUserSchoolRole(schoolId).role in allowedRoles;
+    }
+
+    function isSchoolAdmin(schoolId) {
+      return hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN']);
+    }
+
+    function isSchoolStaff(schoolId) {
+      return hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR', 'TEACHER']);
+    }
+
+    function isTutor(schoolId) {
+      return hasRole(schoolId, ['TUTOR']);
+    }
+
+    // ============================================
+    // SCHOOLS COLLECTION
+    // ============================================
+
+    match /schools/{schoolId} {
+      allow read: if hasSchoolAccess(schoolId);
+      allow create: if false; // Schools are created via admin SDK only
+      allow update: if isSchoolAdmin(schoolId);
+      allow delete: if false; // Schools cannot be deleted via client
+
+      // ============================================
+      // STUDENTS SUBCOLLECTION
+      // ============================================
+      match /students/{studentId} {
+        allow read: if hasSchoolAccess(schoolId);
+        allow create: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']);
+        allow update: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']);
+        allow delete: if isSchoolAdmin(schoolId);
+      }
+
+      // ============================================
+      // COURSES SUBCOLLECTION
+      // ============================================
+      match /courses/{courseId} {
+        allow read: if hasSchoolAccess(schoolId);
+        allow write: if isSchoolAdmin(schoolId);
+      }
+
+      // ============================================
+      // ATTENDANCE SUBCOLLECTION
+      // ============================================
+      match /attendance/{attendanceId} {
+        allow read: if hasSchoolAccess(schoolId);
+        allow create: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']);
+        allow update: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']);
+        allow delete: if isSchoolAdmin(schoolId);
+      }
+
+      // ============================================
+      // GRADES SUBCOLLECTION
+      // ============================================
+      match /grades/{gradeId} {
+        // Teachers can read their own grades, tutors only published ones
+        allow read: if hasSchoolAccess(schoolId) && (
+          isSchoolStaff(schoolId) ||
+          (isTutor(schoolId) && resource.data.isPublished == true)
+        );
+        allow create: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'TEACHER']);
+        allow update: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'TEACHER']);
+        allow delete: if isSchoolAdmin(schoolId);
+      }
+
+      // ============================================
+      // BEHAVIOR SUBCOLLECTION
+      // ============================================
+      match /behavior/{behaviorId} {
+        allow read: if hasSchoolAccess(schoolId) && (
+          isSchoolStaff(schoolId) ||
+          (isTutor(schoolId) && resource.data.visibleToTutor == true)
+        );
+        allow create: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR', 'TEACHER']);
+        allow update: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR', 'TEACHER']) ||
+          // Tutors can only update the acknowledgment field
+          (isTutor(schoolId) && 
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sanction']));
+        allow delete: if isSchoolAdmin(schoolId);
+      }
+
+      // ============================================
+      // TUTOR RELATIONS SUBCOLLECTION
+      // ============================================
+      match /tutorRelations/{relationId} {
+        allow read: if hasSchoolAccess(schoolId);
+        allow create: if isSchoolAdmin(schoolId);
+        allow update: if isSchoolAdmin(schoolId);
+        allow delete: if isSchoolAdmin(schoolId);
+      }
+
+      // ============================================
+      // NOTIFICATIONS SUBCOLLECTION
+      // ============================================
+      match /notifications/{notificationId} {
+        // Users can only read their own notifications
+        allow read: if hasSchoolAccess(schoolId) && 
+          resource.data.recipientId == request.auth.uid;
+        allow create: if false; // Created by Cloud Functions only
+        // Users can mark their notifications as read
+        allow update: if hasSchoolAccess(schoolId) && 
+          resource.data.recipientId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['channels']);
+        allow delete: if false;
+      }
+
+      // ============================================
+      // ANNOUNCEMENTS SUBCOLLECTION
+      // ============================================
+      match /announcements/{announcementId} {
+        allow read: if hasSchoolAccess(schoolId) && (
+          isSchoolStaff(schoolId) ||
+          resource.data.status == 'PUBLISHED'
+        );
+        allow create: if isSchoolAdmin(schoolId);
+        allow update: if isSchoolAdmin(schoolId);
+        allow delete: if isSchoolAdmin(schoolId);
+      }
+    }
+
+    // ============================================
+    // USERS COLLECTION (Root level)
+    // ============================================
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      // Users can update their own profile (limited fields)
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      // Users cannot delete themselves
+      allow delete: if false;
+      // Account creation handled by Cloud Functions on auth trigger
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ============================================
+    // IDEMPOTENCY COLLECTION (System use only)
+    // ============================================
+    match /_processedEvents/{eventId} {
+      allow read, write: if false; // Cloud Functions only via Admin SDK
+    }
+  }
+}
