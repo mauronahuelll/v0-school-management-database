@@ -30,8 +30,22 @@ export { notifyAttendance } from "./triggers/attendance-notification.trigger";
 // export { sendAbsenceSummaryReport } from "./scheduled/reports.scheduled";
 
 // ============================================
-// CALLABLE FUNCTIONS (To be added)
+// BEHAVIOR TRIGGERS
 // ============================================
+
+export {
+  initializeBehaviorHash,
+  validateBehaviorSignature,
+} from "./triggers/behavior-signature.trigger";
+
+// ============================================
+// CALLABLE FUNCTIONS
+// ============================================
+
+export {
+  acknowledgeSanction,
+  disputeSanction,
+} from "./callable/acknowledge-sanction.callable";
 
 // export { generateTransferToken } from "./callable/transfer.callable";
 // export { acceptTransferStudent } from "./callable/transfer.callable";

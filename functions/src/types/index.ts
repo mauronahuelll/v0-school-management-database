@@ -215,6 +215,138 @@ export interface NotificationLog {
 }
 
 // ============================================
+// BEHAVIOR & DIGITAL SIGNATURE TYPES
+// ============================================
+
+export type BehaviorType = "OBSERVATION" | "SANCTION";
+export type AcknowledgmentStatus = "PENDING" | "ACKNOWLEDGED" | "DISPUTED";
+
+/**
+ * Verification metadata captured at the moment of digital signature.
+ * This provides legal validity to the acknowledgment process.
+ */
+export interface VerificationMetadata {
+  ipAddress: string;
+  userAgent: string;
+  deviceId: string;
+  deviceType: "MOBILE" | "TABLET" | "DESKTOP";
+  geoLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  };
+  appVersion: string;
+  platform: "IOS" | "ANDROID" | "WEB";
+}
+
+/**
+ * Digital signature acknowledgment for sanctions.
+ * Implements a tamper-proof system using SHA-256 hashing.
+ */
+export interface SanctionAcknowledgment {
+  status: AcknowledgmentStatus;
+  
+  // Tutor information
+  tutorId: string;
+  tutorName: string;
+  tutorDni: string;
+  
+  // Timestamps (server-generated, not client)
+  acknowledgedAt?: Timestamp;
+  disputedAt?: Timestamp;
+  
+  // Digital signature data
+  documentHash: string; // SHA-256 hash of: description + studentId + date + severity
+  hashGeneratedAt: Timestamp;
+  
+  // Legal verification metadata
+  verificationMetadata?: VerificationMetadata;
+  
+  // Dispute handling
+  disputeReason?: string;
+  disputeResolution?: {
+    resolvedBy: string;
+    resolvedAt: Timestamp;
+    resolution: string;
+    finalStatus: "UPHELD" | "MODIFIED" | "DISMISSED";
+  };
+  
+  // Consent tracking
+  legalNoticeVersion: string; // "v1.0" - version of legal text shown
+  consentText: string; // The exact legal text the user accepted
+}
+
+export interface SanctionData {
+  sanctionTypeId: string;
+  sanctionTypeName: string;
+  severity: 1 | 2 | 3 | 4 | 5;
+  affectsRecord: boolean;
+  
+  requiresAcknowledgment: boolean;
+  acknowledgment?: SanctionAcknowledgment;
+  
+  notificationSentAt?: Timestamp;
+  remindersSent: number;
+  nextReminderAt?: Timestamp;
+}
+
+export interface BehaviorRecord {
+  id: string;
+  schoolId: string;
+  
+  // References
+  studentId: string;
+  courseId: string;
+  divisionId: string;
+  
+  // Denormalized data
+  studentName: string;
+  courseName: string;
+  
+  // Record type and content
+  type: BehaviorType;
+  date: Timestamp;
+  dateString: string;
+  category: string;
+  description: string;
+  isPositive: boolean;
+  
+  // Sanction-specific data
+  sanction?: SanctionData;
+  
+  // Evidence
+  attachments?: {
+    type: "IMAGE" | "DOCUMENT" | "AUDIO";
+    url: string;
+    name: string;
+  }[];
+  
+  // Follow-up
+  followUpRequired: boolean;
+  followUpDate?: Timestamp;
+  followUpNotes?: string;
+  resolved: boolean;
+  resolvedAt?: Timestamp;
+  resolvedBy?: string;
+  
+  // Visibility
+  visibleToTutor: boolean;
+  
+  // Audit
+  periodId: string;
+  academicYear: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
+  createdByRole: string;
+  
+  // Integrity protection (set when sanction is acknowledged)
+  contentLocked: boolean;
+  contentLockedAt?: Timestamp;
+  originalContentHash?: string;
+}
+
+// ============================================
 // IDEMPOTENCY TYPES
 // ============================================
 

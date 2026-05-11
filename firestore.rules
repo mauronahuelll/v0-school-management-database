@@ -98,16 +98,68 @@ service cloud.firestore {
       // BEHAVIOR SUBCOLLECTION
       // ============================================
       match /behavior/{behaviorId} {
+        // Helper: Check if content is locked (already signed)
+        function isContentLocked() {
+          return resource.data.contentLocked == true;
+        }
+        
+        // Helper: Check if tutor is only modifying acknowledgment
+        function isTutorAcknowledgmentOnly() {
+          let allowedFields = ['sanction', 'updatedAt'];
+          let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+          return changedKeys.hasOnly(allowedFields);
+        }
+        
+        // Helper: Validate acknowledgment changes (tutor can only set specific fields)
+        function isValidAcknowledgmentChange() {
+          let beforeAck = resource.data.sanction.acknowledgment;
+          let afterAck = request.resource.data.sanction.acknowledgment;
+          
+          // Status must be changing from PENDING
+          return beforeAck.status == 'PENDING' &&
+            (afterAck.status == 'ACKNOWLEDGED' || afterAck.status == 'DISPUTED') &&
+            // Cannot modify the document hash
+            afterAck.documentHash == beforeAck.documentHash &&
+            // Cannot modify hash generation time
+            afterAck.hashGeneratedAt == beforeAck.hashGeneratedAt;
+        }
+        
+        // Helper: Prevent modification of protected fields when locked
+        function areProtectedFieldsUnchanged() {
+          let before = resource.data;
+          let after = request.resource.data;
+          return before.description == after.description &&
+            before.category == after.category &&
+            before.date == after.date &&
+            before.sanction.severity == after.sanction.severity &&
+            before.sanction.sanctionTypeId == after.sanction.sanctionTypeId;
+        }
+        
+        // READ: Staff sees all, tutors only see visible records
         allow read: if hasSchoolAccess(schoolId) && (
           isSchoolStaff(schoolId) ||
           (isTutor(schoolId) && resource.data.visibleToTutor == true)
         );
+        
+        // CREATE: Only staff can create behavior records
         allow create: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR', 'TEACHER']);
-        allow update: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR', 'TEACHER']) ||
-          // Tutors can only update the acknowledgment field
+        
+        // UPDATE: Complex rules based on role and lock status
+        allow update: if hasSchoolAccess(schoolId) && (
+          // CASE 1: Staff can update if content is not locked
+          (isSchoolStaff(schoolId) && !isContentLocked()) ||
+          
+          // CASE 2: Staff can update non-protected fields even when locked
+          (isSchoolStaff(schoolId) && isContentLocked() && areProtectedFieldsUnchanged()) ||
+          
+          // CASE 3: Tutor can ONLY update acknowledgment fields
           (isTutor(schoolId) && 
-           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sanction']));
-        allow delete: if isSchoolAdmin(schoolId);
+           isTutorAcknowledgmentOnly() &&
+           isValidAcknowledgmentChange())
+        );
+        
+        // DELETE: Only admins, and only if not locked
+        allow delete: if isSchoolAdmin(schoolId) && !isContentLocked();
       }
 
       // ============================================
@@ -164,10 +216,22 @@ service cloud.firestore {
     }
 
     // ============================================
-    // IDEMPOTENCY COLLECTION (System use only)
+    // SYSTEM COLLECTIONS (Cloud Functions only)
     // ============================================
+    
+    // Idempotency tracking
     match /_processedEvents/{eventId} {
       allow read, write: if false; // Cloud Functions only via Admin SDK
+    }
+    
+    // Digital signature audit log
+    match /_signatureAuditLog/{logId} {
+      allow read, write: if false; // Cloud Functions only - legal records
+    }
+    
+    // Integrity violation tracking
+    match /_integrityViolations/{violationId} {
+      allow read, write: if false; // Cloud Functions only - security records
     }
   }
 }
