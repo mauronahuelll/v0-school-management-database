@@ -326,15 +326,17 @@ async function handleDeactivateLicense(studentId: string): Promise<void> {
 
 export default function AttendancePageDemo() {
   return (
-    <AttendancePage
-      initialStudents={MOCK_STUDENTS}
-      course={MOCK_COURSE}
-      schoolId="school-demo-123"
-      periodId="T1"
-      userId="preceptor-1"
-      onSubmit={handleSubmit}
-      onSaveLicense={handleSaveLicense}
-      onDeactivateLicense={handleDeactivateLicense}
-    />
+    <>
+      <AttendancePage
+        initialStudents={MOCK_STUDENTS}
+        course={MOCK_COURSE}
+        schoolId="school-demo-123"
+        periodId="T1"
+        userId="preceptor-1"
+        onSubmit={handleSubmit}
+        onSaveLicense={handleSaveLicense}
+        onDeactivateLicense={handleDeactivateLicense}
+      />
+    </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { Users, UserX, Clock, CalendarCheck } from "lucide-react";
+import Link from "next/link";
+import { Users, UserX, Clock, CalendarCheck, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggleCompact } from "@/components/theme-toggle";
@@ -53,6 +54,15 @@ export function AttendanceHeader({
 
           <div className="flex items-center gap-3">
             <ThemeToggleCompact />
+            <Link href="/sanctions">
+              <Button
+                variant="outline"
+                className="shrink-0 transition-theme gap-2"
+              >
+                <BookOpen className="size-4" />
+                <span className="hidden sm:inline">Convivencia</span>
+              </Button>
+            </Link>
             <Button
               variant="outline"
               onClick={onResetAll}
