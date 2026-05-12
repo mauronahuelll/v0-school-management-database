@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Users, UserX, Clock, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,12 +22,19 @@ export function AttendanceHeader({
   onResetAll,
   isSubmitting = false,
 }: AttendanceHeaderProps) {
-  const formattedDate = currentDate.toLocaleDateString("es-AR", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  // Client-side date formatting to avoid hydration mismatch
+  const [formattedDate, setFormattedDate] = useState("");
+  
+  useEffect(() => {
+    setFormattedDate(
+      currentDate.toLocaleDateString("es-AR", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+  }, [currentDate]);
 
   return (
     <header className="glass sticky top-0 z-20 border-b border-glass-border">

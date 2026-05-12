@@ -64,6 +64,32 @@ export interface LicenseMode {
   notifyOnEnd: boolean;
 }
 
+export interface TransferRecord {
+  fromLevel: CourseLevel;
+  fromCourseId: string;
+  fromCourseName: string;
+  fromDivisionId: string;
+  fromDivisionName: string;
+  academicYear: number;
+  transferDate: Timestamp;
+  transferredBy: string;
+  
+  // Immutable performance snapshot at time of transfer
+  performanceSnapshot: {
+    finalAverage: number | null;
+    totalAbsences: number;
+    attendanceRate: number;
+    totalSanctions: number;
+    passingSubjects: number;
+    totalSubjects: number;
+    gradesBySubject: Record<string, number>;
+  };
+  
+  // Pedagogical closure
+  closureNote?: string;
+  closureNoteBy?: string;
+}
+
 export interface Student {
   id: string;
   schoolId: string;
@@ -78,6 +104,7 @@ export interface Student {
   };
   academic: {
     enrollmentNumber: string;
+    level: CourseLevel; // NEW: Current education level
     currentCourseId: string;
     currentDivisionId: string;
     currentCourseName: string;
@@ -88,6 +115,10 @@ export interface Student {
   status: "ACTIVE" | "LICENSE" | "TRANSFERRED" | "GRADUATED" | "WITHDRAWN";
   licenseMode?: LicenseMode;
   stats: StudentStats;
+  
+  // Level transfer history (immutable records)
+  previousLevels?: TransferRecord[];
+  
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -108,6 +139,8 @@ export interface UserNotificationPreferences {
   };
 }
 
+export type CourseLevel = "PRIMARY" | "SECONDARY" | "TERTIARY";
+
 export interface User {
   id: string;
   email: string;
@@ -126,6 +159,7 @@ export interface User {
       permissions: string[];
       assignedCourses?: string[];
       assignedDivisions?: string[];
+      assignedLevels?: CourseLevel[]; // NEW: Level-based access control
       joinedAt: Timestamp;
     }
   >;

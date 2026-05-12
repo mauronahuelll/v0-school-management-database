@@ -43,6 +43,30 @@ service cloud.firestore {
     }
 
     // ============================================
+    // LEVEL-BASED ACCESS CONTROL (RBAC)
+    // ============================================
+    
+    // Get user's assigned levels for a school
+    function getUserAssignedLevels(schoolId) {
+      let role = getUserSchoolRole(schoolId);
+      return role.assignedLevels;
+    }
+    
+    // Check if user has access to a specific education level
+    function hasLevelAccess(schoolId, level) {
+      let role = getUserSchoolRole(schoolId);
+      // Admins have access to all levels
+      return role.role in ['SUPER_ADMIN', 'ADMIN'] ||
+        // Others need explicit level assignment
+        (role.assignedLevels != null && level in role.assignedLevels);
+    }
+    
+    // Check if user can access student data based on student's level
+    function canAccessStudentByLevel(schoolId, studentLevel) {
+      return isSchoolAdmin(schoolId) || hasLevelAccess(schoolId, studentLevel);
+    }
+
+    // ============================================
     // SCHOOLS COLLECTION
     // ============================================
 
@@ -53,12 +77,42 @@ service cloud.firestore {
       allow delete: if false; // Schools cannot be deleted via client
 
       // ============================================
-      // STUDENTS SUBCOLLECTION
+      // STUDENTS SUBCOLLECTION (Level-segregated access)
       // ============================================
       match /students/{studentId} {
-        allow read: if hasSchoolAccess(schoolId);
-        allow create: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']);
-        allow update: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']);
+        // Helper: Get student's current level
+        function getStudentLevel() {
+          return resource.data.academic.level;
+        }
+        
+        // Helper: Check if this is a level change (promotion)
+        function isLevelChange() {
+          return request.resource.data.academic.level != resource.data.academic.level;
+        }
+        
+        // READ: Staff can only read students in their assigned levels
+        allow read: if hasSchoolAccess(schoolId) && (
+          isSchoolAdmin(schoolId) ||
+          canAccessStudentByLevel(schoolId, getStudentLevel()) ||
+          isTutor(schoolId) // Tutors can read their linked students
+        );
+        
+        // CREATE: Preceptors can create students in their assigned levels
+        allow create: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']) &&
+          (isSchoolAdmin(schoolId) || 
+           hasLevelAccess(schoolId, request.resource.data.academic.level));
+        
+        // UPDATE: Level changes (promotions) require admin privileges
+        allow update: if hasRole(schoolId, ['SUPER_ADMIN', 'ADMIN', 'PRECEPTOR']) && (
+          // Admins can do anything
+          isSchoolAdmin(schoolId) ||
+          // Non-admins can update if:
+          // 1. They have access to the student's current level AND
+          // 2. They are NOT changing the level (promotions are admin-only or via Cloud Function)
+          (canAccessStudentByLevel(schoolId, getStudentLevel()) && !isLevelChange())
+        );
+        
+        // DELETE: Only admins
         allow delete: if isSchoolAdmin(schoolId);
       }
 
@@ -232,6 +286,11 @@ service cloud.firestore {
     // Integrity violation tracking
     match /_integrityViolations/{violationId} {
       allow read, write: if false; // Cloud Functions only - security records
+    }
+    
+    // Promotion/transfer audit log
+    match /_promotionAuditLog/{logId} {
+      allow read, write: if false; // Cloud Functions only - immutable transfer records
     }
   }
 }
