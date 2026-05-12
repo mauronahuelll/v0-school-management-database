@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   School,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
+import { ContextSelector, ContextSelectorCompact } from "./context-selector";
 
 // ============================================
 // NAVIGATION ITEMS
@@ -105,7 +107,7 @@ export function GlobalNav({
       >
         {/* Header */}
         <div className="flex items-center h-16 px-4 border-b border-sidebar-border shrink-0">
-          <Link href="/attendance" className="flex items-center gap-3 min-w-0">
+          <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
             <div className="size-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
               <School className="size-5 text-primary-foreground" />
             </div>
@@ -125,6 +127,11 @@ export function GlobalNav({
               </motion.div>
             )}
           </Link>
+        </div>
+
+        {/* Context Selector */}
+        <div className="px-3 py-3 border-b border-sidebar-border">
+          <ContextSelector isCollapsed={isCollapsed} />
         </div>
 
         {/* Navigation Items */}
@@ -250,8 +257,23 @@ export function GlobalNav({
 
 function MobileBottomNav({ pathname }: { pathname: string }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-glass-border">
-      <div className="flex items-center justify-around h-16 px-2 safe-area-bottom">
+    <>
+      {/* Top context bar for mobile */}
+      <div className="fixed top-0 left-0 right-0 z-50 glass-strong border-b border-glass-border safe-area-top">
+        <div className="flex items-center justify-between h-14 px-4">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
+              <School className="size-4 text-primary-foreground" />
+            </div>
+            <span className="font-semibold text-sm">Sequency</span>
+          </Link>
+          <ContextSelectorCompact />
+        </div>
+      </div>
+
+      {/* Bottom navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-glass-border">
+        <div className="flex items-center justify-around h-16 px-2 safe-area-bottom">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
@@ -302,7 +324,8 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
           </span>
         </div>
       </div>
-    </nav>
+      </nav>
+    </>
   );
 }
 

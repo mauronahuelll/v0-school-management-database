@@ -1,6 +1,7 @@
 "use client";
 
 import { GlobalNav } from "@/components/navigation/global-nav";
+import { SchoolContextProvider } from "@/lib/context/school-context";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
@@ -18,38 +19,40 @@ export function AppShell({
   userRole,
 }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Global Navigation */}
-      <GlobalNav
-        schoolName={schoolName}
-        userName={userName}
-        userRole={userRole}
-      />
+    <SchoolContextProvider>
+      <div className="min-h-screen bg-background">
+        {/* Global Navigation */}
+        <GlobalNav
+          schoolName={schoolName}
+          userName={userName}
+          userRole={userRole}
+        />
 
-      {/* Main Content Area */}
-      <main
-        className={cn(
-          "min-h-screen transition-all duration-200",
-          // Desktop: offset for sidebar
-          "md:pl-[72px] lg:pl-[256px]",
-          // Mobile: offset for bottom nav
-          "pb-20 md:pb-0"
-        )}
-      >
-        {children}
-      </main>
+        {/* Main Content Area */}
+        <main
+          className={cn(
+            "min-h-screen transition-all duration-200",
+            // Desktop: offset for sidebar
+            "md:pl-[72px] lg:pl-[256px]",
+            // Mobile: offset for top bar + bottom nav
+            "pt-14 pb-20 md:pt-0 md:pb-0"
+          )}
+        >
+          {children}
+        </main>
 
-      {/* Toast Notifications */}
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          classNames: {
-            toast: "glass border-glass-border",
-            title: "text-foreground font-medium",
-            description: "text-muted-foreground",
-          },
-        }}
-      />
-    </div>
+        {/* Toast Notifications */}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            classNames: {
+              toast: "glass border-glass-border",
+              title: "text-foreground font-medium",
+              description: "text-muted-foreground",
+            },
+          }}
+        />
+      </div>
+    </SchoolContextProvider>
   );
 }
