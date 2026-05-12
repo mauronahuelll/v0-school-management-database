@@ -36,7 +36,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="relative overflow-hidden rounded-2xl bg-card border border-border/50 p-6 shadow-sm"
+          className="relative overflow-hidden hero-card p-8"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
           
@@ -84,7 +84,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.15 }}
-          className="relative overflow-hidden rounded-2xl bg-card border border-border/50 p-6 shadow-sm"
+          className="relative overflow-hidden hero-card p-8"
         >
           <div 
             className={cn(
@@ -220,7 +220,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-2xl bg-card border border-border/50 p-6 shadow-sm"
+          className="hero-card p-8"
         >
           <h3 className="text-sm font-semibold text-foreground mb-4">
             Promedios por Materia

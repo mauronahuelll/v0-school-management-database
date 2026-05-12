@@ -131,10 +131,10 @@ export function ContextSelector({
           aria-expanded={isOpen}
           className={cn(
             "w-full justify-between gap-2",
-            "glass-subtle hover:glass",
-            "border border-glass-border",
-            "transition-all duration-200",
-            isCollapsed ? "px-2" : "px-3",
+            "glass-panel hover:shadow-lg",
+            "input-inset border-0",
+            "transition-all duration-300",
+            isCollapsed ? "px-2" : "px-3 py-3",
             className
           )}
         >
@@ -181,9 +181,10 @@ export function ContextSelector({
       <PopoverContent
         className={cn(
           "w-80 p-0",
-          "glass-strong",
-          "border-glass-border",
-          "shadow-xl"
+          "glass-panel",
+          "border-0",
+          "shadow-2xl",
+          "rounded-2xl overflow-hidden"
         )}
         align={isCollapsed ? "start" : "center"}
         sideOffset={8}

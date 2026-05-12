@@ -230,11 +230,13 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   
-  /* Radius */
+  /* Radius - Organic feel with larger curves */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 20px);
 }
 
 @layer base {
@@ -274,6 +276,69 @@
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid var(--glass-border);
+  }
+  
+  /* === BESPOKE GLASS PANEL - Premium Editorial Style === */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.04),
+      0 1px 3px 0 rgba(0, 0, 0, 0.02),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+  }
+  
+  .dark .glass-panel {
+    background: rgba(30, 35, 50, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 
+      0 8px 32px 0 rgba(0, 0, 0, 0.2),
+      0 1px 3px 0 rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+  
+  /* === HERO CARD - For big numbers/stats === */
+  .hero-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2xl);
+    box-shadow: 
+      0 4px 24px -4px rgba(0, 0, 0, 0.04),
+      0 0 0 1px rgba(0, 0, 0, 0.02);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-card:hover {
+    box-shadow: 
+      0 8px 32px -8px rgba(0, 0, 0, 0.08),
+      0 0 0 1px rgba(0, 0, 0, 0.04);
+    transform: translateY(-2px);
+  }
+  
+  .dark .hero-card {
+    box-shadow: 
+      0 4px 24px -4px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(255, 255, 255, 0.03);
+  }
+  
+  .dark .hero-card:hover {
+    box-shadow: 
+      0 8px 32px -8px rgba(0, 0, 0, 0.3),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+  
+  /* === INSET SHADOW FOR INPUTS (Bespoke feel) === */
+  .input-inset {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+    border: none;
+  }
+  
+  .dark .input-inset {
+    background: rgba(0, 0, 0, 0.15);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
   }
   
   /* === DIAGONAL STRIPES FOR LICENSE MODE === */

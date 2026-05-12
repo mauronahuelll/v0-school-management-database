@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { LayoutDashboard, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/layout";
@@ -98,12 +99,18 @@ const MOCK_TRANSFERS: TransferAlert[] = [
 // ============================================
 
 export default function DashboardPage() {
-  const today = new Date().toLocaleDateString("es-AR", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const [today, setToday] = useState<string>("");
+
+  useEffect(() => {
+    setToday(
+      new Date().toLocaleDateString("es-AR", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+  }, []);
 
   return (
     <AppShell schoolName="Escuela Tecnica N°5">

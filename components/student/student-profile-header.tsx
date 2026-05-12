@@ -36,7 +36,7 @@ export function StudentProfileHeader({ profile, onExportPDF }: StudentProfileHea
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="relative overflow-hidden rounded-2xl bg-card border border-border/50 shadow-sm"
+      className="relative overflow-hidden hero-card"
     >
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
@@ -142,11 +142,11 @@ function InfoItem({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-accent/30 border border-border/30">
+    <div className="flex items-center gap-3 p-4 rounded-xl glass-panel">
       <div className="text-muted-foreground">{icon}</div>
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground truncate">{label}</p>
-        <p className="text-sm font-semibold text-foreground truncate">{value}</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+        <p className="text-sm font-semibold text-foreground truncate mt-0.5">{value}</p>
       </div>
     </div>
   );
