@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import Link from "next/link";
 import { Calendar, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,9 +94,12 @@ export const StudentRow = memo(function StudentRow({
       {/* Student info with improved typography */}
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-2.5">
-          <span className="font-medium text-foreground truncate text-[15px] leading-snug">
+          <Link 
+            href={`/student/${student.id}`}
+            className="font-medium text-foreground truncate text-[15px] leading-snug hover:text-primary hover:underline underline-offset-2 transition-colors"
+          >
             {student.lastName}, {student.firstName}
-          </span>
+          </Link>
           {absenceWarning && !isOnLicense && (
             <TooltipProvider>
               <Tooltip>

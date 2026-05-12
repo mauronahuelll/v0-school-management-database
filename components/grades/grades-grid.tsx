@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -443,9 +444,12 @@ function StudentRow({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 space-y-0.5">
-            <p className="font-medium text-foreground truncate text-[15px]">
+            <Link 
+              href={`/student/${student.studentId}`}
+              className="font-medium text-foreground truncate text-[15px] hover:text-primary hover:underline underline-offset-2 transition-colors block"
+            >
               {student.lastName}, {student.firstName}
-            </p>
+            </Link>
             <p className="text-xs text-muted-foreground tracking-wide">
               Legajo: {student.enrollmentNumber}
             </p>
