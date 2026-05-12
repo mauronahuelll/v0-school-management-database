@@ -29,6 +29,13 @@ import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   {
+    id: "dashboard",
+    label: "Panel",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    description: "Vision global de la escuela",
+  },
+  {
     id: "attendance",
     label: "Asistencia",
     href: "/attendance",
