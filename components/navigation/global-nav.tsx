@@ -12,6 +12,7 @@ import {
   ChevronRight,
   School,
   Layers,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,13 @@ const NAV_ITEMS = [
     href: "/sanctions",
     icon: BookOpen,
     description: "Observaciones y sanciones",
+  },
+  {
+    id: "promotion",
+    label: "Promociones",
+    href: "/promotion",
+    icon: Rocket,
+    description: "Pase entre niveles",
   },
 ] as const;
 
