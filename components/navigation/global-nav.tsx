@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -16,7 +15,6 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 // ============================================
 // NAVIGATION ITEMS BY ROLE
@@ -32,23 +30,23 @@ const NAV_ITEMS_ADMIN = [
 
 const NAV_ITEMS_PRECEPTOR = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
+  { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
   { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
   { id: "users", label: "Usuarios", href: "/users", icon: Users },
-  { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
 const NAV_ITEMS_DOCENTE = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
+  { id: "grades", label: "Notas", href: "/grades", icon: GraduationCap },
   { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
-  { id: "users", label: "Usuarios", href: "/users", icon: Users },
   { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
-const NAV_ITEMS_TUTOR = [
+const NAV_ITEMS_FAMILIA = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "community", label: "Comunidad", href: "/community", icon: Users },
   { id: "tramites", label: "Tramites", href: "/tramites", icon: ClipboardList },
@@ -63,148 +61,85 @@ function getNavItems(role: string) {
       return NAV_ITEMS_ADMIN;
     case "DOCENTE":
       return NAV_ITEMS_DOCENTE;
-    case "TUTOR":
-      return NAV_ITEMS_TUTOR;
+    case "FAMILIA":
+      return NAV_ITEMS_FAMILIA;
     default:
       return NAV_ITEMS_PRECEPTOR;
   }
 }
 
-function getRoleLabel(role: string) {
-  switch (role) {
-    case "ADMIN":
-      return "Administracion";
-    case "DOCENTE":
-      return "Ciencias Exactas";
-    case "TUTOR":
-      return "Tutor Familiar";
-    default:
-      return "Administracion";
-  }
-}
-
-function getUserName(role: string) {
-  switch (role) {
-    case "ADMIN":
-      return "Admin";
-    case "DOCENTE":
-      return "Prof. Rodriguez";
-    case "TUTOR":
-      return "Elena Martinez";
-    default:
-      return "Usuario";
-  }
-}
-
 // ============================================
-// GLOBAL NAV COMPONENT
+// GLOBAL NAV COMPONENT (Simplified for AppShell)
 // ============================================
 
 interface GlobalNavProps {
-  schoolName?: string;
-  userName?: string;
   userRole?: string;
+  className?: string;
 }
 
 export function GlobalNav({
-  schoolName = "Instituto Demo",
-  userName,
   userRole = "PRECEPTOR",
+  className,
 }: GlobalNavProps) {
   const pathname = usePathname();
   const navItems = getNavItems(userRole);
-  const displayName = userName || getUserName(userRole);
-  const roleLabel = getRoleLabel(userRole);
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 bottom-0 z-50",
-        "w-[15%] min-w-[180px] max-w-[220px]",
-        "glass-panel border-r border-white/5",
-        "flex flex-col",
-        "py-4"
-      )}
-    >
-      {/* Header / Brand */}
-      <div className="px-4 mb-6">
-        <Link href="/dashboard" className="block">
-          <h1 className="text-display-sm font-bold text-primary tracking-tighter">
-            Sequency
-          </h1>
-          <p className="text-label-caps text-on-surface-variant/60 uppercase mt-0.5">
-            {roleLabel}
-          </p>
-        </Link>
-      </div>
+    <nav className={cn("flex flex-col gap-1", className)}>
+      {navItems.map((item) => {
+        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const Icon = item.icon;
 
-      {/* Navigation Items */}
-      <nav className="flex-1 flex flex-col gap-1 px-2">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={cn(
-                "relative flex items-center gap-3 px-3 py-2.5 rounded-lg",
-                "text-body-md transition-all duration-200",
-                "hover:bg-white/5",
-                "active:scale-[0.98]",
-                isActive
-                  ? "text-primary bg-primary/5 border-r-2 border-primary"
-                  : "text-on-surface-variant hover:text-on-surface"
-              )}
-            >
-              <Icon className="size-[18px] shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer Section */}
-      <div className="px-2 mt-auto space-y-3">
-        {/* New Record Button */}
-        {userRole !== "TUTOR" && (
-          <button
+        return (
+          <Link
+            key={item.id}
+            href={item.href}
             className={cn(
-              "w-full h-8 rounded-lg",
-              "bg-primary text-primary-foreground",
-              "text-body-sm font-medium",
-              "flex items-center justify-center gap-2",
-              "hover:brightness-110 transition-all",
-              "active:scale-[0.98]"
+              "relative flex items-center gap-3 px-3 py-2.5 rounded-lg",
+              "text-sm transition-all duration-200",
+              "hover:bg-white/5",
+              "active:scale-[0.98]",
+              isActive
+                ? "text-primary bg-primary/10 font-medium"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <Plus className="size-4" />
-            Nuevo Registro
-          </button>
-        )}
+            {isActive && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-primary rounded-full" />
+            )}
+            <Icon className="size-[18px] shrink-0" />
+            <span className="truncate">{item.label}</span>
+          </Link>
+        );
+      })}
 
-        {/* User Profile */}
-        <div className="pt-3 border-t border-white/5">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="size-8 rounded-full bg-surface-container-high flex items-center justify-center text-body-sm font-medium text-on-surface">
-              {displayName.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-body-sm font-medium truncate">{displayName}</p>
-              <p className="text-label-xs text-on-surface-variant/60 truncate">
-                {roleLabel}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Separator */}
+      <div className="h-px bg-white/5 my-3" />
 
-        {/* Logout */}
+      {/* New Record Button - Only for staff roles */}
+      {userRole !== "FAMILIA" && (
+        <button
+          className={cn(
+            "w-full h-9 rounded-lg",
+            "bg-primary text-primary-foreground",
+            "text-sm font-medium",
+            "flex items-center justify-center gap-2",
+            "hover:brightness-110 transition-all",
+            "active:scale-[0.98]"
+          )}
+        >
+          <Plus className="size-4" />
+          Nuevo Registro
+        </button>
+      )}
+
+      {/* Logout at bottom */}
+      <div className="mt-auto pt-4">
         <button
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2",
-            "text-body-sm text-on-surface-variant",
-            "hover:text-on-surface hover:bg-white/5",
+            "text-sm text-muted-foreground",
+            "hover:text-foreground hover:bg-white/5",
             "rounded-lg transition-colors"
           )}
         >
@@ -212,7 +147,7 @@ export function GlobalNav({
           Cerrar Sesion
         </button>
       </div>
-    </aside>
+    </nav>
   );
 }
 
