@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Users,
@@ -136,6 +137,13 @@ interface GlobalStatsGridProps {
 
 export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
   const { attendance, behavior, academic, transfers, system } = stats;
+  
+  // Fix hydration mismatch: only render time on client
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -301,10 +309,12 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
             <div className="text-sm text-muted-foreground">
               Ultima sincronizacion:{" "}
               <span className="font-medium text-foreground">
-                {system.lastSync.toLocaleTimeString("es-AR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {mounted 
+                  ? system.lastSync.toLocaleTimeString("es-AR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "--:--"}
               </span>
             </div>
 

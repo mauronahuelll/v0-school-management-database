@@ -24,27 +24,28 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_ITEMS_ADMIN = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
+  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
   { id: "users", label: "Usuarios", href: "/users", icon: Users },
   { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
-  { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
+  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
 const NAV_ITEMS_PRECEPTOR = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
+  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
   { id: "users", label: "Usuarios", href: "/users", icon: Users },
   { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
-  { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
+  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
 const NAV_ITEMS_DOCENTE = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
+  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
   { id: "users", label: "Usuarios", href: "/users", icon: Users },
   { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
-  { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
+  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
 const NAV_ITEMS_TUTOR = [
@@ -53,7 +54,7 @@ const NAV_ITEMS_TUTOR = [
   { id: "tramites", label: "Tramites", href: "/tramites", icon: ClipboardList },
   { id: "profile", label: "Perfil Alumno", href: "/student", icon: GraduationCap },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
-  { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
+  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
 function getNavItems(role: string) {
