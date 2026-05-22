@@ -47,17 +47,5 @@ export {
   disputeSanction,
 } from "./callable/acknowledge-sanction.callable";
 
-export { promoteStudentsToLevel } from "./callable/promote-students.callable";
-
-// ============================================
-// PROMOTION AUDIT TRIGGERS
-// ============================================
-
-export {
-  auditStudentLevelChanges,
-  auditNewStudentWithHistory,
-  queryPromotionAuditLog,
-} from "./triggers/promotion-audit.trigger";
-
 // export { generateTransferToken } from "./callable/transfer.callable";
 // export { acceptTransferStudent } from "./callable/transfer.callable";
