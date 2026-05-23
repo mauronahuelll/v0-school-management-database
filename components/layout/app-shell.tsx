@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
 import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
 import {
   Sheet,
@@ -17,6 +17,18 @@ interface AppShellProps {
   children: React.ReactNode
 }
 
+/**
+ * AppShell - Layout Centralizado de Sequency
+ * 
+ * Responsabilidades:
+ * - Detectar autenticacion y renderizar layout apropiado
+ * - Manejar responsividad (mobile/desktop)
+ * - Proveer navegacion global y utilidades
+ * 
+ * NO debe manejar:
+ * - Logica de enrutamiento (eso es del AuthContext)
+ * - Estados de paginas individuales
+ */
 export function AppShell({ children }: AppShellProps) {
   const { role, userName, schoolId, schoolName, logout, clearSchool } = useAuth()
   const pathname = usePathname()
@@ -27,6 +39,15 @@ export function AppShell({ children }: AppShellProps) {
     "[SYS] Initializing Sequency Core v4.2.0...",
     "[OK] Socket connected to node_AR_BUE_01",
   ])
+  
+  // Determinar si el usuario tiene sesion activa completa
+  const isAuthenticated = useMemo(() => {
+    // Usuario sin rol = no autenticado
+    if (!role) return false
+    // ADMIN sin escuela seleccionada = parcialmente autenticado (mostrar selector)
+    if (role === "ADMIN" && !schoolId) return false
+    return true
+  }, [role, schoolId])
 
   // Keyboard shortcut (Ctrl + Q) for dev console
   useEffect(() => {
@@ -59,8 +80,11 @@ export function AppShell({ children }: AppShellProps) {
     router.push("/")
   }
 
-  // If no session, render raw content (Login page)
-  if (!role) {
+  // ====================================================================
+  // RENDER: Usuario NO autenticado o ADMIN sin escuela seleccionada
+  // Muestra solo el contenido (Login/Selector de escuela) sin shell
+  // ====================================================================
+  if (!isAuthenticated) {
     return (
       <main className="w-screen h-screen overflow-hidden bg-background">
         {children}
@@ -69,17 +93,10 @@ export function AppShell({ children }: AppShellProps) {
     )
   }
 
-  // If ADMIN but no school selected, also render raw content (school selector on login page)
-  if (role === "ADMIN" && !schoolId) {
-    return (
-      <main className="w-screen h-screen overflow-hidden bg-background">
-        {children}
-        <Toaster position="bottom-center" />
-      </main>
-    )
-  }
-
-  // If session exists and school selected, render responsive layout
+  // ====================================================================
+  // RENDER: Usuario autenticado con sesion completa
+  // Layout responsivo de 3 columnas (mobile-first)
+  // ====================================================================
   return (
     <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-background">
       
