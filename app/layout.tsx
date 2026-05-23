@@ -3,6 +3,7 @@ import { Geist, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/context/auth-context'
+import { SchoolSettingsProvider } from '@/lib/context/school-settings-context'
 import { AppShell } from '@/components/layout/app-shell'
 import './globals.css'
 
@@ -61,9 +62,11 @@ export default function RootLayout({
           disableTransitionOnChange={false}
         >
           <AuthProvider>
-            <AppShell>
-              {children}
-            </AppShell>
+            <SchoolSettingsProvider>
+              <AppShell>
+                {children}
+              </AppShell>
+            </SchoolSettingsProvider>
           </AuthProvider>
         </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
