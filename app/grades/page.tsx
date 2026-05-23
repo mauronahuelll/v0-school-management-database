@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { GradesGrid } from "@/components/grades";
-import { AppShell } from "@/components/layout";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import type {
@@ -100,9 +99,15 @@ const INITIAL_STUDENTS: StudentGradeRow[] = MOCK_STUDENTS_DATA.map(createMockStu
 // ============================================
 
 export default function GradesPage() {
+  // Hydration guard
+  const [mounted, setMounted] = useState(false);
   const [students, setStudents] = useState<StudentGradeRow[]>(INITIAL_STUDENTS);
   const [publicationStatus, setPublicationStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
   const [lastPublishedAt, setLastPublishedAt] = useState<Date | undefined>();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const courseInfo: CourseGradeInfo = {
     courseId: "course-1",
@@ -131,7 +136,6 @@ export default function GradesPage() {
   // Handle grade update
   const handleGradeUpdate = useCallback(
     async (studentId: string, assessmentId: string, value: number | null) => {
-      // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       setStudents((prev) =>
@@ -157,7 +161,6 @@ export default function GradesPage() {
             };
           }
 
-          // Recalculate simple arithmetic average
           const gradeEntries = Object.values(newGrades);
           const average = calculateSimpleAverage(gradeEntries);
 
@@ -176,13 +179,11 @@ export default function GradesPage() {
 
   // Handle publish
   const handlePublish = useCallback(async () => {
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     setPublicationStatus("PUBLISHED");
     setLastPublishedAt(new Date());
 
-    // Update all grades to published
     setStudents((prev) =>
       prev.map((student) => ({
         ...student,
@@ -202,12 +203,10 @@ export default function GradesPage() {
 
   // Handle unpublish
   const handleUnpublish = useCallback(async () => {
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     setPublicationStatus("DRAFT");
 
-    // Update all grades to unpublished
     setStudents((prev) =>
       prev.map((student) => ({
         ...student,
@@ -225,17 +224,29 @@ export default function GradesPage() {
     });
   }, []);
 
+  // Prevent hydration mismatch
+  if (!mounted) return null;
+
   return (
-    <AppShell schoolName="Escuela Tecnica N°5">
-      <GradesGrid
-        courseInfo={courseInfo}
-        onGradeUpdate={handleGradeUpdate}
-        onPublish={handlePublish}
-        onUnpublish={handleUnpublish}
-        canPublish={true}
-        isReadOnly={false}
-      />
-      <Toaster position="bottom-center" />
-    </AppShell>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Calificaciones</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Gestion de notas y promedios del periodo activo
+        </p>
+      </header>
+
+      <div className="bg-card/50 border border-border/50 rounded-2xl p-6 backdrop-blur-md">
+        <GradesGrid
+          courseInfo={courseInfo}
+          onGradeUpdate={handleGradeUpdate}
+          onPublish={handlePublish}
+          onUnpublish={handleUnpublish}
+          canPublish={true}
+          isReadOnly={false}
+        />
+      </div>
+      <Toaster position="bottom-center" theme="dark" />
+    </div>
   );
 }
