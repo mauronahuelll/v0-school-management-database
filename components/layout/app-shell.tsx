@@ -2,10 +2,16 @@
 
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
-import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight } from "lucide-react"
+import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 
 interface AppShellProps {
   children: React.ReactNode
@@ -16,6 +22,7 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [consoleOpen, setConsoleOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [logs, setLogs] = useState<string[]>([
     "[SYS] Initializing Sequency Core v4.2.0...",
     "[OK] Socket connected to node_AR_BUE_01",
@@ -40,6 +47,11 @@ export function AppShell({ children }: AppShellProps) {
       setLogs((prev) => [...prev.slice(-8), `[${time}] Route: ${pathname}`])
     }
   }, [pathname, role, schoolId])
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
 
   // Handle switching schools (for ADMIN)
   const handleSwitchSchool = () => {
@@ -67,12 +79,95 @@ export function AppShell({ children }: AppShellProps) {
     )
   }
 
-  // If session exists and school selected, render 3-column Galactic layout
+  // If session exists and school selected, render responsive layout
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background">
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-background">
       
-      {/* COLUMN 1: LEFT SIDEBAR (15%) */}
-      <aside className="w-[15%] min-w-[240px] flex flex-col glass-panel border-r border-white/5 z-20">
+      {/* MOBILE TOP HEADER (visible only on small screens) */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-background/95 backdrop-blur-xl border-b border-white/5">
+        {/* School & Role Compact */}
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
+            <School className="w-4 h-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-foreground truncate max-w-[120px]">{schoolName || "Sequency"}</p>
+            <p className="text-[9px] text-primary uppercase tracking-widest font-bold">{role}</p>
+          </div>
+        </div>
+
+        {/* Mobile Actions */}
+        <div className="flex items-center gap-2">
+          {/* Dev Console Toggle (Mobile) */}
+          <button
+            onClick={() => setConsoleOpen(!consoleOpen)}
+            className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Terminal className="w-5 h-5" />
+          </button>
+          
+          {/* Hamburger Menu */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
+
+      {/* MOBILE NAVIGATION DRAWER (Sheet) */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-[280px] p-0 bg-background border-r border-white/5">
+          <SheetHeader className="p-4 border-b border-white/5">
+            <SheetTitle className="text-left">
+              <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 shrink-0">
+                  <School className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-foreground truncate">{schoolName || "Sequency"}</p>
+                  <p className="text-[10px] text-primary uppercase tracking-widest font-bold">{role}</p>
+                </div>
+                {role === "ADMIN" && (
+                  <button 
+                    onClick={handleSwitchSchool}
+                    className="p-1.5 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                    title="Cambiar Institucion"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </SheetTitle>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto scrollbar-galactic px-4 py-4">
+            <GlobalNav />
+          </div>
+
+          <div className="p-4 border-t border-white/5 space-y-3">
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center text-xs font-bold text-foreground">
+                {userName.split(" ").map(n => n[0]).join("").slice(0, 2)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{role}</p>
+              </div>
+            </div>
+            <button 
+              onClick={logout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs text-destructive hover:bg-destructive/10 rounded-lg transition-colors border border-transparent hover:border-destructive/20"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Cerrar Sesion
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* DESKTOP SIDEBAR (hidden on mobile, visible md+) */}
+      <aside className="hidden md:flex w-[15%] min-w-[240px] flex-col glass-panel border-r border-white/5 z-20">
         {/* School & Role Header */}
         <div className="p-4 border-b border-white/5">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5">
@@ -118,16 +213,16 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </aside>
 
-      {/* COLUMN 2: MAIN CONTENT AREA (60%) */}
-      <main className="flex-1 w-[60%] h-full overflow-y-auto relative scrollbar-galactic">
+      {/* MAIN CONTENT AREA (full width mobile, flex-1 on desktop) */}
+      <main className="flex-1 h-full overflow-y-auto relative scrollbar-galactic pt-14 md:pt-0">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
-        <div className="relative z-10 p-8">
+        <div className="relative z-10 p-4 md:p-8">
           {children}
         </div>
       </main>
 
-      {/* COLUMN 3: RIGHT UTILITY PANEL (25%) */}
-      <aside className="w-[25%] min-w-[300px] h-full glass-panel border-l border-white/5 p-6 overflow-y-auto scrollbar-galactic flex flex-col gap-6">
+      {/* RIGHT UTILITY PANEL (hidden on mobile and tablets, visible lg+) */}
+      <aside className="hidden lg:flex w-[25%] min-w-[300px] h-full glass-panel border-l border-white/5 p-6 overflow-y-auto scrollbar-galactic flex-col gap-6">
         <header className="border-b border-white/5 pb-4">
           <h2 className="text-sm font-bold text-foreground">Panel de Utilidades</h2>
           <p className="text-xs text-muted-foreground mt-1">
@@ -189,9 +284,9 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </aside>
 
-      {/* DEV CONSOLE (Floating) */}
+      {/* DEV CONSOLE (Floating - works on all screens) */}
       <div 
-        className={`fixed bottom-4 right-4 w-80 bg-black/95 backdrop-blur-xl border border-primary/30 rounded-xl shadow-2xl z-50 transition-transform duration-300 ${
+        className={`fixed bottom-4 right-4 w-72 md:w-80 bg-black/95 backdrop-blur-xl border border-primary/30 rounded-xl shadow-2xl z-50 transition-transform duration-300 ${
           consoleOpen ? "translate-y-0" : "translate-y-[calc(100%-48px)]"
         }`}
       >
@@ -205,7 +300,7 @@ export function AppShell({ children }: AppShellProps) {
             <span className="text-[10px] font-mono text-primary font-bold tracking-widest uppercase">Dev Console</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground font-mono bg-white/5 px-2 py-0.5 rounded">Ctrl+Q</span>
+            <span className="hidden sm:inline text-[10px] text-muted-foreground font-mono bg-white/5 px-2 py-0.5 rounded">Ctrl+Q</span>
             {consoleOpen ? <ChevronDown className="w-4 h-4 text-white/50" /> : <ChevronUp className="w-4 h-4 text-white/50" />}
           </div>
         </div>
