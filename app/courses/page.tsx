@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { BookOpen, Users, Calendar, Clock, GraduationCap } from "lucide-react";
 
 const MOCK_COURSES = [
@@ -10,6 +11,14 @@ const MOCK_COURSES = [
 ];
 
 export default function CoursesPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       <header>

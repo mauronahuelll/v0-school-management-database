@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Shield, Check, X, Eye, Edit, Lock } from "lucide-react"
 
 const MODULES = [
@@ -31,6 +32,14 @@ function PermissionIcon({ permission }: { permission: Permission }) {
 }
 
 export default function PermissionsPage() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
+
   return (
     <div className="space-y-8">
       {/* Header */}

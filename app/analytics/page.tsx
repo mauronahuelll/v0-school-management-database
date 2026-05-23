@@ -1,8 +1,17 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, TrendingDown, Users, GraduationCap } from "lucide-react";
 
 export default function AnalyticsPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       {/* Header */}

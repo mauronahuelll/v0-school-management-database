@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { GradesGrid } from "@/components/grades";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2 } from "lucide-react";
+import { BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
+import { useSchoolSettings, type GradingScaleType } from "@/lib/context/school-settings-context";
 import type {
   CourseGradeInfo,
   StudentGradeRow,
@@ -137,14 +139,39 @@ const createMockStudentRow = (
 export default function GradesPage() {
   const [mounted, setMounted] = useState(false);
   
+  // Get school settings from context
+  const { settings } = useSchoolSettings();
+  const schoolGradingType = settings.gradingScale.type;
+  
   // Selection states
   const [selectedSubjectId, setSelectedSubjectId] = useState(MOCK_SUBJECTS[0].id);
   const [selectedPeriodId, setSelectedPeriodId] = useState(MOCK_PERIODS[0].id);
   
-  // Determine grading type based on selected subject
+  // Determine grading type: use school setting OR subject default
   const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
-  const gradingType = selectedSubject.defaultScale as "NUMERIC" | "CONCEPTUAL";
-  const currentScale = gradingType === "NUMERIC" ? MOCK_SCALE_NUMERIC : MOCK_SCALE_CONCEPTUAL;
+  // If school has a specific scale, use it; otherwise use subject default
+  const gradingType: "NUMERIC" | "CONCEPTUAL" = 
+    schoolGradingType === "ALPHABETIC" || schoolGradingType === "CONCEPTUAL" 
+      ? "CONCEPTUAL" 
+      : selectedSubject.defaultScale as "NUMERIC" | "CONCEPTUAL";
+  
+  // Build current scale from school settings
+  const currentScale: GradeScale = useMemo(() => {
+    if (gradingType === "CONCEPTUAL") {
+      return {
+        type: "CONCEPTUAL",
+        minPassing: settings.gradingScale.minPassing,
+        maxGrade: settings.gradingScale.maxGrade,
+        conceptualValues: settings.gradingScale.values || ["TEA", "TEP", "TED"],
+      };
+    }
+    return {
+      type: "NUMERIC",
+      minPassing: settings.gradingScale.minPassing,
+      maxGrade: settings.gradingScale.maxGrade,
+    };
+  }, [gradingType, settings.gradingScale]);
+
   const currentAssessments = gradingType === "NUMERIC" ? MOCK_ASSESSMENTS_NUMERIC : MOCK_ASSESSMENTS_CONCEPTUAL;
 
   // Grades data with real-time calculation
@@ -384,12 +411,15 @@ export default function GradesPage() {
             </SelectContent>
           </Select>
 
-          {/* Scale Indicator */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
-            gradingType === "NUMERIC" 
-              ? "bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]" 
-              : "bg-white/[0.02] border-white/10 text-white/60"
-          }`}>
+          {/* Scale Indicator with Link to Config */}
+          <Link 
+            href="/admin/config"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-white/5 ${
+              gradingType === "NUMERIC" 
+                ? "bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]" 
+                : "bg-white/[0.02] border-white/10 text-white/60"
+            }`}
+          >
             {gradingType === "NUMERIC" ? (
               <>
                 <Hash className="size-4" />
@@ -398,10 +428,13 @@ export default function GradesPage() {
             ) : (
               <>
                 <FileText className="size-4" />
-                <span className="text-xs font-medium">Escala Conceptual</span>
+                <span className="text-xs font-medium">
+                  {settings.gradingScale.values?.join("/") || "TEA/TEP/TED"}
+                </span>
               </>
             )}
-          </div>
+            <Sliders className="size-3 opacity-50" />
+          </Link>
 
           {/* Close/Publish Button */}
           {!isTrimesterClosed ? (

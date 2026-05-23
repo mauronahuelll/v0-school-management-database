@@ -1,8 +1,17 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Users, UserPlus, Search, MoreHorizontal } from "lucide-react";
 
 export default function UsersPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
