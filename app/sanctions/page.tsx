@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookOpen } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
-import { AppShell } from "@/components/layout";
 import { SanctionForm } from "@/components/behavior/sanction-form";
 import type { BehaviorFormData, StudentOption } from "@/lib/types/behavior";
 
@@ -84,7 +83,13 @@ const MOCK_STUDENTS: StudentOption[] = [
 ];
 
 export default function SanctionsPage() {
+  const [mounted, setMounted] = useState(false);
   const [lastSubmittedHash, setLastSubmittedHash] = useState<string | null>(null);
+
+  // Hydration guard
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (data: BehaviorFormData) => {
     // Simulate API call with hash generation
@@ -94,7 +99,7 @@ export default function SanctionsPage() {
     const mockHash = `SQ-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
     setLastSubmittedHash(mockHash);
 
-    console.log("[v0] Sanction submitted:", {
+    console.log("Sanction submitted:", {
       ...data,
       generatedHash: mockHash,
       contentLocked: true,
@@ -106,29 +111,23 @@ export default function SanctionsPage() {
     };
   };
 
+  if (!mounted) return null;
+
   return (
-    <AppShell schoolName="Escuela Tecnica N°5">
+    <div className="space-y-6">
       {/* Page Header */}
-      <header className="border-b border-border bg-card/50">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <BookOpen className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">
-                Libro de Convivencia
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                4to Ano &quot;B&quot; - Turno Manana
-              </p>
-            </div>
-          </div>
+      <header className="mb-6 flex items-center gap-4">
+        <div className="w-12 h-12 bg-destructive/10 border border-destructive/20 rounded-2xl flex items-center justify-center shadow-lg">
+          <BookOpen className="w-6 h-6 text-destructive" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Libro de Convivencia</h1>
+          <p className="text-sm text-muted-foreground">4to Ano &quot;B&quot; - Turno Manana</p>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      <main className="bg-card/50 border border-border rounded-2xl p-6 backdrop-blur-md shadow-lg">
         <SanctionForm
           students={MOCK_STUDENTS}
           schoolId="school-001"
@@ -136,6 +135,16 @@ export default function SanctionsPage() {
           onSubmit={handleSubmit}
         />
       </main>
+
+      {/* Hash confirmation display */}
+      {lastSubmittedHash && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <h3 className="mb-2 font-medium text-primary">Registro Confirmado</h3>
+          <p className="text-xs text-muted-foreground font-mono">
+            Hash de integridad: {lastSubmittedHash}
+          </p>
+        </div>
+      )}
 
       {/* Toast notifications */}
       <Toaster
@@ -145,6 +154,6 @@ export default function SanctionsPage() {
           duration: 5000,
         }}
       />
-    </AppShell>
+    </div>
   );
 }

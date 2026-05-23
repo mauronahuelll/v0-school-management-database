@@ -1,9 +1,8 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Student360View } from "@/components/student";
-import { AppShell } from "@/components/layout";
 import type { Student360Data, TimelineEvent } from "@/lib/types/student";
 
 // ============================================
@@ -289,22 +288,43 @@ interface PageProps {
 
 export default function StudentPage({ params }: PageProps) {
   const { id } = use(params);
+  const [mounted, setMounted] = useState(false);
+
+  // Hydration guard
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   const studentData = generateMockData(id);
 
   const handleExportPDF = () => {
     toast.success("Preparando exportacion...", {
       description: "El legajo PDF se descargara en breve.",
     });
-    // TODO: Implement actual PDF export
   };
 
   return (
-    <AppShell schoolName="Escuela Tecnica N°5">
-      <Student360View
-        data={studentData}
-        backUrl="/attendance"
-        onExportPDF={handleExportPDF}
-      />
-    </AppShell>
+    <div className="space-y-6">
+      <header className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Legajo 360 del Alumno</h1>
+          <p className="text-sm text-muted-foreground">Historial unificado de calificaciones, salud y convivencia.</p>
+        </div>
+        <div className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">ID Sistema</p>
+          <p className="text-xs font-mono text-primary font-bold">{id}</p>
+        </div>
+      </header>
+
+      <main className="bg-card/30 rounded-2xl">
+        <Student360View
+          data={studentData}
+          backUrl="/attendance"
+          onExportPDF={handleExportPDF}
+        />
+      </main>
+    </div>
   );
 }
