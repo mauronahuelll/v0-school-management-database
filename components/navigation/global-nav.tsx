@@ -55,7 +55,7 @@ const NAV_ITEMS_DOCENTE = [
 
 const NAV_ITEMS_FAMILIA = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "community", label: "Comunidad", href: "/community", icon: MessageSquare },
+  { id: "family-wall", label: "Muro Escolar", href: "/family-wall", icon: MessageSquare },
   { id: "tramites", label: "Tramites", href: "/tramites", icon: FileText },
   { id: "profile", label: "Perfil Alumno", href: "/student", icon: GraduationCap },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },

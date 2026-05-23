@@ -2,19 +2,19 @@
 
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
-import { LogOut, Terminal, ChevronUp, ChevronDown } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Toaster } from "@/components/ui/sonner"
 
 interface AppShellProps {
   children: React.ReactNode
-  schoolName?: string
 }
 
-export function AppShell({ children, schoolName = "Sequency" }: AppShellProps) {
-  const { role, userName, logout } = useAuth()
+export function AppShell({ children }: AppShellProps) {
+  const { role, userName, schoolId, schoolName, logout, clearSchool } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
   const [consoleOpen, setConsoleOpen] = useState(false)
   const [logs, setLogs] = useState<string[]>([
     "[SYS] Initializing Sequency Core v4.2.0...",
@@ -35,11 +35,17 @@ export function AppShell({ children, schoolName = "Sequency" }: AppShellProps) {
 
   // Add route change logs
   useEffect(() => {
-    if (role) {
+    if (role && schoolId) {
       const time = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
       setLogs((prev) => [...prev.slice(-8), `[${time}] Route: ${pathname}`])
     }
-  }, [pathname, role])
+  }, [pathname, role, schoolId])
+
+  // Handle switching schools (for ADMIN)
+  const handleSwitchSchool = () => {
+    clearSchool()
+    router.push("/")
+  }
 
   // If no session, render raw content (Login page)
   if (!role) {
@@ -51,21 +57,41 @@ export function AppShell({ children, schoolName = "Sequency" }: AppShellProps) {
     )
   }
 
-  // If session exists, render 3-column Galactic layout
+  // If ADMIN but no school selected, also render raw content (school selector on login page)
+  if (role === "ADMIN" && !schoolId) {
+    return (
+      <main className="w-screen h-screen overflow-hidden bg-background">
+        {children}
+        <Toaster position="bottom-center" />
+      </main>
+    )
+  }
+
+  // If session exists and school selected, render 3-column Galactic layout
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       
       {/* COLUMN 1: LEFT SIDEBAR (15%) */}
       <aside className="w-[15%] min-w-[240px] flex flex-col glass-panel border-r border-white/5 z-20">
-        <div className="p-6 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
-              <span className="text-primary font-bold text-lg">S</span>
+        {/* School & Role Header */}
+        <div className="p-4 border-b border-white/5">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 shrink-0">
+              <School className="w-4 h-4 text-primary" />
             </div>
-            <div>
-              <h1 className="text-base font-bold text-foreground tracking-tight">{schoolName}</h1>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-foreground truncate">{schoolName || "Sequency"}</p>
               <p className="text-[10px] text-primary uppercase tracking-widest font-bold">{role}</p>
             </div>
+            {role === "ADMIN" && (
+              <button 
+                onClick={handleSwitchSchool}
+                className="p-1.5 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                title="Cambiar Institucion"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -193,6 +219,7 @@ export function AppShell({ children, schoolName = "Sequency" }: AppShellProps) {
                 </p>
               ))}
               <p className="text-secondary">[AUTH] session: {role}</p>
+              <p className="text-secondary">[AUTH] school: {schoolId}</p>
               <p className="text-secondary">[AUTH] user: {userName}</p>
             </div>
             <p className="text-white/30 mt-auto">root@sequency:~$ <span className="animate-pulse">_</span></p>
