@@ -25,23 +25,27 @@ import { cn } from "@/lib/utils";
 interface AttendancePageProps {
   initialStudents: StudentAttendance[];
   course: CourseInfo;
+  availableCourses?: CourseInfo[];
   schoolId: string;
   periodId: string;
   userId: string;
   onSubmit: (submission: AttendanceSubmission) => Promise<void>;
   onSaveLicense: (data: LicenseFormData) => Promise<void>;
   onDeactivateLicense: (studentId: string) => Promise<void>;
+  onCourseChange?: (courseId: string) => void;
 }
 
 export function AttendancePage({
   initialStudents,
   course,
+  availableCourses = [],
   schoolId,
   periodId,
   userId,
   onSubmit,
   onSaveLicense,
   onDeactivateLicense,
+  onCourseChange: onCourseChangeProp,
 }: AttendancePageProps) {
   const [students, setStudents] = useState<StudentAttendance[]>(initialStudents);
   const [selectedStudent, setSelectedStudent] = useState<StudentAttendance | null>(null);
@@ -118,9 +122,9 @@ export function AttendancePage({
   // Handle course change
   const handleCourseChange = useCallback((courseId: string) => {
     setSelectedCourseId(courseId);
-    // In a real app, this would fetch students for the new course
-    toast.info(`Curso cambiado. Cargando datos...`);
-  }, []);
+    // Call parent handler if provided
+    onCourseChangeProp?.(courseId);
+  }, [onCourseChangeProp]);
 
   // Handle date change
   const handleDateChange = useCallback((date: Date) => {
@@ -231,6 +235,7 @@ export function AttendancePage({
       {/* Header with glassmorphism */}
       <AttendanceHeader
         course={course}
+        availableCourses={availableCourses}
         stats={stats}
         currentDate={selectedDate}
         onResetAll={handleResetAll}

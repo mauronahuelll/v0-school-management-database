@@ -23,16 +23,9 @@ import type { CourseInfo, AttendanceStats } from "@/lib/types/attendance";
 import { formatShift } from "@/lib/types/attendance";
 import { cn } from "@/lib/utils";
 
-// Mock courses for the selector
-const MOCK_COURSES = [
-  { id: "course-1", year: 4, divisionName: "B", shift: "MORNING" as const, level: "SECONDARY" as const },
-  { id: "course-2", year: 5, divisionName: "A", shift: "MORNING" as const, level: "SECONDARY" as const },
-  { id: "course-3", year: 3, divisionName: "C", shift: "AFTERNOON" as const, level: "SECONDARY" as const },
-  { id: "course-4", year: 6, divisionName: "A", shift: "MORNING" as const, level: "SECONDARY" as const },
-];
-
 interface AttendanceHeaderProps {
   course: CourseInfo;
+  availableCourses?: CourseInfo[];
   stats: AttendanceStats;
   currentDate: Date;
   onResetAll: () => void;
@@ -45,6 +38,7 @@ interface AttendanceHeaderProps {
 
 export function AttendanceHeader({
   course,
+  availableCourses = [],
   stats,
   currentDate,
   onResetAll,
@@ -92,11 +86,17 @@ export function AttendanceHeader({
                 <SelectValue placeholder="Seleccionar curso" />
               </SelectTrigger>
               <SelectContent className="bg-card border-white/10">
-                {MOCK_COURSES.map((c) => (
-                  <SelectItem key={c.id} value={c.id} className="text-foreground">
-                    {c.year}° Ano "{c.divisionName}" - {formatShift(c.shift)}
+                {availableCourses.length > 0 ? (
+                  availableCourses.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-foreground">
+                      {c.year}° Ano "{c.divisionName}" - {formatShift(c.shift)}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value={course.id} className="text-foreground">
+                    {course.year}° Ano "{course.divisionName}" - {formatShift(course.shift)}
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
 

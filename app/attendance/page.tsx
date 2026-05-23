@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AttendancePage } from "@/components/attendance";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import type {
   StudentAttendance,
   CourseInfo,
@@ -13,15 +15,38 @@ import type {
 // MOCK DATA - Replace with real Firestore data
 // ============================================
 
-const MOCK_COURSE: CourseInfo = {
-  id: "course-4b",
-  name: "4to Ano",
-  year: 4,
-  divisionId: "div-b",
-  divisionName: "B",
-  shift: "MORNING",
-  studentCount: 30,
-};
+// Available courses for the selector
+const AVAILABLE_COURSES: CourseInfo[] = [
+  {
+    id: "course-4b",
+    name: "4to Ano",
+    year: 4,
+    divisionId: "div-b",
+    divisionName: "B",
+    shift: "MORNING",
+    studentCount: 30,
+  },
+  {
+    id: "course-5a",
+    name: "5to Ano",
+    year: 5,
+    divisionId: "div-a",
+    divisionName: "A",
+    shift: "MORNING",
+    studentCount: 25,
+  },
+  {
+    id: "course-3c",
+    name: "3er Ano",
+    year: 3,
+    divisionId: "div-c",
+    divisionName: "C",
+    shift: "AFTERNOON",
+    studentCount: 28,
+  },
+];
+
+const MOCK_COURSE: CourseInfo = AVAILABLE_COURSES[0];
 
 const MOCK_STUDENTS: StudentAttendance[] = [
   {
@@ -290,15 +315,17 @@ const MOCK_STUDENTS: StudentAttendance[] = [
 
 async function handleSubmit(submission: AttendanceSubmission): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 1500));
-  alert("Asistencia registrada correctamente. Se han enviado las notificaciones.");
+  toast.success("Parte diario registrado exitosamente en el sistema");
 }
 
 async function handleSaveLicense(data: LicenseFormData): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 800));
+  toast.success("Licencia registrada correctamente");
 }
 
 async function handleDeactivateLicense(studentId: string): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 500));
+  toast.info("Licencia desactivada");
 }
 
 // ============================================
@@ -307,9 +334,23 @@ async function handleDeactivateLicense(studentId: string): Promise<void> {
 
 export default function AttendancePageDemo() {
   const [mounted, setMounted] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseInfo>(MOCK_COURSE);
+  const [students, setStudents] = useState<StudentAttendance[]>(MOCK_STUDENTS);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Handle course change - reload students for the new course
+  const handleCourseChange = useCallback((courseId: string) => {
+    const newCourse = AVAILABLE_COURSES.find(c => c.id === courseId);
+    if (newCourse) {
+      setSelectedCourse(newCourse);
+      // In production, this would fetch real students from the database
+      // For now, we reset all students to PRESENT when changing course
+      setStudents(prev => prev.map(s => ({ ...s, status: "PRESENT" as const })));
+      toast.info(`Cargando estudiantes de ${newCourse.year}° "${newCourse.divisionName}"...`);
+    }
   }, []);
 
   // Prevent hydration mismatch
@@ -325,15 +366,19 @@ export default function AttendancePageDemo() {
       </header>
 
       <AttendancePage
-        initialStudents={MOCK_STUDENTS}
-        course={MOCK_COURSE}
+        initialStudents={students}
+        course={selectedCourse}
+        availableCourses={AVAILABLE_COURSES}
         schoolId="school-demo-123"
         periodId="T1"
         userId="preceptor-1"
         onSubmit={handleSubmit}
         onSaveLicense={handleSaveLicense}
         onDeactivateLicense={handleDeactivateLicense}
+        onCourseChange={handleCourseChange}
       />
+      
+      <Toaster theme="dark" />
     </div>
   );
 }
