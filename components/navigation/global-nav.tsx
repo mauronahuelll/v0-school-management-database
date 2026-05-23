@@ -16,6 +16,7 @@ import {
   MessageSquare,
   FileText,
   Megaphone,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, Role } from "@/lib/context/auth-context";
@@ -30,6 +31,7 @@ const NAV_ITEMS_ADMIN = [
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
   { id: "comunicados", label: "Comunicados", href: "/comunicados", icon: Megaphone },
+  { id: "import", label: "Importar Matricula", href: "/admin/import", icon: Upload },
   { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
   { id: "users", label: "Usuarios", href: "/users", icon: Users },
   { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
