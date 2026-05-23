@@ -1,8 +1,17 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Users, MessageCircle, Heart, Image as ImageIcon } from "lucide-react";
 
 export default function CommunityPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       {/* Header */}

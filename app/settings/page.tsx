@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Settings, Shield, Bell, Palette, Database, Users, Building2 } from "lucide-react";
 
 const SETTINGS_SECTIONS = [
@@ -42,6 +43,14 @@ const SETTINGS_SECTIONS = [
 ];
 
 export default function SettingsPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       <header>

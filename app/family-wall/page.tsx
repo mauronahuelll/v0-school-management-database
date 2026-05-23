@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/context/auth-context"
 import { Bell, Calendar, Image, MessageSquare, ShieldAlert, Heart, Share2, Paperclip } from "lucide-react"
 
@@ -43,6 +44,13 @@ const PUBLICACIONES_MOCK = [
 
 export default function FamilyWallPage() {
   const { role } = useAuth()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
 
   if (role !== "FAMILIA" && role !== "ADMIN") {
     return (
