@@ -1,107 +1,92 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { LayoutDashboard, RefreshCw } from "lucide-react";
-import { AppShell } from "@/components/layout";
-import {
-  GlobalStatsGrid,
-  AttendanceHeatmap,
-  BehaviorStatusCard,
-  TransferAlertsCard,
-} from "@/components/dashboard";
-import { Button } from "@/components/ui/button";
-import type {
-  DashboardStats,
-  CourseAttendanceSummary,
-  AttendanceTrendPoint,
-  SignatureStatus,
-  TransferAlert,
-} from "@/lib/types/dashboard";
+import { useState, useEffect } from "react"
+import { useAuth } from "@/lib/context/auth-context"
+import { motion } from "framer-motion"
+import { 
+  LayoutDashboard, Users, Clock, ShieldAlert, 
+  BookOpen, GraduationCap, Calendar, TrendingUp,
+  Bell, FileText, Award, RefreshCw
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-// ============================================
-// MOCK DATA
-// ============================================
-
-const MOCK_STATS: DashboardStats = {
-  attendance: {
-    totalStudents: 842,
-    presentToday: 756,
-    absentToday: 52,
-    tardyToday: 28,
-    onLicense: 6,
-    presenceRate: 89.8,
+// Datos aislados por escuela (multi-tenant)
+const DATA_POR_ESCUELA: Record<string, {
+  name: string
+  matricula: number
+  presentesHoy: string
+  alertasConvivencia: number
+  periodo: string
+  promedio: string
+  docentesActivos: number
+}> = {
+  "inst-1": {
+    name: "Instituto Padre Marquez",
+    matricula: 420,
+    presentesHoy: "94.2%",
+    alertasConvivencia: 2,
+    periodo: "1er Trimestre 2026",
+    promedio: "7.42",
+    docentesActivos: 14
   },
-  behavior: {
-    totalSanctionsThisMonth: 23,
-    pendingSignatures: 8,
-    signedSanctions: 12,
-    signatureRate: 52.2,
-    disputedSanctions: 3,
+  "inst-2": {
+    name: "Colegio Secundario San Martin",
+    matricula: 310,
+    presentesHoy: "88.5%",
+    alertasConvivencia: 5,
+    periodo: "1er Cuatrimestre 2026",
+    promedio: "6.89",
+    docentesActivos: 11
   },
-  academic: {
-    averageGrade: 7.2,
-    passingRate: 76.5,
-    gradesPublished: 145,
-    gradesPending: 32,
-  },
-  transfers: {
-    incomingPending: 2,
-    outgoingPending: 1,
-    completedThisMonth: 4,
-  },
-  system: {
-    status: "OPERATIONAL",
-    lastSync: new Date(),
-    pendingTasks: 2,
-    storageUsed: 45,
-  },
-};
+  "inst-3": {
+    name: "Escuela Tecnica N3",
+    matricula: 580,
+    presentesHoy: "91.3%",
+    alertasConvivencia: 3,
+    periodo: "1er Trimestre 2026",
+    promedio: "7.15",
+    docentesActivos: 22
+  }
+}
 
-const MOCK_TREND_DATA: AttendanceTrendPoint[] = [
-  { date: "2024-03-04", dateLabel: "Lun 4", present: 780, absent: 45, tardy: 17, total: 842, presenceRate: 92.6 },
-  { date: "2024-03-05", dateLabel: "Mar 5", present: 765, absent: 55, tardy: 22, total: 842, presenceRate: 90.9 },
-  { date: "2024-03-06", dateLabel: "Mie 6", present: 790, absent: 35, tardy: 17, total: 842, presenceRate: 93.8 },
-  { date: "2024-03-07", dateLabel: "Jue 7", present: 772, absent: 48, tardy: 22, total: 842, presenceRate: 91.7 },
-  { date: "2024-03-08", dateLabel: "Vie 8", present: 745, absent: 68, tardy: 29, total: 842, presenceRate: 88.5 },
-  { date: "2024-03-11", dateLabel: "Lun 11", present: 768, absent: 52, tardy: 22, total: 842, presenceRate: 91.2 },
-  { date: "2024-03-12", dateLabel: "Mar 12", present: 756, absent: 52, tardy: 28, total: 842, presenceRate: 89.8 },
-];
+// Datos del alumno para vista FAMILIA
+const ALUMNO_DATA = {
+  nombre: "Valentina Castro",
+  curso: "4to Ano Secundaria",
+  division: "B",
+  inasistencias: 3.5,
+  limiteInasistencias: 15,
+  promedio: 8.45,
+  materias: [
+    { nombre: "Matematica", nota: 8, estado: "TEA" },
+    { nombre: "Lengua", nota: 9, estado: "TEP" },
+    { nombre: "Historia", nota: 7, estado: "TED" },
+    { nombre: "Fisica", nota: 8, estado: "TEA" },
+  ]
+}
 
-const MOCK_COURSES: CourseAttendanceSummary[] = [
-  { courseId: "1a", courseName: "1ro", divisionId: "a", divisionName: "A", shift: "MORNING", totalStudents: 32, presentCount: 28, absentCount: 4, tardyCount: 0, licenseCount: 0, presenceRate: 87.5, hasAlerts: true },
-  { courseId: "2b", courseName: "2do", divisionId: "b", divisionName: "B", shift: "MORNING", totalStudents: 30, presentCount: 27, absentCount: 2, tardyCount: 1, licenseCount: 0, presenceRate: 90.0, hasAlerts: false },
-  { courseId: "3a", courseName: "3ro", divisionId: "a", divisionName: "A", shift: "AFTERNOON", totalStudents: 28, presentCount: 22, absentCount: 5, tardyCount: 1, licenseCount: 0, presenceRate: 78.6, hasAlerts: true },
-  { courseId: "4c", courseName: "4to", divisionId: "c", divisionName: "C", shift: "MORNING", totalStudents: 35, presentCount: 33, absentCount: 1, tardyCount: 1, licenseCount: 0, presenceRate: 94.3, hasAlerts: false },
-  { courseId: "5a", courseName: "5to", divisionId: "a", divisionName: "A", shift: "AFTERNOON", totalStudents: 31, presentCount: 28, absentCount: 2, tardyCount: 1, licenseCount: 0, presenceRate: 90.3, hasAlerts: false },
-  { courseId: "6b", courseName: "6to", divisionId: "b", divisionName: "B", shift: "MORNING", totalStudents: 29, presentCount: 26, absentCount: 2, tardyCount: 1, licenseCount: 0, presenceRate: 89.7, hasAlerts: false },
-  { courseId: "1b", courseName: "1ro", divisionId: "b", divisionName: "B", shift: "AFTERNOON", totalStudents: 33, presentCount: 27, absentCount: 4, tardyCount: 2, licenseCount: 0, presenceRate: 81.8, hasAlerts: true },
-  { courseId: "2a", courseName: "2do", divisionId: "a", divisionName: "A", shift: "MORNING", totalStudents: 30, presentCount: 28, absentCount: 1, tardyCount: 1, licenseCount: 0, presenceRate: 93.3, hasAlerts: false },
-];
+// Materias asignadas para DOCENTE
+const MATERIAS_DOCENTE = [
+  { id: 1, nombre: "Matematica Avanzada IV", curso: "4to Ano", division: "B", alumnos: 24, pendientes: 18 },
+  { id: 2, nombre: "Algebra Lineal", curso: "5to Ano", division: "A", alumnos: 28, pendientes: 12 },
+  { id: 3, nombre: "Calculo I", curso: "6to Ano", division: "C", alumnos: 22, pendientes: 8 },
+]
 
-const MOCK_SIGNATURES: SignatureStatus[] = [
-  { sanctionId: "s1", studentName: "Martinez, Juan", courseName: "3ro A", category: "Conducta", severity: 2, createdAt: new Date("2024-03-08"), status: "PENDING", daysWaiting: 4 },
-  { sanctionId: "s2", studentName: "Lopez, Maria", courseName: "2do B", category: "Uniforme", severity: 1, createdAt: new Date("2024-03-10"), status: "PENDING", daysWaiting: 2 },
-  { sanctionId: "s3", studentName: "Garcia, Pedro", courseName: "5to A", category: "Inasistencia", severity: 3, createdAt: new Date("2024-03-05"), status: "ACKNOWLEDGED", daysWaiting: 0, tutorName: "Carlos Garcia", acknowledgedAt: new Date("2024-03-07") },
-  { sanctionId: "s4", studentName: "Rodriguez, Ana", courseName: "4to C", category: "Conducta", severity: 4, createdAt: new Date("2024-03-06"), status: "DISPUTED", daysWaiting: 6 },
-  { sanctionId: "s5", studentName: "Fernandez, Luis", courseName: "1ro A", category: "Uniforme", severity: 1, createdAt: new Date("2024-03-11"), status: "PENDING", daysWaiting: 1 },
-  { sanctionId: "s6", studentName: "Sanchez, Clara", courseName: "6to B", category: "Responsabilidad", severity: 2, createdAt: new Date("2024-03-04"), status: "ACKNOWLEDGED", daysWaiting: 0, tutorName: "Marta Sanchez", acknowledgedAt: new Date("2024-03-06") },
-];
-
-const MOCK_TRANSFERS: TransferAlert[] = [
-  { id: "t1", type: "INCOMING", studentName: "Perez, Sofia", studentDni: "45.678.901", fromSchool: "Esc. Tecnica N°3 - San Martin", requestDate: new Date("2024-03-01"), status: "PENDING_DOCS", daysInProcess: 11 },
-  { id: "t2", type: "INCOMING", studentName: "Ruiz, Tomas", studentDni: "46.123.456", fromSchool: "Colegio Nacional - Lanus", requestDate: new Date("2024-03-08"), status: "PENDING_APPROVAL", daysInProcess: 4 },
-  { id: "t3", type: "OUTGOING", studentName: "Diaz, Lucia", studentDni: "44.567.890", toSchool: "Esc. Media N°12 - Quilmes", requestDate: new Date("2024-03-05"), status: "IN_TRANSIT", daysInProcess: 7 },
-];
-
-// ============================================
-// PAGE COMPONENT
-// ============================================
+// Cursos asignados para PRECEPTOR
+const CURSOS_PRECEPTOR = [
+  { id: 1, nombre: "4to Ano A", presentes: 24, ausentes: 3, total: 27 },
+  { id: 2, nombre: "4to Ano B", presentes: 22, ausentes: 2, total: 24 },
+  { id: 3, nombre: "5to Ano A", presentes: 26, ausentes: 1, total: 27 },
+  { id: 4, nombre: "5to Ano B", presentes: 23, ausentes: 4, total: 27 },
+]
 
 export default function DashboardPage() {
-  const [today, setToday] = useState<string>("");
+  const { role, schoolId, schoolName, userName } = useAuth()
+  const [mounted, setMounted] = useState(false)
+  const [today, setToday] = useState("")
 
   useEffect(() => {
+    setMounted(true)
     setToday(
       new Date().toLocaleDateString("es-AR", {
         weekday: "long",
@@ -109,78 +94,325 @@ export default function DashboardPage() {
         month: "long",
         day: "numeric",
       })
-    );
-  }, []);
+    )
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  const escuelaActiva = DATA_POR_ESCUELA[schoolId || "inst-1"] || DATA_POR_ESCUELA["inst-1"]
 
   return (
-    <AppShell schoolName="Escuela Tecnica N°5">
-      <div className="min-h-screen">
-        {/* Header */}
-        <header className="sticky top-0 z-40 glass-strong border-b border-border/50">
-          <div className="px-6 py-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-3 mb-1"
-                >
-                  <div className="p-2 rounded-xl bg-primary/10">
-                    <LayoutDashboard className="size-5 text-primary" />
-                  </div>
-                  <h1 className="text-2xl font-bold text-foreground">
-                    Panel Institucional
-                  </h1>
-                </motion.div>
-                <p className="text-sm text-muted-foreground capitalize pl-12">
-                  {today}
-                </p>
+    <div className="space-y-6">
+      {/* Header Contextual */}
+      <motion.header 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-2xl glass-panel"
+      >
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+              <LayoutDashboard className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-widest text-primary font-bold">
+                Entorno operativo unificado
+              </p>
+              <h1 className="text-xl font-bold tracking-tight text-foreground">
+                {role === "FAMILIA" ? "Portal Familiar" : escuelaActiva.name}
+              </h1>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground capitalize pl-14">
+            {today} | {escuelaActiva.periodo}
+          </p>
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center gap-3">
+          <span className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-xs font-mono text-primary font-bold">
+            {role}
+          </span>
+          <Button variant="outline" size="sm" className="gap-2 text-xs">
+            <RefreshCw className="w-3.5 h-3.5" />
+            Actualizar
+          </Button>
+        </div>
+      </motion.header>
+
+      {/* VISTA: ADMIN */}
+      {role === "ADMIN" && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-6"
+        >
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl glass-panel space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Matricula Total</span>
+                <Users className="w-4 h-4 text-primary" />
               </div>
+              <p className="text-3xl font-bold tracking-tight">{escuelaActiva.matricula}</p>
+              <p className="text-[11px] text-muted-foreground">Alumnos validados en sistema</p>
+            </div>
 
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
+            <div className="p-5 rounded-2xl glass-panel space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Asistencia Hoy</span>
+                <Clock className="w-4 h-4 text-secondary" />
+              </div>
+              <p className="text-3xl font-bold tracking-tight text-secondary">{escuelaActiva.presentesHoy}</p>
+              <p className="text-[11px] text-muted-foreground">Presentismo del parte diario</p>
+            </div>
+
+            <div className="p-5 rounded-2xl glass-panel space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Alertas Gabinete</span>
+                <ShieldAlert className="w-4 h-4 text-tertiary" />
+              </div>
+              <p className="text-3xl font-bold tracking-tight text-tertiary">{escuelaActiva.alertasConvivencia}</p>
+              <p className="text-[11px] text-muted-foreground">Casos criticos en seguimiento</p>
+            </div>
+
+            <div className="p-5 rounded-2xl glass-panel space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Docentes Activos</span>
+                <GraduationCap className="w-4 h-4 text-primary" />
+              </div>
+              <p className="text-3xl font-bold tracking-tight">{escuelaActiva.docentesActivos}</p>
+              <p className="text-[11px] text-muted-foreground">Con sesion iniciada hoy</p>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { icon: Users, label: "Gestion de Usuarios", href: "/users" },
+              { icon: FileText, label: "Reportes", href: "/analytics" },
+              { icon: ShieldAlert, label: "Permisos", href: "/permissions" },
+              { icon: Calendar, label: "Calendario", href: "/calendar" },
+            ].map((action, i) => (
+              <button
+                key={i}
+                className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-primary/30 hover:bg-white/[0.04] transition-all flex items-center gap-3 group"
               >
-                <Button variant="outline" size="sm" className="gap-2">
-                  <RefreshCw className="size-4" />
-                  Actualizar
-                </Button>
-              </motion.div>
+                <action.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-sm text-foreground">{action.label}</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* VISTA: DOCENTE */}
+      {role === "DOCENTE" && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-6"
+        >
+          <div className="p-6 rounded-2xl glass-panel space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Mis Materias Asignadas</h2>
+              <span className="text-xs text-muted-foreground">{MATERIAS_DOCENTE.length} cursos</span>
+            </div>
+            <div className="grid gap-3">
+              {MATERIAS_DOCENTE.map((materia) => (
+                <div
+                  key={materia.id}
+                  className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-primary/30 transition-all flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                      <BookOpen className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">{materia.nombre}</h3>
+                      <p className="text-xs text-muted-foreground">{materia.curso} - Division {materia.division} | {materia.alumnos} alumnos</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Pendientes</p>
+                    <p className="text-lg font-bold text-tertiary">{materia.pendientes}/{materia.alumnos}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </header>
 
-        {/* Content */}
-        <main className="p-6 space-y-10">
-          {/* Global Stats */}
-          <GlobalStatsGrid stats={MOCK_STATS} />
-
-          {/* Two Column Layout */}
-          <div className="grid lg:grid-cols-5 gap-8">
-            {/* Attendance Heatmap - Takes more space */}
-            <div className="lg:col-span-3">
-              <AttendanceHeatmap
-                trendData={MOCK_TREND_DATA}
-                courseSummaries={MOCK_COURSES}
-                alertThreshold={3}
-              />
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl glass-panel text-center">
+              <p className="text-2xl font-bold text-foreground">38</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Examenes Pendientes</p>
             </div>
-
-            {/* Right Column */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Behavior Status */}
-              <BehaviorStatusCard
-                signatures={MOCK_SIGNATURES}
-                totalThisMonth={MOCK_STATS.behavior.totalSanctionsThisMonth}
-              />
-
-              {/* Transfer Alerts */}
-              <TransferAlertsCard transfers={MOCK_TRANSFERS} />
+            <div className="p-4 rounded-xl glass-panel text-center">
+              <p className="text-2xl font-bold text-secondary">12</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Dias al Cierre</p>
+            </div>
+            <div className="p-4 rounded-xl glass-panel text-center">
+              <p className="text-2xl font-bold text-primary">74</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Alumnos Totales</p>
             </div>
           </div>
-        </main>
-      </div>
-    </AppShell>
-  );
+        </motion.div>
+      )}
+
+      {/* VISTA: PRECEPTOR */}
+      {role === "PRECEPTOR" && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-6"
+        >
+          <div className="p-6 rounded-2xl glass-panel space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Panel de Asistencia</h2>
+              <span className="px-2 py-1 rounded-lg bg-secondary/10 text-secondary text-xs font-bold">Hoy</span>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              {CURSOS_PRECEPTOR.map((curso) => (
+                <div
+                  key={curso.id}
+                  className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-primary/30 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-foreground">{curso.nombre}</h3>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      curso.ausentes > 2 ? "bg-destructive/10 text-destructive" : "bg-secondary/10 text-secondary"
+                    }`}>
+                      {curso.ausentes > 0 ? `${curso.ausentes} ausentes` : "Completo"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
+                      <div 
+                        className="h-full bg-secondary rounded-full transition-all"
+                        style={{ width: `${(curso.presentes / curso.total) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {curso.presentes}/{curso.total}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl glass-panel">
+              <div className="flex items-center gap-3 mb-2">
+                <Users className="w-4 h-4 text-secondary" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">Presentes Totales</span>
+              </div>
+              <p className="text-3xl font-bold text-secondary">95</p>
+            </div>
+            <div className="p-4 rounded-xl glass-panel">
+              <div className="flex items-center gap-3 mb-2">
+                <ShieldAlert className="w-4 h-4 text-tertiary" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">Incidencias Hoy</span>
+              </div>
+              <p className="text-3xl font-bold text-tertiary">0</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* VISTA: FAMILIA */}
+      {role === "FAMILIA" && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-6"
+        >
+          {/* Student Card */}
+          <div className="p-6 rounded-2xl glass-panel">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center border border-white/10">
+                <span className="text-lg font-bold text-foreground">VC</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground">{ALUMNO_DATA.nombre}</h2>
+                <p className="text-sm text-muted-foreground">{ALUMNO_DATA.curso} - Division {ALUMNO_DATA.division}</p>
+                <p className="text-xs text-primary mt-1">{escuelaActiva.name}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Inasistencias</p>
+                <p className="text-2xl font-bold">
+                  <span className="text-tertiary">{ALUMNO_DATA.inasistencias}</span>
+                  <span className="text-muted-foreground text-lg"> / {ALUMNO_DATA.limiteInasistencias}</span>
+                </p>
+                <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <div 
+                    className="h-full bg-tertiary rounded-full"
+                    style={{ width: `${(ALUMNO_DATA.inasistencias / ALUMNO_DATA.limiteInasistencias) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Promedio General</p>
+                <p className="text-2xl font-bold text-secondary">{ALUMNO_DATA.promedio}</p>
+                <div className="flex items-center gap-1 mt-2">
+                  <TrendingUp className="w-3 h-3 text-secondary" />
+                  <span className="text-[10px] text-secondary">+0.3 este mes</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Grades */}
+          <div className="p-6 rounded-2xl glass-panel space-y-4">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Calificaciones Recientes</h3>
+            <div className="space-y-2">
+              {ALUMNO_DATA.materias.map((materia, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">{materia.nombre}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      materia.estado === "TEA" ? "bg-secondary/10 text-secondary" :
+                      materia.estado === "TEP" ? "bg-primary/10 text-primary" :
+                      "bg-tertiary/10 text-tertiary"
+                    }`}>
+                      {materia.estado}
+                    </span>
+                    <span className="text-lg font-bold text-foreground w-8 text-right">{materia.nota}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Links */}
+          <div className="grid grid-cols-2 gap-3">
+            <button className="p-4 rounded-xl glass-panel hover:border-primary/30 transition-all flex items-center gap-3">
+              <Bell className="w-5 h-5 text-primary" />
+              <span className="text-sm text-foreground">Muro Escolar</span>
+            </button>
+            <button className="p-4 rounded-xl glass-panel hover:border-primary/30 transition-all flex items-center gap-3">
+              <FileText className="w-5 h-5 text-primary" />
+              <span className="text-sm text-foreground">Tramites</span>
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  )
 }
