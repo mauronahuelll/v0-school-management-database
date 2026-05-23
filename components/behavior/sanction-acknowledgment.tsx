@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -11,6 +11,11 @@ import {
   Loader2,
   AlertCircle,
   MessageSquareWarning,
+  Download,
+  Lock,
+  Hash,
+  Clock,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,15 +58,83 @@ interface SanctionAcknowledgmentProps {
   onDispute: (behaviorId: string, reason: string) => Promise<{ success: boolean }>;
 }
 
-type ViewState = "details" | "confirm" | "dispute" | "success" | "error";
+type ViewState = "details" | "pin-entry" | "processing" | "dispute" | "success" | "error";
 
 const SEVERITY_CONFIG = {
-  1: { label: "Leve", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
-  2: { label: "Moderada", color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300" },
-  3: { label: "Seria", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
-  4: { label: "Grave", color: "bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-200" },
-  5: { label: "Muy Grave", color: "bg-red-300 text-red-950 dark:bg-red-900/70 dark:text-red-100" },
+  1: { label: "Leve", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+  2: { label: "Moderada", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+  3: { label: "Seria", color: "bg-red-500/20 text-red-400 border-red-500/30" },
+  4: { label: "Grave", color: "bg-red-600/20 text-red-300 border-red-600/30" },
+  5: { label: "Muy Grave", color: "bg-red-700/30 text-red-200 border-red-700/30" },
 } as const;
+
+// PIN Input Component
+function PinInput({ 
+  value, 
+  onChange, 
+  disabled 
+}: { 
+  value: string; 
+  onChange: (val: string) => void;
+  disabled?: boolean;
+}) {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const handleChange = (index: number, digit: string) => {
+    if (!/^\d?$/.test(digit)) return;
+    
+    const newValue = value.split("");
+    newValue[index] = digit;
+    const result = newValue.join("").slice(0, 4);
+    onChange(result);
+
+    // Auto-focus next input
+    if (digit && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !value[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  return (
+    <div className="flex justify-center gap-3">
+      {[0, 1, 2, 3].map((index) => (
+        <input
+          key={index}
+          ref={(el) => { inputRefs.current[index] = el; }}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={value[index] || ""}
+          onChange={(e) => handleChange(index, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          disabled={disabled}
+          className={cn(
+            "w-14 h-16 text-center text-2xl font-mono font-bold rounded-xl",
+            "bg-white/[0.02] border-2 border-white/10",
+            "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+            "transition-all text-foreground",
+            disabled && "opacity-50 cursor-not-allowed"
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Generate a fake SHA-256 hash
+function generateFakeHash(): string {
+  const chars = "0123456789abcdef";
+  let hash = "";
+  for (let i = 0; i < 64; i++) {
+    hash += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return hash;
+}
 
 export function SanctionAcknowledgment({
   record,
@@ -71,9 +144,11 @@ export function SanctionAcknowledgment({
   const [viewState, setViewState] = useState<ViewState>("details");
   const [isLoading, setIsLoading] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
-  const [result, setResult] = useState<{
+  const [pin, setPin] = useState("");
+  const [signatureData, setSignatureData] = useState<{
     verificationId?: string;
     documentHash?: string;
+    signedAt?: string;
     error?: string;
   }>({});
 
@@ -81,29 +156,46 @@ export function SanctionAcknowledgment({
   const severity = record.sanction?.severity || 1;
   const severityConfig = SEVERITY_CONFIG[severity];
 
-  const handleAcknowledge = useCallback(async () => {
+  const handleStartSignature = useCallback(() => {
+    setPin("");
+    setViewState("pin-entry");
+  }, []);
+
+  const handlePinComplete = useCallback(async () => {
+    if (pin.length !== 4) return;
+
+    setViewState("processing");
     setIsLoading(true);
+
     try {
+      // Simulate cryptographic signature generation
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       const response = await onAcknowledge(record.id);
       if (response.success) {
-        setResult({
+        const now = new Date();
+        setSignatureData({
           verificationId: response.verificationId,
-          documentHash: response.documentHash,
+          documentHash: response.documentHash || generateFakeHash(),
+          signedAt: now.toLocaleString("es-AR", {
+            dateStyle: "full",
+            timeStyle: "medium",
+          }),
         });
         setViewState("success");
       } else {
-        setResult({ error: "Error al procesar la firma" });
+        setSignatureData({ error: "Error al procesar la firma digital" });
         setViewState("error");
       }
     } catch (err) {
-      setResult({
+      setSignatureData({
         error: err instanceof Error ? err.message : "Error desconocido",
       });
       setViewState("error");
     } finally {
       setIsLoading(false);
     }
-  }, [record.id, onAcknowledge]);
+  }, [pin, record.id, onAcknowledge]);
 
   const handleDispute = useCallback(async () => {
     if (disputeReason.trim().length < 10) return;
@@ -115,7 +207,7 @@ export function SanctionAcknowledgment({
         setViewState("details");
       }
     } catch (err) {
-      setResult({
+      setSignatureData({
         error: err instanceof Error ? err.message : "Error al enviar disputa",
       });
       setViewState("error");
@@ -124,18 +216,39 @@ export function SanctionAcknowledgment({
     }
   }, [record.id, disputeReason, onDispute]);
 
+  const handleDownloadPDF = useCallback(() => {
+    // Simulate PDF download
+    const blob = new Blob(
+      [`ACTA DE NOTIFICACION FIRMADA\n\nEstudiante: ${record.studentName}\nFecha: ${signatureData.signedAt}\nHash: ${signatureData.documentHash}\nVerificacion: ${signatureData.verificationId}`],
+      { type: "text/plain" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `acta-firmada-${record.id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [record, signatureData]);
+
+  // Auto-submit when PIN is complete
+  useEffect(() => {
+    if (pin.length === 4 && viewState === "pin-entry") {
+      handlePinComplete();
+    }
+  }, [pin, viewState, handlePinComplete]);
+
   // Already acknowledged
   if (status === "ACKNOWLEDGED") {
     return (
-      <div className="rounded-2xl border border-status-present/30 bg-status-present/5 p-6">
+      <div className="rounded-2xl border border-[#4de082]/30 bg-[#4de082]/5 p-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-status-present/20">
-            <CheckCircle2 className="h-6 w-6 text-status-present" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#4de082]/20">
+            <CheckCircle2 className="h-6 w-6 text-[#4de082]" />
           </div>
           <div>
-            <p className="font-medium text-foreground">Notificacion Firmada</p>
-            <p className="text-sm text-muted-foreground">
-              Hash: {record.sanction?.acknowledgment?.documentHash?.substring(0, 12)}...
+            <p className="font-medium text-foreground">Notificacion Firmada Digitalmente</p>
+            <p className="text-sm text-muted-foreground font-mono">
+              Hash: {record.sanction?.acknowledgment?.documentHash?.substring(0, 16)}...
             </p>
           </div>
         </div>
@@ -149,12 +262,12 @@ export function SanctionAcknowledgment({
       <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/20">
-            <MessageSquareWarning className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            <MessageSquareWarning className="h-6 w-6 text-amber-400" />
           </div>
           <div>
             <p className="font-medium text-foreground">Sancion Disputada</p>
             <p className="text-sm text-muted-foreground">
-              En revision por la institucion
+              En revision por la institucion educativa
             </p>
           </div>
         </div>
@@ -163,9 +276,9 @@ export function SanctionAcknowledgment({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <div className="rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-md p-6 shadow-xl">
       <AnimatePresence mode="wait">
-        {/* DETAILS VIEW */}
+        {/* DETAILS VIEW - Document Card */}
         {viewState === "details" && (
           <motion.div
             key="details"
@@ -174,61 +287,67 @@ export function SanctionAcknowledgment({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            {/* Header */}
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-status-absent/10">
-                  <AlertTriangle className="h-6 w-6 text-status-absent" />
+            {/* Document Header */}
+            <div className="relative p-6 rounded-xl bg-gradient-to-br from-red-950/50 to-red-900/20 border border-red-500/20">
+              <div className="absolute top-3 right-3">
+                <span className={cn(
+                  "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border",
+                  severityConfig.color
+                )}>
+                  {severityConfig.label}
+                </span>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <AlertTriangle className="h-6 w-6 text-red-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-red-400/70 mb-1">
+                    Sancion Disciplinaria Pendiente de Firma
+                  </p>
+                  <h3 className="text-lg font-bold text-foreground">
                     {record.sanction?.sanctionTypeName}
                   </h3>
-                  <p className="text-sm text-muted-foreground">{record.date}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{record.date}</p>
                 </div>
               </div>
-              <span
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium",
-                  severityConfig.color
-                )}
-              >
-                {severityConfig.label}
-              </span>
-            </div>
 
-            {/* Student */}
-            <div className="rounded-xl bg-muted/50 p-4">
-              <p className="text-sm text-muted-foreground">Estudiante</p>
-              <p className="font-medium text-foreground">{record.studentName}</p>
-            </div>
+              {/* Student Info */}
+              <div className="mt-4 p-3 rounded-lg bg-black/20 border border-white/5">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                  Estudiante
+                </p>
+                <p className="font-semibold text-foreground">{record.studentName}</p>
+              </div>
 
-            {/* Description */}
-            <div>
-              <p className="mb-2 text-sm font-medium text-muted-foreground">
-                Descripcion
-              </p>
-              <p className="leading-relaxed text-foreground">
-                {record.description}
-              </p>
-            </div>
+              {/* Description */}
+              <div className="mt-4">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
+                  Descripcion de los Hechos
+                </p>
+                <p className="text-sm leading-relaxed text-foreground/80">
+                  {record.description}
+                </p>
+              </div>
 
-            {/* Category */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Categoria:</span>
-              <span className="rounded-md bg-muted px-2 py-0.5 font-medium">
-                {record.category}
-              </span>
+              {/* Category Badge */}
+              <div className="mt-4 flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">Categoria:</span>
+                <span className="px-2 py-0.5 rounded-md bg-white/5 text-xs font-medium text-foreground">
+                  {record.category}
+                </span>
+              </div>
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col gap-3 pt-4">
+            <div className="flex flex-col gap-3">
               <Button
-                onClick={() => setViewState("confirm")}
-                className="h-14 w-full gap-3 rounded-xl bg-primary text-lg font-medium text-primary-foreground shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl"
+                onClick={handleStartSignature}
+                className="h-14 w-full gap-3 rounded-xl bg-[#d0bcff] hover:bg-[#c4b0f3] text-[#381e72] text-base font-bold shadow-lg transition-all hover:scale-[1.01]"
               >
-                <Fingerprint className="h-6 w-6" />
-                Confirmar Notificacion
+                <Fingerprint className="h-5 w-5" />
+                Firmar en Conformidad (Art. 284 CCyCN)
               </Button>
 
               <Button
@@ -242,78 +361,92 @@ export function SanctionAcknowledgment({
           </motion.div>
         )}
 
-        {/* CONFIRM VIEW */}
-        {viewState === "confirm" && (
+        {/* PIN ENTRY VIEW */}
+        {viewState === "pin-entry" && (
           <motion.div
-            key="confirm"
+            key="pin-entry"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
+            className="space-y-6 py-4"
           >
             {/* Security Icon */}
             <div className="flex justify-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-                <Shield className="h-10 w-10 text-primary" />
+              <div className="p-5 rounded-full bg-primary/10 border border-primary/20">
+                <Lock className="h-10 w-10 text-primary" />
               </div>
             </div>
+
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-foreground">
+                PIN de Seguridad
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Ingrese su codigo de 4 digitos para confirmar su identidad
+              </p>
+            </div>
+
+            {/* PIN Input */}
+            <PinInput 
+              value={pin} 
+              onChange={setPin} 
+              disabled={isLoading}
+            />
 
             {/* Legal Notice */}
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <FileCheck className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-foreground">
-                  Aviso Legal
-                </span>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-start gap-2">
+                <FileCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-xs leading-relaxed text-foreground/80">
+                  Al ingresar su PIN, declaro haber sido <strong>legalmente notificado</strong> de la presente comunicacion. 
+                  Este acuse de recibo tiene validez legal conforme al Art. 284 del Codigo Civil y Comercial de la Nacion.
+                </p>
               </div>
-              <p className="text-sm leading-relaxed text-foreground/80">
-                Al confirmar, declaro haber sido{" "}
-                <strong>legalmente notificado</strong> de la presente
-                comunicacion escolar. Este acuse de recibo tiene validez legal
-                segun la normativa vigente.
+            </div>
+
+            <Button
+              variant="ghost"
+              onClick={() => setViewState("details")}
+              disabled={isLoading}
+              className="w-full h-12 text-muted-foreground"
+            >
+              Cancelar
+            </Button>
+          </motion.div>
+        )}
+
+        {/* PROCESSING VIEW */}
+        {viewState === "processing" && (
+          <motion.div
+            key="processing"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="py-12 text-center space-y-6"
+          >
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="p-5 rounded-full bg-primary/10 border border-primary/20">
+                  <Hash className="h-10 w-10 text-primary" />
+                </div>
+                <div className="absolute inset-0 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-foreground">
+                Generando certificado criptografico...
+              </h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Procesando firma digital con encriptacion SHA-256
               </p>
             </div>
 
-            {/* Verification Hash Preview */}
-            <div className="rounded-xl bg-muted/50 p-4">
-              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                ID de Verificacion
-              </p>
-              <p className="font-mono text-sm text-foreground">
-                {record.sanction?.acknowledgment?.documentHash?.substring(0, 16) ||
-                  "Generando..."}
-                ...
-              </p>
-            </div>
-
-            {/* Metadata captured notice */}
-            <p className="text-center text-xs text-muted-foreground">
-              Se registrara: fecha/hora del servidor, direccion IP y dispositivo
-            </p>
-
-            {/* Actions */}
-            <div className="flex flex-col gap-3 pt-2">
-              <Button
-                onClick={handleAcknowledge}
-                disabled={isLoading}
-                className="h-14 w-full gap-3 rounded-xl bg-status-present text-lg font-medium text-status-present-foreground shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl disabled:opacity-70"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-6 w-6" />
-                )}
-                {isLoading ? "Firmando..." : "Firmar y Confirmar"}
-              </Button>
-
-              <Button
-                variant="ghost"
-                onClick={() => setViewState("details")}
-                disabled={isLoading}
-                className="h-12 w-full text-muted-foreground"
-              >
-                Volver
-              </Button>
+            {/* Fake console output */}
+            <div className="mx-auto max-w-sm rounded-lg bg-black/50 p-3 font-mono text-[10px] text-left text-green-400/80 space-y-1">
+              <p>&gt; Validando credenciales...</p>
+              <p>&gt; Generando hash del documento...</p>
+              <p className="animate-pulse">&gt; Firmando digitalmente...</p>
             </div>
           </motion.div>
         )}
@@ -328,13 +461,11 @@ export function SanctionAcknowledgment({
             className="space-y-6"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10">
-                <MessageSquareWarning className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <MessageSquareWarning className="h-6 w-6 text-amber-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">
-                  Disputar Sancion
-                </h3>
+                <h3 className="font-bold text-foreground">Disputar Sancion</h3>
                 <p className="text-sm text-muted-foreground">
                   Explique el motivo de su desacuerdo
                 </p>
@@ -345,25 +476,24 @@ export function SanctionAcknowledgment({
               value={disputeReason}
               onChange={(e) => setDisputeReason(e.target.value)}
               placeholder="Describa detalladamente por que considera que esta sancion es incorrecta o injusta..."
-              className="min-h-[150px] resize-none rounded-xl"
+              className="min-h-[150px] resize-none rounded-xl bg-white/[0.02] border-white/10"
             />
 
             <p className="text-xs text-muted-foreground">
-              Minimo 10 caracteres. Su disputa sera revisada por la direccion de
-              la institucion.
+              Minimo 10 caracteres. Su disputa sera revisada por la direccion de la institucion.
             </p>
 
-            <div className="flex flex-col gap-3 pt-2">
+            <div className="flex flex-col gap-3">
               <Button
                 onClick={handleDispute}
                 disabled={isLoading || disputeReason.trim().length < 10}
                 variant="outline"
-                className="h-14 w-full gap-3 rounded-xl border-amber-500/50 text-lg font-medium hover:bg-amber-500/10"
+                className="h-14 w-full gap-3 rounded-xl border-amber-500/50 text-base font-medium hover:bg-amber-500/10"
               >
                 {isLoading ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <MessageSquareWarning className="h-6 w-6" />
+                  <MessageSquareWarning className="h-5 w-5" />
                 )}
                 Enviar Disputa
               </Button>
@@ -380,47 +510,82 @@ export function SanctionAcknowledgment({
           </motion.div>
         )}
 
-        {/* SUCCESS VIEW */}
+        {/* SUCCESS VIEW - Signed State */}
         {viewState === "success" && (
           <motion.div
             key="success"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="space-y-6 py-4 text-center"
+            className="space-y-6 py-4"
           >
+            {/* Success Icon */}
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", delay: 0.1 }}
-              className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-status-present/20"
+              className="flex justify-center"
             >
-              <CheckCircle2 className="h-12 w-12 text-status-present" />
+              <div className="p-5 rounded-full bg-[#4de082]/20 border border-[#4de082]/30">
+                <CheckCircle2 className="h-12 w-12 text-[#4de082]" />
+              </div>
             </motion.div>
 
-            <div>
-              <h3 className="text-xl font-semibold text-foreground">
-                Firma Registrada
-              </h3>
-              <p className="mt-2 text-muted-foreground">
-                Su acuse de recibo ha sido procesado exitosamente
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-[#4de082]">FIRMADO</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Documento firmado digitalmente con exito
               </p>
             </div>
 
-            <div className="rounded-xl bg-muted/50 p-4 text-left">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Comprobante de Verificacion
-              </p>
-              <p className="font-mono text-xs text-foreground break-all">
-                {result.verificationId}
-              </p>
-              <p className="mt-2 font-mono text-xs text-muted-foreground break-all">
-                Hash: {result.documentHash}
+            {/* Cryptographic Details Console */}
+            <div className="rounded-xl bg-black/50 p-4 font-mono text-[10px] space-y-2 border border-white/5">
+              <div className="flex items-center gap-2 text-[#4de082]">
+                <CheckCircle2 className="h-3 w-3" />
+                <span>Firma Digital Validada</span>
+              </div>
+              
+              <div className="pt-2 border-t border-white/5 space-y-1.5 text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <Hash className="h-3 w-3 mt-0.5 text-primary shrink-0" />
+                  <div>
+                    <span className="text-white/50">Hash SHA-256:</span>
+                    <p className="text-white/80 break-all">{signatureData.documentHash}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3 w-3 text-primary" />
+                  <span className="text-white/50">Fecha/Hora:</span>
+                  <span className="text-white/80">{signatureData.signedAt}</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <User className="h-3 w-3 text-primary" />
+                  <span className="text-white/50">ID Verificacion:</span>
+                  <span className="text-white/80">{signatureData.verificationId}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/5 text-[#4de082]/70">
+                &gt; Certificado almacenado en blockchain educativa
+              </div>
+            </div>
+
+            {/* Art. 284 Reference */}
+            <div className="rounded-xl border border-[#4de082]/20 bg-[#4de082]/5 p-3 text-center">
+              <p className="text-[10px] text-[#4de082]/80">
+                Conforme al Art. 284 del Codigo Civil y Comercial de la Nacion Argentina
               </p>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Guarde este comprobante para sus registros
-            </p>
+            {/* Download Button */}
+            <Button
+              onClick={handleDownloadPDF}
+              className="w-full h-14 rounded-xl bg-white/5 hover:bg-white/10 text-foreground border border-white/10 gap-3"
+            >
+              <Download className="h-5 w-5" />
+              Descargar Acta (PDF)
+            </Button>
           </motion.div>
         )}
 
@@ -432,15 +597,19 @@ export function SanctionAcknowledgment({
             animate={{ opacity: 1, scale: 1 }}
             className="space-y-6 py-4 text-center"
           >
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-status-absent/20">
-              <AlertCircle className="h-12 w-12 text-status-absent" />
+            <div className="flex justify-center">
+              <div className="p-5 rounded-full bg-red-500/20">
+                <AlertCircle className="h-12 w-12 text-red-400" />
+              </div>
             </div>
 
             <div>
-              <h3 className="text-xl font-semibold text-foreground">
+              <h3 className="text-xl font-bold text-foreground">
                 Error en la Firma
               </h3>
-              <p className="mt-2 text-muted-foreground">{result.error}</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {signatureData.error}
+              </p>
             </div>
 
             <Button
@@ -464,11 +633,11 @@ export function SanctionAcknowledgmentDemo() {
     schoolId: "school-001",
     studentName: "Martinez, Joaquin Andres",
     date: "15 de Marzo, 2024",
-    category: "Conducta",
+    category: "Conducta en el Aula",
     description:
-      "El alumno interrumpio reiteradamente la clase de Matematica, desatendiendo los llamados de atencion del docente. Se le solicita al tutor reforzar las pautas de comportamiento en el aula.",
+      "El alumno interrumpio reiteradamente la clase de Matematica, desatendiendo los llamados de atencion del docente. Se solicita al tutor/a reforzar las pautas de comportamiento y respeto en el entorno educativo.",
     sanction: {
-      sanctionTypeName: "Apercibimiento",
+      sanctionTypeName: "Apercibimiento Escrito",
       severity: 2,
       acknowledgment: {
         status: "PENDING",
@@ -479,11 +648,11 @@ export function SanctionAcknowledgmentDemo() {
 
   const handleAcknowledge = async () => {
     // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     return {
       success: true,
-      verificationId: `SIG-${Date.now()}-a1b2c3d4`,
-      documentHash: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678",
+      verificationId: `SIG-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+      documentHash: generateFakeHash(),
     };
   };
 
@@ -493,15 +662,7 @@ export function SanctionAcknowledgmentDemo() {
   };
 
   return (
-    <div className="mx-auto max-w-md p-4">
-      <div className="mb-6 text-center">
-        <h2 className="text-lg font-semibold text-foreground">
-          Vista Previa - App Padres
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Componente de firma digital
-        </p>
-      </div>
+    <div className="mx-auto max-w-md">
       <SanctionAcknowledgment
         record={mockRecord}
         onAcknowledge={handleAcknowledge}

@@ -2,343 +2,151 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
+  LayoutDashboard,
   ClipboardList,
+  Users,
+  BarChart3,
+  Calendar,
+  Settings,
   GraduationCap,
   BookOpen,
-  LayoutDashboard,
-  ChevronLeft,
-  ChevronRight,
-  School,
-  Layers,
-  Rocket,
+  Plus,
+  ShieldCheck,
+  MessageSquare,
+  FileText,
+  Megaphone,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle, ThemeToggleCompact } from "@/components/theme-toggle";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useState, useEffect } from "react";
-import { ContextSelector, ContextSelectorCompact } from "./context-selector";
+import { useAuth, Role } from "@/lib/context/auth-context";
 
 // ============================================
-// NAVIGATION ITEMS
+// NAVIGATION ITEMS BY ROLE
 // ============================================
 
-const NAV_ITEMS = [
-  {
-    id: "dashboard",
-    label: "Panel",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    description: "Vision global de la escuela",
-  },
-  {
-    id: "attendance",
-    label: "Asistencia",
-    href: "/attendance",
-    icon: ClipboardList,
-    description: "Toma de lista diaria",
-  },
-  {
-    id: "grades",
-    label: "Calificaciones",
-    href: "/grades",
-    icon: GraduationCap,
-    description: "Carga de notas por materia",
-  },
-  {
-    id: "sanctions",
-    label: "Convivencia",
-    href: "/sanctions",
-    icon: BookOpen,
-    description: "Observaciones y sanciones",
-  },
-  {
-    id: "promotion",
-    label: "Promociones",
-    href: "/promotion",
-    icon: Rocket,
-    description: "Pase entre niveles",
-  },
-] as const;
+const NAV_ITEMS_ADMIN = [
+  { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
+  { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
+  { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
+  { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
+  { id: "comunicados", label: "Comunicados", href: "/comunicados", icon: Megaphone },
+  { id: "import", label: "Importar Matricula", href: "/admin/import", icon: Upload },
+  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
+  { id: "users", label: "Usuarios", href: "/users", icon: Users },
+  { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
+  { id: "permissions", label: "Permisos", href: "/permissions", icon: ShieldCheck },
+  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
+];
+
+const NAV_ITEMS_PRECEPTOR = [
+  { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
+  { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
+  { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
+  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
+  { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
+  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
+];
+
+const NAV_ITEMS_DOCENTE = [
+  { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
+  { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
+  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
+  { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
+  { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
+  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
+];
+
+const NAV_ITEMS_FAMILIA = [
+  { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
+  { id: "comunidad", label: "Muro Escolar", href: "/comunidad", icon: MessageSquare },
+  { id: "tramites", label: "Tramites", href: "/tramites", icon: FileText },
+  { id: "profile", label: "Perfil Alumno", href: "/student", icon: GraduationCap },
+  { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
+];
+
+function getNavItems(role: Role) {
+  switch (role) {
+    case "ADMIN":
+      return NAV_ITEMS_ADMIN;
+    case "DOCENTE":
+      return NAV_ITEMS_DOCENTE;
+    case "FAMILIA":
+      return NAV_ITEMS_FAMILIA;
+    case "PRECEPTOR":
+      return NAV_ITEMS_PRECEPTOR;
+    default:
+      return [];
+  }
+}
 
 // ============================================
-// SIDEBAR NAVIGATION (Desktop)
+// GLOBAL NAV COMPONENT
 // ============================================
 
 interface GlobalNavProps {
-  schoolName?: string;
-  userName?: string;
-  userRole?: string;
+  className?: string;
 }
 
-export function GlobalNav({
-  schoolName = "Escuela Demo",
-  userName = "Preceptor",
-  userRole = "PRECEPTOR",
-}: GlobalNavProps) {
+export function GlobalNav({ className }: GlobalNavProps) {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const { role } = useAuth();
+  const navItems = getNavItems(role);
 
-  // Detect mobile
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // On mobile, render the bottom tabs
-  if (isMobile) {
-    return <MobileBottomNav pathname={pathname} />;
-  }
+  if (!role) return null;
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <motion.aside
-        initial={false}
-        animate={{ width: isCollapsed ? 72 : 256 }}
-        transition={{ duration: 0.2, ease: "easeInOut" }}
-        className={cn(
-          "fixed left-0 top-0 bottom-0 z-50",
-          "flex flex-col",
-          "bg-sidebar border-r border-sidebar-border",
-          "transition-theme"
-        )}
-      >
-        {/* Header */}
-        <div className="flex items-center h-16 px-4 border-b border-sidebar-border shrink-0">
-          <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
-            <div className="size-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-              <School className="size-5 text-primary-foreground" />
-            </div>
-            {!isCollapsed && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="min-w-0"
-              >
-                <h1 className="font-semibold text-sidebar-foreground truncate">
-                  Sequency
-                </h1>
-                <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {schoolName}
-                </p>
-              </motion.div>
+    <nav className={cn("flex flex-col gap-1", className)}>
+      {navItems.map((item) => {
+        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const Icon = item.icon;
+
+        return (
+          <Link
+            key={item.id}
+            href={item.href}
+            className={cn(
+              "relative flex items-center gap-3 px-3 py-2.5 rounded-xl",
+              "text-sm transition-all duration-200",
+              "hover:bg-white/5",
+              "active:scale-[0.98]",
+              isActive
+                ? "text-primary bg-primary/15 font-medium border border-primary/20"
+                : "text-muted-foreground hover:text-foreground border border-transparent"
             )}
+          >
+            {isActive && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-full" />
+            )}
+            <Icon className="size-[18px] shrink-0" />
+            <span className="truncate">{item.label}</span>
           </Link>
-        </div>
+        );
+      })}
 
-        {/* Context Selector */}
-        <div className="px-3 py-3 border-b border-sidebar-border">
-          <ContextSelector isCollapsed={isCollapsed} />
-        </div>
+      {/* Separator */}
+      <div className="h-px bg-white/5 my-3" />
 
-        {/* Navigation Items */}
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = item.icon;
-
-            return (
-              <Tooltip key={item.id}>
-                <TooltipTrigger asChild>
-                  <Link href={item.href}>
-                    <motion.div
-                      className={cn(
-                        "relative flex items-center gap-3 px-3 py-3 rounded-xl",
-                        "transition-all duration-200",
-                        "hover:bg-sidebar-accent",
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-primary"
-                          : "text-sidebar-foreground/70 hover:text-sidebar-foreground"
-                      )}
-                      whileHover={{ x: 2 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      {/* Active indicator */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeTab"
-                          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full bg-sidebar-primary"
-                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                        />
-                      )}
-
-                      <Icon className={cn(
-                        "size-5 shrink-0",
-                        isActive && "text-sidebar-primary"
-                      )} />
-
-                      {!isCollapsed && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="min-w-0"
-                        >
-                          <span className={cn(
-                            "block text-sm font-medium truncate",
-                            isActive && "text-sidebar-primary"
-                          )}>
-                            {item.label}
-                          </span>
-                          <span className="block text-xs text-sidebar-foreground/50 truncate">
-                            {item.description}
-                          </span>
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  </Link>
-                </TooltipTrigger>
-                {isCollapsed && (
-                  <TooltipContent side="right" sideOffset={12}>
-                    <p className="font-medium">{item.label}</p>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            );
-          })}
-        </nav>
-
-        {/* Footer with Theme Toggle and Collapse */}
-        <div className="border-t border-sidebar-border p-3 space-y-3">
-          {/* Theme Toggle */}
-          <div className={cn(
-            "flex items-center",
-            isCollapsed ? "justify-center" : "justify-between px-2"
-          )}>
-            {!isCollapsed && (
-              <span className="text-xs text-sidebar-foreground/60 font-medium">
-                Tema
-              </span>
-            )}
-            {isCollapsed ? <ThemeToggleCompact /> : <ThemeToggle />}
-          </div>
-
-          {/* Collapse Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className={cn(
-                  "w-full justify-center text-sidebar-foreground/60 hover:text-sidebar-foreground",
-                  "hover:bg-sidebar-accent"
-                )}
-              >
-                {isCollapsed ? (
-                  <ChevronRight className="size-4" />
-                ) : (
-                  <>
-                    <ChevronLeft className="size-4 mr-2" />
-                    <span className="text-xs">Colapsar</span>
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right">
-                Expandir menu
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-      </motion.aside>
-    </TooltipProvider>
+      {/* New Record Button - Only for staff roles */}
+      {role !== "FAMILIA" && (
+        <button
+          className={cn(
+            "w-full h-10 rounded-xl",
+            "bg-primary text-primary-foreground",
+            "text-sm font-medium",
+            "flex items-center justify-center gap-2",
+            "hover:brightness-110 transition-all",
+            "active:scale-[0.98]",
+            "shadow-lg shadow-primary/20"
+          )}
+        >
+          <Plus className="size-4" />
+          Nuevo Registro
+        </button>
+      )}
+    </nav>
   );
 }
 
-// ============================================
-// MOBILE BOTTOM NAVIGATION
-// ============================================
-
-function MobileBottomNav({ pathname }: { pathname: string }) {
-  return (
-    <>
-      {/* Top context bar for mobile */}
-      <div className="fixed top-0 left-0 right-0 z-50 glass-strong border-b border-glass-border safe-area-top">
-        <div className="flex items-center justify-between h-14 px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-              <School className="size-4 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sm">Sequency</span>
-          </Link>
-          <ContextSelectorCompact />
-        </div>
-      </div>
-
-      {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-glass-border">
-        <div className="flex items-center justify-around h-16 px-2 safe-area-bottom">
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full gap-1",
-                "transition-colors duration-200",
-                isActive
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              )}
-            >
-              <motion.div
-                whileTap={{ scale: 0.9 }}
-                className="relative"
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="mobileActiveTab"
-                    className="absolute -inset-2 rounded-xl bg-primary/10"
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                )}
-                <Icon className={cn(
-                  "size-5 relative z-10",
-                  isActive && "text-primary"
-                )} />
-              </motion.div>
-              <span className={cn(
-                "text-[10px] font-medium",
-                isActive && "text-primary"
-              )}>
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-        
-        {/* Theme toggle in mobile */}
-        <div className="flex flex-col items-center justify-center flex-1 h-full gap-1">
-          <ThemeToggleCompact />
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Tema
-          </span>
-        </div>
-      </div>
-      </nav>
-    </>
-  );
-}
-
-// ============================================
-// EXPORTS
-// ============================================
-
-export { NAV_ITEMS };
+// Export nav items for use in other components
+export { NAV_ITEMS_PRECEPTOR as NAV_ITEMS };

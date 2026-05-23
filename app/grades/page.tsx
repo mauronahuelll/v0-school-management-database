@@ -1,10 +1,27 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { GradesGrid } from "@/components/grades";
-import { AppShell } from "@/components/layout";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
+import { BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   CourseGradeInfo,
   StudentGradeRow,
@@ -18,30 +35,58 @@ import { calculateSimpleAverage, isPassingGrade, roundToDecimals } from "@/lib/t
 // MOCK DATA FOR DEMO
 // ============================================
 
-const MOCK_SCALE: GradeScale = {
+const MOCK_SCALE_NUMERIC: GradeScale = {
   type: "NUMERIC",
-  minPassing: 6,
+  minPassing: 7,
   maxGrade: 10,
 };
 
-const MOCK_ASSESSMENTS: AssessmentConfig[] = [
+const MOCK_SCALE_CONCEPTUAL: GradeScale = {
+  type: "CONCEPTUAL",
+  minPassing: 7,
+  maxGrade: 10,
+  conceptualValues: ["TEA", "TEP", "TED"],
+};
+
+const MOCK_SUBJECTS = [
+  { id: "math-1", name: "Matematica", shortName: "MAT", defaultScale: "NUMERIC" },
+  { id: "psico-1", name: "Psicologia del Deporte", shortName: "PSI", defaultScale: "NUMERIC" },
+  { id: "lit-1", name: "Literatura", shortName: "LIT", defaultScale: "NUMERIC" },
+  { id: "hist-1", name: "Historia", shortName: "HIS", defaultScale: "NUMERIC" },
+  { id: "art-1", name: "Arte y Expresion", shortName: "ART", defaultScale: "CONCEPTUAL" },
+  { id: "efi-1", name: "Educacion Fisica", shortName: "EFI", defaultScale: "CONCEPTUAL" },
+];
+
+const MOCK_PERIODS = [
+  { id: "T1", name: "Primer Trimestre" },
+  { id: "T2", name: "Segundo Trimestre" },
+  { id: "T3", name: "Tercer Trimestre" },
+];
+
+const MOCK_ASSESSMENTS_NUMERIC: AssessmentConfig[] = [
   { id: "eval-1", name: "Parcial 1", type: "EXAM", weight: 1, maxValue: 10 },
   { id: "eval-2", name: "TP 1", type: "HOMEWORK", weight: 1, maxValue: 10 },
   { id: "eval-3", name: "Parcial 2", type: "EXAM", weight: 1, maxValue: 10 },
   { id: "eval-4", name: "TP 2", type: "PROJECT", weight: 1, maxValue: 10 },
-  { id: "eval-5", name: "Integradora", type: "FINAL", weight: 1, maxValue: 10 },
+];
+
+const MOCK_ASSESSMENTS_CONCEPTUAL: AssessmentConfig[] = [
+  { id: "eval-c1", name: "Evaluacion 1", type: "EXAM", weight: 1, maxValue: 10 },
+  { id: "eval-c2", name: "Trabajo Practico", type: "PROJECT", weight: 1, maxValue: 10 },
+  { id: "eval-c3", name: "Evaluacion Final", type: "EXAM", weight: 1, maxValue: 10 },
 ];
 
 const generateMockGrade = (
   studentId: string,
   assessmentId: string,
-  value: number | null
+  value: number | null,
+  conceptual: string | null = null
 ): GradeEntry => ({
   id: `${studentId}-${assessmentId}`,
   studentId,
   assessmentId,
   value,
-  conceptual: null,
+  conceptual,
   isPublished: false,
   isRecovery: false,
   createdAt: new Date(),
@@ -50,192 +95,459 @@ const generateMockGrade = (
 });
 
 const MOCK_STUDENTS_DATA = [
-  { id: "s1", firstName: "Sofia", lastName: "Alvarez", photo: null, legajo: "2024-001", grades: [8, 7, 9, 8, 7] },
-  { id: "s2", firstName: "Mateo", lastName: "Benitez", photo: null, legajo: "2024-002", grades: [6, 8, 5, 7, 6] },
-  { id: "s3", firstName: "Valentina", lastName: "Castro", photo: null, legajo: "2024-003", grades: [10, 9, 10, 10, 9] },
-  { id: "s4", firstName: "Lucas", lastName: "Diaz", photo: null, legajo: "2024-004", grades: [4, 5, 4, 6, null] },
-  { id: "s5", firstName: "Martina", lastName: "Fernandez", photo: null, legajo: "2024-005", grades: [7, 8, 7, 8, 7] },
-  { id: "s6", firstName: "Benjamin", lastName: "Garcia", photo: null, legajo: "2024-006", grades: [6, 6, 7, 5, 6] },
-  { id: "s7", firstName: "Emma", lastName: "Hernandez", photo: null, legajo: "2024-007", grades: [9, 9, 8, 9, 9] },
-  { id: "s8", firstName: "Joaquin", lastName: "Lopez", photo: null, legajo: "2024-008", grades: [5, 4, 5, 5, null] },
-  { id: "s9", firstName: "Isabella", lastName: "Martinez", photo: null, legajo: "2024-009", grades: [7, 7, 8, 7, 7] },
-  { id: "s10", firstName: "Thiago", lastName: "Nunez", photo: null, legajo: "2024-010", grades: [8, 8, 8, 9, 8] },
-  { id: "s11", firstName: "Mia", lastName: "Ortiz", photo: null, legajo: "2024-011", grades: [6, 7, 6, 7, 6] },
-  { id: "s12", firstName: "Santiago", lastName: "Perez", photo: null, legajo: "2024-012", grades: [3, 4, 3, 5, null] },
-  { id: "s13", firstName: "Olivia", lastName: "Quiroga", photo: null, legajo: "2024-013", grades: [9, 10, 9, 9, 10] },
-  { id: "s14", firstName: "Tomas", lastName: "Rodriguez", photo: null, legajo: "2024-014", grades: [7, 6, 7, 7, 7] },
-  { id: "s15", firstName: "Camila", lastName: "Sanchez", photo: null, legajo: "2024-015", grades: [8, 9, 8, 8, 8] },
+  { id: "s1", firstName: "Sofia", lastName: "Alvarez", legajo: "2024-001", grades: [8, 7, 9, 8], conceptual: ["TEA", "TEA", "TEA"] },
+  { id: "s2", firstName: "Mateo", lastName: "Benitez", legajo: "2024-002", grades: [6, 8, 5, 7], conceptual: ["TEP", "TEP", "TED"] },
+  { id: "s3", firstName: "Valentina", lastName: "Castro", legajo: "2024-003", grades: [10, 9, 10, 10], conceptual: ["TEA", "TEA", "TEA"] },
+  { id: "s4", firstName: "Lucas", lastName: "Diaz", legajo: "2024-004", grades: [4, 5, 4, 6], conceptual: ["TED", "TED", "TED"] },
+  { id: "s5", firstName: "Martina", lastName: "Fernandez", legajo: "2024-005", grades: [7, 8, 7, 8], conceptual: ["TEP", "TEA", "TEP"] },
+  { id: "s6", firstName: "Benjamin", lastName: "Garcia", legajo: "2024-006", grades: [6, 6, 7, 5], conceptual: ["TEP", "TEP", "TED"] },
+  { id: "s7", firstName: "Emma", lastName: "Hernandez", legajo: "2024-007", grades: [9, 9, 8, 9], conceptual: ["TEA", "TEA", "TEA"] },
+  { id: "s8", firstName: "Joaquin", lastName: "Lopez", legajo: "2024-008", grades: [5, 4, 5, 5], conceptual: ["TED", "TED", "TED"] },
+  { id: "s9", firstName: "Isabella", lastName: "Martinez", legajo: "2024-009", grades: [7, 7, 8, 7], conceptual: ["TEP", "TEP", "TEP"] },
+  { id: "s10", firstName: "Thiago", lastName: "Nunez", legajo: "2024-010", grades: [8, 8, 8, 9], conceptual: ["TEA", "TEP", "TEA"] },
+  { id: "s11", firstName: "Mia", lastName: "Ortiz", legajo: "2024-011", grades: [6, 7, 6, 7], conceptual: ["TEP", "TEP", "TEP"] },
+  { id: "s12", firstName: "Santiago", lastName: "Perez", legajo: "2024-012", grades: [3, 4, 3, 5], conceptual: ["TED", "TED", "TED"] },
 ];
 
 const createMockStudentRow = (
-  data: typeof MOCK_STUDENTS_DATA[0]
+  data: typeof MOCK_STUDENTS_DATA[0],
+  grades: Record<string, GradeEntry | null>,
+  scale: GradeScale
 ): StudentGradeRow => {
-  const grades: Record<string, GradeEntry | null> = {};
-  
-  MOCK_ASSESSMENTS.forEach((assessment, index) => {
-    const value = data.grades[index];
-    grades[assessment.id] = value !== null ? generateMockGrade(data.id, assessment.id, value) : null;
-  });
-
   const gradeEntries = Object.values(grades);
-  const average = calculateSimpleAverage(gradeEntries);
+  const average = scale.type === "NUMERIC" ? calculateSimpleAverage(gradeEntries) : null;
 
   return {
     studentId: data.id,
     firstName: data.firstName,
     lastName: data.lastName,
-    photoUrl: data.photo ?? undefined,
+    photoUrl: undefined,
     enrollmentNumber: data.legajo,
     grades,
     average,
-    isPassing: average !== null && isPassingGrade(average, MOCK_SCALE),
-    isComplete: gradeEntries.every((g) => g !== null && g.value !== null),
+    isPassing: average !== null && isPassingGrade(average, scale),
+    isComplete: gradeEntries.every((g) => g !== null && (g.value !== null || g.conceptual !== null)),
   };
 };
-
-const INITIAL_STUDENTS: StudentGradeRow[] = MOCK_STUDENTS_DATA.map(createMockStudentRow);
 
 // ============================================
 // PAGE COMPONENT
 // ============================================
 
 export default function GradesPage() {
-  const [students, setStudents] = useState<StudentGradeRow[]>(INITIAL_STUDENTS);
+  const [mounted, setMounted] = useState(false);
+  
+  // Selection states
+  const [selectedSubjectId, setSelectedSubjectId] = useState(MOCK_SUBJECTS[0].id);
+  const [selectedPeriodId, setSelectedPeriodId] = useState(MOCK_PERIODS[0].id);
+  
+  // Determine grading type based on selected subject
+  const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
+  const gradingType = selectedSubject.defaultScale as "NUMERIC" | "CONCEPTUAL";
+  const currentScale = gradingType === "NUMERIC" ? MOCK_SCALE_NUMERIC : MOCK_SCALE_CONCEPTUAL;
+  const currentAssessments = gradingType === "NUMERIC" ? MOCK_ASSESSMENTS_NUMERIC : MOCK_ASSESSMENTS_CONCEPTUAL;
+
+  // Grades data with real-time calculation
+  const [numericGradesData, setNumericGradesData] = useState<Record<string, Record<string, number | null>>>(() => {
+    const data: Record<string, Record<string, number | null>> = {};
+    MOCK_STUDENTS_DATA.forEach((student) => {
+      data[student.id] = {};
+      MOCK_ASSESSMENTS_NUMERIC.forEach((assessment, idx) => {
+        data[student.id][assessment.id] = student.grades[idx] ?? null;
+      });
+    });
+    return data;
+  });
+
+  const [conceptualGradesData, setConceptualGradesData] = useState<Record<string, Record<string, string | null>>>(() => {
+    const data: Record<string, Record<string, string | null>> = {};
+    MOCK_STUDENTS_DATA.forEach((student) => {
+      data[student.id] = {};
+      MOCK_ASSESSMENTS_CONCEPTUAL.forEach((assessment, idx) => {
+        data[student.id][assessment.id] = student.conceptual[idx] ?? null;
+      });
+    });
+    return data;
+  });
+
   const [publicationStatus, setPublicationStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
   const [lastPublishedAt, setLastPublishedAt] = useState<Date | undefined>();
+  const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [isTrimesterClosed, setIsTrimesterClosed] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Calculate students with real-time averages
+  const students: StudentGradeRow[] = useMemo(() => {
+    return MOCK_STUDENTS_DATA.map((studentData) => {
+      const studentGrades: Record<string, GradeEntry | null> = {};
+      
+      currentAssessments.forEach((assessment, idx) => {
+        if (gradingType === "NUMERIC") {
+          const value = numericGradesData[studentData.id]?.[assessment.id] ?? null;
+          studentGrades[assessment.id] = value !== null 
+            ? generateMockGrade(studentData.id, assessment.id, value)
+            : null;
+        } else {
+          const conceptual = conceptualGradesData[studentData.id]?.[assessment.id] ?? null;
+          studentGrades[assessment.id] = conceptual !== null 
+            ? generateMockGrade(studentData.id, assessment.id, null, conceptual)
+            : null;
+        }
+      });
+
+      return createMockStudentRow(studentData, studentGrades, currentScale);
+    });
+  }, [numericGradesData, conceptualGradesData, gradingType, currentScale, currentAssessments]);
+
+  // Statistics (only for numeric grades)
+  const stats = useMemo(() => {
+    if (gradingType !== "NUMERIC") {
+      const teaCount = students.filter(s => {
+        const grades = Object.values(s.grades);
+        return grades.some(g => g?.conceptual === "TEA");
+      }).length;
+      const tedCount = students.filter(s => {
+        const grades = Object.values(s.grades);
+        return grades.some(g => g?.conceptual === "TED");
+      }).length;
+      return { 
+        total: students.length, 
+        passing: teaCount, 
+        failing: tedCount, 
+        averageGeneral: 0,
+        isConceptual: true 
+      };
+    }
+
+    const total = students.length;
+    const passing = students.filter((s) => s.isPassing).length;
+    const failing = students.filter((s) => s.average !== null && !s.isPassing).length;
+    const averageGeneral = students.reduce((acc, s) => acc + (s.average || 0), 0) / total;
+    return { total, passing, failing, averageGeneral: roundToDecimals(averageGeneral), isConceptual: false };
+  }, [students, gradingType]);
+
+  const selectedPeriod = MOCK_PERIODS.find((p) => p.id === selectedPeriodId)!;
 
   const courseInfo: CourseGradeInfo = {
     courseId: "course-1",
     courseName: "4to Ano",
     divisionId: "div-b",
     divisionName: "B",
-    periodId: "T1",
-    periodName: "Primer Trimestre",
+    periodId: selectedPeriodId,
+    periodName: selectedPeriod.name,
     subject: {
-      id: "math-1",
-      name: "Matematica",
-      shortName: "MAT",
+      id: selectedSubjectId,
+      name: selectedSubject.name,
+      shortName: selectedSubject.shortName,
       teacherId: "teacher-1",
       teacherName: "Prof. Maria Gonzalez",
       weeklyHours: 5,
-      gradeScale: MOCK_SCALE,
+      gradeScale: currentScale,
       hasCustomScale: false,
     },
-    assessments: MOCK_ASSESSMENTS,
+    assessments: currentAssessments,
     students,
     publicationStatus,
     lastPublishedAt,
     lastPublishedBy: lastPublishedAt ? "Prof. Maria Gonzalez" : undefined,
   };
 
-  // Handle grade update
+  // Handle grade update with real-time average recalculation
   const handleGradeUpdate = useCallback(
-    async (studentId: string, assessmentId: string, value: number | null) => {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 300));
+    async (studentId: string, assessmentId: string, value: number | null, conceptual?: string | null) => {
+      if (isTrimesterClosed) {
+        toast.error("El trimestre esta cerrado. No se pueden modificar las notas.");
+        return;
+      }
 
-      setStudents((prev) =>
-        prev.map((student) => {
-          if (student.studentId !== studentId) return student;
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-          const newGrades = { ...student.grades };
-          
-          if (value === null) {
-            newGrades[assessmentId] = null;
-          } else {
-            newGrades[assessmentId] = {
-              id: `${studentId}-${assessmentId}`,
-              studentId,
-              assessmentId,
-              value: roundToDecimals(value),
-              conceptual: null,
-              isPublished: publicationStatus === "PUBLISHED",
-              isRecovery: false,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              createdBy: "teacher-1",
-            };
-          }
-
-          // Recalculate simple arithmetic average
-          const gradeEntries = Object.values(newGrades);
-          const average = calculateSimpleAverage(gradeEntries);
-
-          return {
-            ...student,
-            grades: newGrades,
-            average,
-            isPassing: average !== null && isPassingGrade(average, MOCK_SCALE),
-            isComplete: gradeEntries.every((g) => g !== null && g.value !== null),
-          };
-        })
-      );
+      if (gradingType === "NUMERIC") {
+        // Validate numeric input (1-10)
+        if (value !== null && (value < 1 || value > 10)) {
+          toast.error("La nota debe estar entre 1 y 10");
+          return;
+        }
+        setNumericGradesData((prev) => ({
+          ...prev,
+          [studentId]: {
+            ...prev[studentId],
+            [assessmentId]: value !== null ? roundToDecimals(value) : null,
+          },
+        }));
+      } else {
+        setConceptualGradesData((prev) => ({
+          ...prev,
+          [studentId]: {
+            ...prev[studentId],
+            [assessmentId]: conceptual ?? null,
+          },
+        }));
+      }
     },
-    [publicationStatus]
+    [isTrimesterClosed, gradingType]
   );
 
   // Handle publish
   const handlePublish = useCallback(async () => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsPublishing(true);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setPublicationStatus("PUBLISHED");
     setLastPublishedAt(new Date());
+    setIsPublishing(false);
 
-    // Update all grades to published
-    setStudents((prev) =>
-      prev.map((student) => ({
-        ...student,
-        grades: Object.fromEntries(
-          Object.entries(student.grades).map(([key, grade]) => [
-            key,
-            grade ? { ...grade, isPublished: true } : null,
-          ])
-        ),
-      }))
-    );
-
-    toast.success("Notas publicadas", {
+    toast.success("Calificaciones publicadas", {
       description: "Los tutores han sido notificados y pueden ver las notas.",
     });
   }, []);
 
   // Handle unpublish
   const handleUnpublish = useCallback(async () => {
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 500));
-
     setPublicationStatus("DRAFT");
-
-    // Update all grades to unpublished
-    setStudents((prev) =>
-      prev.map((student) => ({
-        ...student,
-        grades: Object.fromEntries(
-          Object.entries(student.grades).map(([key, grade]) => [
-            key,
-            grade ? { ...grade, isPublished: false } : null,
-          ])
-        ),
-      }))
-    );
 
     toast.info("Notas despublicadas", {
       description: "Las notas ya no son visibles para los tutores.",
     });
   }, []);
 
+  // Handle close trimester
+  const handleCloseTrimester = useCallback(async () => {
+    setIsClosing(true);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    setIsTrimesterClosed(true);
+    setPublicationStatus("PUBLISHED");
+    setLastPublishedAt(new Date());
+    setIsCloseDialogOpen(false);
+    setIsClosing(false);
+
+    toast.success("Calificaciones guardadas y promedios congelados con exito", {
+      description: "Las notas fueron enviadas a Secretaria Academica.",
+    });
+  }, []);
+
+  if (!mounted) return null;
+
   return (
-    <AppShell schoolName="Escuela Tecnica N°5">
-      <GradesGrid
-        courseInfo={courseInfo}
-        onGradeUpdate={handleGradeUpdate}
-        onPublish={handlePublish}
-        onUnpublish={handleUnpublish}
-        canPublish={true}
-        isReadOnly={false}
-      />
-      <Toaster position="bottom-center" />
-    </AppShell>
+    <div className="space-y-6">
+      {/* Header with Selectors */}
+      <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">Calificaciones</h1>
+          <p className="text-sm text-white/40 mt-1">
+            Gestion de notas y promedios del periodo activo
+          </p>
+        </div>
+
+        {/* Selectors Row */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Subject Selector */}
+          <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={isTrimesterClosed}>
+            <SelectTrigger className="w-[220px] bg-white/[0.02] border-white/10 text-[#e4e1ea]">
+              <BookOpen className="size-4 mr-2 text-[#d0bcff]" />
+              <SelectValue placeholder="Seleccionar materia" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#131319] border-white/10">
+              {MOCK_SUBJECTS.map((subject) => (
+                <SelectItem key={subject.id} value={subject.id} className="text-[#e4e1ea]">
+                  <div className="flex items-center gap-2">
+                    <span>{subject.name}</span>
+                    {subject.defaultScale === "CONCEPTUAL" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#d0bcff]/10 text-[#d0bcff] font-mono">
+                        TEA/TEP/TED
+                      </span>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Period Selector */}
+          <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId} disabled={isTrimesterClosed}>
+            <SelectTrigger className="w-[180px] bg-white/[0.02] border-white/10 text-[#e4e1ea]">
+              <SelectValue placeholder="Seleccionar periodo" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#131319] border-white/10">
+              {MOCK_PERIODS.map((period) => (
+                <SelectItem key={period.id} value={period.id} className="text-[#e4e1ea]">
+                  {period.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Scale Indicator */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+            gradingType === "NUMERIC" 
+              ? "bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]" 
+              : "bg-white/[0.02] border-white/10 text-white/60"
+          }`}>
+            {gradingType === "NUMERIC" ? (
+              <>
+                <Hash className="size-4" />
+                <span className="text-xs font-medium">Escala 1-10</span>
+              </>
+            ) : (
+              <>
+                <FileText className="size-4" />
+                <span className="text-xs font-medium">Escala Conceptual</span>
+              </>
+            )}
+          </div>
+
+          {/* Close/Publish Button */}
+          {!isTrimesterClosed ? (
+            <Button
+              onClick={() => setIsCloseDialogOpen(true)}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 font-bold"
+            >
+              <Lock className="size-4 mr-2" />
+              Cerrar Periodo y Publicar
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#4de082]/10 border border-[#4de082]/20 text-[#4de082] text-sm">
+              <Lock className="size-4" />
+              <span className="font-medium">Periodo Cerrado</span>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Total Alumnos" value={stats.total} />
+        {stats.isConceptual ? (
+          <>
+            <StatCard 
+              label="Avanzados (TEA)" 
+              value={stats.passing} 
+              color="text-[#4de082]" 
+            />
+            <StatCard 
+              label="Dificultades (TED)" 
+              value={stats.failing} 
+              color="text-[#ffb4ab]"
+            />
+            <StatCard 
+              label="Escala" 
+              value="Conceptual"
+              color="text-[#d0bcff]"
+            />
+          </>
+        ) : (
+          <>
+            <StatCard 
+              label="Aprobados" 
+              value={stats.passing} 
+              color="text-[#4de082]" 
+              subtext={`${Math.round((stats.passing / stats.total) * 100)}%`} 
+            />
+            <StatCard 
+              label="Desaprobados" 
+              value={stats.failing} 
+              color="text-[#ffb4ab]"
+              subtext={`${Math.round((stats.failing / stats.total) * 100)}%`}
+            />
+            <StatCard 
+              label="Promedio General" 
+              value={stats.averageGeneral.toFixed(1)} 
+              color={stats.averageGeneral >= 7 ? "text-[#4de082]" : "text-[#ffb4ab]"}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Grades Grid */}
+      <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 md:p-6 backdrop-blur-md">
+        <GradesGrid
+          courseInfo={courseInfo}
+          onGradeUpdate={handleGradeUpdate}
+          onPublish={handlePublish}
+          onUnpublish={handleUnpublish}
+          canPublish={!isTrimesterClosed}
+          isReadOnly={isTrimesterClosed}
+        />
+      </div>
+
+      {/* Close Period Confirmation Dialog */}
+      <Dialog open={isCloseDialogOpen} onOpenChange={setIsCloseDialogOpen}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-[#ffb4ab]/10">
+                <AlertTriangle className="size-6 text-[#ffb4ab]" />
+              </div>
+              <DialogTitle className="text-xl text-[#e4e1ea]">Cerrar Periodo</DialogTitle>
+            </div>
+            <DialogDescription className="text-white/60 leading-relaxed">
+              Esta accion enviara las calificaciones a Secretaria Academica para su archivo oficial.
+              <span className="block mt-3 p-3 rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 text-[#ffb4ab] text-sm font-medium">
+                Las notas ya no podran ser editadas despues de esta accion.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCloseDialogOpen(false)} 
+              disabled={isClosing}
+              className="border-white/10 text-white/60 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCloseTrimester}
+              disabled={isClosing}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 font-bold"
+            >
+              {isClosing ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Lock className="size-4 mr-2" />
+                  Confirmar Cierre
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Toaster position="bottom-center" theme="dark" />
+    </div>
+  );
+}
+
+// ============================================
+// STAT CARD SUB-COMPONENT
+// ============================================
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  color?: string;
+  subtext?: string;
+}
+
+function StatCard({ label, value, color = "text-[#e4e1ea]", subtext }: StatCardProps) {
+  return (
+    <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl backdrop-blur-md">
+      <p className="text-xs text-white/40 uppercase tracking-wider font-medium">{label}</p>
+      <div className="flex items-baseline gap-2 mt-1">
+        <p className={`text-2xl font-bold ${color}`}>{value}</p>
+        {subtext && <span className="text-xs text-white/40">{subtext}</span>}
+      </div>
+    </div>
   );
 }

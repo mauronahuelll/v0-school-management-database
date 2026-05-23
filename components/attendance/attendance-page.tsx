@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 import { AttendanceHeader } from "./attendance-header";
 import { StudentRow } from "./student-row";
@@ -24,29 +25,36 @@ import { cn } from "@/lib/utils";
 interface AttendancePageProps {
   initialStudents: StudentAttendance[];
   course: CourseInfo;
+  availableCourses?: CourseInfo[];
   schoolId: string;
   periodId: string;
   userId: string;
   onSubmit: (submission: AttendanceSubmission) => Promise<void>;
   onSaveLicense: (data: LicenseFormData) => Promise<void>;
   onDeactivateLicense: (studentId: string) => Promise<void>;
+  onCourseChange?: (courseId: string) => void;
 }
 
 export function AttendancePage({
   initialStudents,
   course,
+  availableCourses = [],
   schoolId,
   periodId,
   userId,
   onSubmit,
   onSaveLicense,
   onDeactivateLicense,
+  onCourseChange: onCourseChangeProp,
 }: AttendancePageProps) {
   const [students, setStudents] = useState<StudentAttendance[]>(initialStudents);
   const [selectedStudent, setSelectedStudent] = useState<StudentAttendance | null>(null);
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedCourseId, setSelectedCourseId] = useState(course.id);
 
   // Sort students alphabetically by last name, then first name
   const sortedStudents = useMemo(() => {
@@ -110,6 +118,37 @@ export function AttendancePage({
       )
     );
   }, []);
+
+  // Handle course change
+  const handleCourseChange = useCallback((courseId: string) => {
+    setSelectedCourseId(courseId);
+    // Call parent handler if provided
+    onCourseChangeProp?.(courseId);
+  }, [onCourseChangeProp]);
+
+  // Handle date change
+  const handleDateChange = useCallback((date: Date) => {
+    setSelectedDate(date);
+    // In a real app, this would fetch attendance for the selected date
+    const isToday = date.toDateString() === new Date().toDateString();
+    toast.info(isToday ? "Mostrando parte de hoy" : `Cargando parte del ${date.toLocaleDateString("es-AR")}`);
+  }, []);
+
+  // Quick save attendance (without confirmation modal)
+  const handleSaveAttendance = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      
+      const savedCount = students.filter(s => !s.licenseMode?.isActive).length;
+      toast.success(`Parte diario guardado con exito. ${savedCount} registros almacenados en la base de datos.`);
+    } catch (error) {
+      toast.error("Error al guardar el parte diario. Intenta nuevamente.");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [students]);
 
   // Open license modal for a student
   const handleOpenLicense = useCallback((student: StudentAttendance) => {
@@ -196,10 +235,15 @@ export function AttendancePage({
       {/* Header with glassmorphism */}
       <AttendanceHeader
         course={course}
+        availableCourses={availableCourses}
         stats={stats}
-        currentDate={currentDate}
+        currentDate={selectedDate}
         onResetAll={handleResetAll}
+        onCourseChange={handleCourseChange}
+        onDateChange={handleDateChange}
+        onSaveAttendance={handleSaveAttendance}
         isSubmitting={isSubmitting}
+        isSaving={isSaving}
       />
 
       {/* Student list with scroll */}

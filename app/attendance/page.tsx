@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
 import { AttendancePage } from "@/components/attendance";
-import { AppShell } from "@/components/layout";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import type {
   StudentAttendance,
   CourseInfo,
@@ -13,21 +15,44 @@ import type {
 // MOCK DATA - Replace with real Firestore data
 // ============================================
 
-const MOCK_COURSE: CourseInfo = {
-  id: "course-4b",
-  name: "4° Año",
-  year: 4,
-  divisionId: "div-b",
-  divisionName: "B",
-  shift: "MORNING",
-  studentCount: 30,
-};
+// Available courses for the selector
+const AVAILABLE_COURSES: CourseInfo[] = [
+  {
+    id: "course-4b",
+    name: "4to Ano",
+    year: 4,
+    divisionId: "div-b",
+    divisionName: "B",
+    shift: "MORNING",
+    studentCount: 30,
+  },
+  {
+    id: "course-5a",
+    name: "5to Ano",
+    year: 5,
+    divisionId: "div-a",
+    divisionName: "A",
+    shift: "MORNING",
+    studentCount: 25,
+  },
+  {
+    id: "course-3c",
+    name: "3er Ano",
+    year: 3,
+    divisionId: "div-c",
+    divisionName: "C",
+    shift: "AFTERNOON",
+    studentCount: 28,
+  },
+];
+
+const MOCK_COURSE: CourseInfo = AVAILABLE_COURSES[0];
 
 const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-1",
-    firstName: "Martín",
-    lastName: "Álvarez",
+    firstName: "Martin",
+    lastName: "Alvarez",
     enrollmentNumber: "2024-001",
     status: "PRESENT",
     stats: { totalAbsences: 3, totalTardies: 2 },
@@ -35,7 +60,7 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-2",
     firstName: "Luciana",
-    lastName: "Benítez",
+    lastName: "Benitez",
     enrollmentNumber: "2024-002",
     status: "PRESENT",
     stats: { totalAbsences: 1, totalTardies: 0 },
@@ -51,12 +76,12 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-4",
     firstName: "Valentina",
-    lastName: "Domínguez",
+    lastName: "Dominguez",
     enrollmentNumber: "2024-004",
     status: "PRESENT",
     licenseMode: {
       isActive: true,
-      reason: "Cirugía programada",
+      reason: "Cirugia programada",
       category: "HEALTH",
       startDate: new Date("2024-03-01"),
       endDate: new Date("2024-03-15"),
@@ -67,8 +92,8 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   },
   {
     id: "student-5",
-    firstName: "Tomás",
-    lastName: "Fernández",
+    firstName: "Tomas",
+    lastName: "Fernandez",
     enrollmentNumber: "2024-005",
     status: "PRESENT",
     stats: { totalAbsences: 0, totalTardies: 0 },
@@ -76,22 +101,22 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-6",
     firstName: "Camila",
-    lastName: "García",
+    lastName: "Garcia",
     enrollmentNumber: "2024-006",
     status: "PRESENT",
     stats: { totalAbsences: 5.5, totalTardies: 3 },
   },
   {
     id: "student-7",
-    firstName: "Nicolás",
-    lastName: "González",
+    firstName: "Nicolas",
+    lastName: "Gonzalez",
     enrollmentNumber: "2024-007",
     status: "PRESENT",
     stats: { totalAbsences: 2, totalTardies: 1 },
   },
   {
     id: "student-8",
-    firstName: "Sofía",
+    firstName: "Sofia",
     lastName: "Herrera",
     enrollmentNumber: "2024-008",
     status: "PRESENT",
@@ -100,7 +125,7 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-9",
     firstName: "Mateo",
-    lastName: "Ibáñez",
+    lastName: "Ibanez",
     enrollmentNumber: "2024-009",
     status: "PRESENT",
     stats: { totalAbsences: 4, totalTardies: 2 },
@@ -108,14 +133,14 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-10",
     firstName: "Isabella",
-    lastName: "Jiménez",
+    lastName: "Jimenez",
     enrollmentNumber: "2024-010",
     status: "PRESENT",
     stats: { totalAbsences: 0.5, totalTardies: 1 },
   },
   {
     id: "student-11",
-    firstName: "Benjamín",
+    firstName: "Benjamin",
     lastName: "Klein",
     enrollmentNumber: "2024-011",
     status: "PRESENT",
@@ -124,7 +149,7 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-12",
     firstName: "Emma",
-    lastName: "López",
+    lastName: "Lopez",
     enrollmentNumber: "2024-012",
     status: "PRESENT",
     stats: { totalAbsences: 2.5, totalTardies: 0 },
@@ -132,14 +157,14 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-13",
     firstName: "Lautaro",
-    lastName: "Martínez",
+    lastName: "Martinez",
     enrollmentNumber: "2024-013",
     status: "PRESENT",
     stats: { totalAbsences: 9, totalTardies: 3 },
   },
   {
     id: "student-14",
-    firstName: "Mía",
+    firstName: "Mia",
     lastName: "Navarro",
     enrollmentNumber: "2024-014",
     status: "PRESENT",
@@ -156,7 +181,7 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-16",
     firstName: "Olivia",
-    lastName: "Pérez",
+    lastName: "Perez",
     enrollmentNumber: "2024-016",
     status: "PRESENT",
     stats: { totalAbsences: 3.5, totalTardies: 2 },
@@ -172,15 +197,15 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-18",
     firstName: "Victoria",
-    lastName: "Rodríguez",
+    lastName: "Rodriguez",
     enrollmentNumber: "2024-018",
     status: "PRESENT",
     stats: { totalAbsences: 0, totalTardies: 2 },
   },
   {
     id: "student-19",
-    firstName: "Joaquín",
-    lastName: "Sánchez",
+    firstName: "Joaquin",
+    lastName: "Sanchez",
     enrollmentNumber: "2024-019",
     status: "PRESENT",
     licenseMode: {
@@ -221,7 +246,7 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-23",
     firstName: "Facundo",
-    lastName: "Yáñez",
+    lastName: "Yanez",
     enrollmentNumber: "2024-023",
     status: "PRESENT",
     stats: { totalAbsences: 5, totalTardies: 2 },
@@ -252,7 +277,7 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   },
   {
     id: "student-27",
-    firstName: "Agustín",
+    firstName: "Agustin",
     lastName: "Castro",
     enrollmentNumber: "2024-027",
     status: "PRESENT",
@@ -261,14 +286,14 @@ const MOCK_STUDENTS: StudentAttendance[] = [
   {
     id: "student-28",
     firstName: "Emilia",
-    lastName: "Díaz",
+    lastName: "Diaz",
     enrollmentNumber: "2024-028",
     status: "PRESENT",
     stats: { totalAbsences: 2, totalTardies: 0 },
   },
   {
     id: "student-29",
-    firstName: "Máximo",
+    firstName: "Maximo",
     lastName: "Espinoza",
     enrollmentNumber: "2024-029",
     status: "PRESENT",
@@ -285,40 +310,22 @@ const MOCK_STUDENTS: StudentAttendance[] = [
 ];
 
 // ============================================
-// MOCK HANDLERS - Replace with real API calls
+// MOCK HANDLERS
 // ============================================
 
 async function handleSubmit(submission: AttendanceSubmission): Promise<void> {
-  // Simulate API call to bulk-record endpoint
-  console.log("[v0] Submitting attendance:", submission);
   await new Promise((resolve) => setTimeout(resolve, 1500));
-  
-  // In production, this would call:
-  // await fetch('/api/attendance/bulk-record', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(submission),
-  // });
-  
-  alert("Asistencia registrada correctamente. Se han enviado las notificaciones.");
+  toast.success("Parte diario registrado exitosamente en el sistema");
 }
 
 async function handleSaveLicense(data: LicenseFormData): Promise<void> {
-  // Simulate API call to save license
-  console.log("[v0] Saving license:", data);
   await new Promise((resolve) => setTimeout(resolve, 800));
-  
-  // In production, this would update:
-  // /schools/{schoolId}/students/{studentId} -> licenseMode field
+  toast.success("Licencia registrada correctamente");
 }
 
 async function handleDeactivateLicense(studentId: string): Promise<void> {
-  // Simulate API call to deactivate license
-  console.log("[v0] Deactivating license for student:", studentId);
   await new Promise((resolve) => setTimeout(resolve, 500));
-  
-  // In production, this would update:
-  // /schools/{schoolId}/students/{studentId} -> licenseMode.isActive = false
+  toast.info("Licencia desactivada");
 }
 
 // ============================================
@@ -326,18 +333,52 @@ async function handleDeactivateLicense(studentId: string): Promise<void> {
 // ============================================
 
 export default function AttendancePageDemo() {
+  const [mounted, setMounted] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseInfo>(MOCK_COURSE);
+  const [students, setStudents] = useState<StudentAttendance[]>(MOCK_STUDENTS);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Handle course change - reload students for the new course
+  const handleCourseChange = useCallback((courseId: string) => {
+    const newCourse = AVAILABLE_COURSES.find(c => c.id === courseId);
+    if (newCourse) {
+      setSelectedCourse(newCourse);
+      // In production, this would fetch real students from the database
+      // For now, we reset all students to PRESENT when changing course
+      setStudents(prev => prev.map(s => ({ ...s, status: "PRESENT" as const })));
+      toast.info(`Cargando estudiantes de ${newCourse.year}° "${newCourse.divisionName}"...`);
+    }
+  }, []);
+
+  // Prevent hydration mismatch
+  if (!mounted) return null;
+
   return (
-    <AppShell schoolName="Escuela Tecnica N°5">
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Parte Diario de Asistencia</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Control de presentismo y seguimiento de alumnos
+        </p>
+      </header>
+
       <AttendancePage
-        initialStudents={MOCK_STUDENTS}
-        course={MOCK_COURSE}
+        initialStudents={students}
+        course={selectedCourse}
+        availableCourses={AVAILABLE_COURSES}
         schoolId="school-demo-123"
         periodId="T1"
         userId="preceptor-1"
         onSubmit={handleSubmit}
         onSaveLicense={handleSaveLicense}
         onDeactivateLicense={handleDeactivateLicense}
+        onCourseChange={handleCourseChange}
       />
-    </AppShell>
+      
+      <Toaster theme="dark" />
+    </div>
   );
 }

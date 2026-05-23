@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -33,6 +33,12 @@ interface SignatureItemProps {
 }
 
 function SignatureItem({ item, index }: SignatureItemProps) {
+  // Fix hydration mismatch for date formatting
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const statusConfig = {
     PENDING: {
       icon: Clock,
@@ -113,10 +119,12 @@ function SignatureItem({ item, index }: SignatureItemProps) {
               {item.tutorName}
             </p>
             <p className="text-xs text-muted-foreground">
-              {item.acknowledgedAt?.toLocaleDateString("es-AR", {
-                day: "2-digit",
-                month: "short",
-              })}
+              {mounted && item.acknowledgedAt
+                ? item.acknowledgedAt.toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "short",
+                  })
+                : "--"}
             </p>
           </div>
         )}
