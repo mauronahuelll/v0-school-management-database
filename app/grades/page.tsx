@@ -75,63 +75,64 @@ const INITIAL_ASSESSMENTS_CONCEPTUAL: AssessmentConfig[] = [
   { id: "eval-c2", name: "Trabajo Practico", type: "PROJECT", weight: 1, maxValue: 10 },
 ];
 
-// MOCK DATA FOR PENDING TOPICS (TEMAS ADEUDADOS)
-interface PendingStudent {
+// ============================================
+// PENDING TOPICS - DERIVED STATE ARCHITECTURE
+// ============================================
+
+interface PendingTopic {
   id: string;
-  firstName: string;
-  lastName: string;
-  legajo: string;
-  topic: string;
-  originYear: string;
-  status: "PENDING" | "IN_PROGRESS" | "ACCREDITED";
-  recoveryGrade: number | null;
-  accreditedAt: Date | null;
+  studentId: string;
+  studentName: string;
+  studentLegajo: string;
+  evaluationId: string;
+  evaluationName: string;
+  originalGrade: number;
+  currentAttempt: number;
+  status: "PENDING" | "CLEARED";
+  clearedGrade: number | null;
+  clearedAt: Date | null;
 }
 
-const MOCK_PENDING_STUDENTS: PendingStudent[] = [
+// Initial pending topics (from previous years - historical data)
+const INITIAL_PENDING_TOPICS: PendingTopic[] = [
   { 
-    id: "p1", 
-    firstName: "Valentina", 
-    lastName: "Castro", 
-    legajo: "2024-003",
-    topic: "Unidad 2: Ecuaciones Cuadraticas",
-    originYear: "3° Ano - 2024",
+    id: "pt-hist-1", 
+    studentId: "s3",
+    studentName: "Valentina Castro",
+    studentLegajo: "2024-003",
+    evaluationId: "eval-hist-1",
+    evaluationName: "Ecuaciones Cuadraticas (3° Ano 2024)",
+    originalGrade: 4,
+    currentAttempt: 2,
     status: "PENDING",
-    recoveryGrade: null,
-    accreditedAt: null,
+    clearedGrade: null,
+    clearedAt: null,
   },
   { 
-    id: "p2", 
-    firstName: "Lucas", 
-    lastName: "Diaz", 
-    legajo: "2024-004",
-    topic: "Unidad 4: Funciones Trigonometricas",
-    originYear: "3° Ano - 2024",
+    id: "pt-hist-2", 
+    studentId: "s4",
+    studentName: "Lucas Diaz",
+    studentLegajo: "2024-004",
+    evaluationId: "eval-hist-2",
+    evaluationName: "Funciones Trigonometricas (3° Ano 2024)",
+    originalGrade: 5,
+    currentAttempt: 1,
     status: "PENDING",
-    recoveryGrade: null,
-    accreditedAt: null,
+    clearedGrade: null,
+    clearedAt: null,
   },
   { 
-    id: "p3", 
-    firstName: "Emma", 
-    lastName: "Hernandez", 
-    legajo: "2024-007",
-    topic: "Unidad 1: Numeros Complejos",
-    originYear: "4° Ano - 2024",
-    status: "IN_PROGRESS",
-    recoveryGrade: null,
-    accreditedAt: null,
-  },
-  { 
-    id: "p4", 
-    firstName: "Thiago", 
-    lastName: "Nunez", 
-    legajo: "2024-010",
-    topic: "Unidad 3: Probabilidad y Estadistica",
-    originYear: "3° Ano - 2023",
+    id: "pt-hist-3", 
+    studentId: "s10",
+    studentName: "Thiago Nunez",
+    studentLegajo: "2024-010",
+    evaluationId: "eval-hist-3",
+    evaluationName: "Probabilidad y Estadistica (3° Ano 2023)",
+    originalGrade: 3,
+    currentAttempt: 3,
     status: "PENDING",
-    recoveryGrade: null,
-    accreditedAt: null,
+    clearedGrade: null,
+    clearedAt: null,
   },
 ];
 
@@ -211,10 +212,10 @@ export default function GradesPage() {
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnName, setEditingColumnName] = useState("");
   
-  // PENDING STUDENTS STATE
-  const [pendingStudents, setPendingStudents] = useState<PendingStudent[]>(MOCK_PENDING_STUDENTS);
-  const [pendingGrades, setPendingGrades] = useState<Record<string, number | null>>({});
-  const [accreditingId, setAccreditingId] = useState<string | null>(null);
+  // PENDING TOPICS STATE (Derived State Architecture)
+  const [pendingTopics, setPendingTopics] = useState<PendingTopic[]>(INITIAL_PENDING_TOPICS);
+  const [recoveryGrades, setRecoveryGrades] = useState<Record<string, number | null>>({});
+  const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
   
   // Determine grading type: use school setting OR subject default
   const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
@@ -340,42 +341,59 @@ export default function GradesPage() {
   }, []);
 
   // ============================================
-  // PENDING TOPICS HANDLERS
+  // PENDING TOPICS HANDLERS (Retry Logic)
   // ============================================
 
-  const handleAccreditStudent = useCallback(async (studentId: string) => {
-    const grade = pendingGrades[studentId];
+  const handleEvaluateTopic = useCallback(async (topicId: string) => {
+    const grade = recoveryGrades[topicId];
     if (grade === null || grade === undefined || grade < 1 || grade > 10) {
       toast.error("Ingrese una nota valida entre 1 y 10");
       return;
     }
 
-    const student = pendingStudents.find(s => s.id === studentId);
-    if (!student) return;
+    const topic = pendingTopics.find(t => t.id === topicId);
+    if (!topic) return;
 
-    setAccreditingId(studentId);
+    setEvaluatingId(topicId);
     
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Update student status
-    setPendingStudents(prev => prev.map(s => 
-      s.id === studentId 
-        ? { ...s, status: "ACCREDITED" as const, recoveryGrade: grade, accreditedAt: new Date() }
-        : s
-    ));
+    if (grade < 7) {
+      // FAILED: Increment attempt counter
+      setPendingTopics(prev => prev.map(t => 
+        t.id === topicId 
+          ? { ...t, currentAttempt: t.currentAttempt + 1 }
+          : t
+      ));
+      setRecoveryGrades(prev => ({ ...prev, [topicId]: null }));
+      setEvaluatingId(null);
+      
+      toast.error(
+        `El alumno no ha alcanzado los saberes. Se habilita nueva instancia.`,
+        {
+          description: `${topic.studentName} - Intento #${topic.currentAttempt + 1} habilitado`,
+          duration: 5000,
+        }
+      );
+    } else {
+      // PASSED: Mark as CLEARED
+      setPendingTopics(prev => prev.map(t => 
+        t.id === topicId 
+          ? { ...t, status: "CLEARED" as const, clearedGrade: grade, clearedAt: new Date() }
+          : t
+      ));
+      setEvaluatingId(null);
 
-    setAccreditingId(null);
-
-    // Show success toast with webhook simulation
-    toast.success(
-      `Nota registrada. Secretaria y Familia de ${student.firstName} ${student.lastName} han sido notificadas automaticamente.`,
-      {
-        description: `Tema "${student.topic}" acreditado con nota ${grade}`,
-        duration: 5000,
-      }
-    );
-  }, [pendingGrades, pendingStudents]);
+      toast.success(
+        `Saberes acreditados. Notificando a familia y secretaria.`,
+        {
+          description: `${topic.studentName} aprobo "${topic.evaluationName}" con nota ${grade}`,
+          duration: 5000,
+        }
+      );
+    }
+  }, [recoveryGrades, pendingTopics]);
 
   // Calculate students with real-time averages
   const students: StudentGradeRow[] = useMemo(() => {
@@ -429,17 +447,17 @@ export default function GradesPage() {
     return { total, passing, failing, averageGeneral: roundToDecimals(averageGeneral), isConceptual: false };
   }, [students, gradingType]);
 
-  // Pending stats
+  // Pending stats (derived from pendingTopics)
   const pendingStats = useMemo(() => {
-    const pending = pendingStudents.filter(s => s.status === "PENDING").length;
-    const inProgress = pendingStudents.filter(s => s.status === "IN_PROGRESS").length;
-    const accredited = pendingStudents.filter(s => s.status === "ACCREDITED").length;
-    return { pending, inProgress, accredited, total: pendingStudents.length };
-  }, [pendingStudents]);
+    const pending = pendingTopics.filter(t => t.status === "PENDING").length;
+    const cleared = pendingTopics.filter(t => t.status === "CLEARED").length;
+    const multipleAttempts = pendingTopics.filter(t => t.status === "PENDING" && t.currentAttempt > 1).length;
+    return { pending, cleared, multipleAttempts, total: pendingTopics.length };
+  }, [pendingTopics]);
 
   const selectedPeriod = MOCK_PERIODS.find((p) => p.id === selectedPeriodId)!;
 
-  // Handle grade update with real-time average recalculation
+  // Handle grade update with real-time average recalculation AND pending topics derivation
   const handleGradeUpdate = useCallback(
     async (studentId: string, assessmentId: string, value: number | null, conceptual?: string | null) => {
       if (isTrimesterClosed) {
@@ -454,13 +472,62 @@ export default function GradesPage() {
           toast.error("La nota debe estar entre 1 y 10");
           return;
         }
+        
+        const roundedValue = value !== null ? roundToDecimals(value) : null;
+        
+        // Update grades data
         setGradesData((prev) => ({
           ...prev,
           [studentId]: {
             ...prev[studentId],
-            [assessmentId]: value !== null ? roundToDecimals(value) : null,
+            [assessmentId]: roundedValue,
           },
         }));
+
+        // DERIVED STATE: Handle pending topics creation/removal
+        if (roundedValue !== null) {
+          const studentData = MOCK_STUDENTS_DATA.find(s => s.id === studentId);
+          const assessment = currentAssessments.find(a => a.id === assessmentId);
+          
+          if (studentData && assessment) {
+            const pendingId = `pt-${studentId}-${assessmentId}`;
+            const existingPending = pendingTopics.find(t => t.id === pendingId);
+            
+            if (roundedValue < 7) {
+              // Create pending topic if doesn't exist
+              if (!existingPending) {
+                const newPendingTopic: PendingTopic = {
+                  id: pendingId,
+                  studentId,
+                  studentName: `${studentData.firstName} ${studentData.lastName}`,
+                  studentLegajo: studentData.legajo,
+                  evaluationId: assessmentId,
+                  evaluationName: `${assessment.name} - ${selectedSubject.name}`,
+                  originalGrade: roundedValue,
+                  currentAttempt: 1,
+                  status: "PENDING",
+                  clearedGrade: null,
+                  clearedAt: null,
+                };
+                
+                setPendingTopics(prev => [...prev, newPendingTopic]);
+                toast.info(
+                  `Tema pendiente registrado para ${studentData.firstName} ${studentData.lastName}`,
+                  { description: `"${assessment.name}" agregado a lista de recuperacion`, duration: 3000 }
+                );
+              }
+            } else {
+              // Remove from pending if exists AND is still in attempt 1 (corrected in regular grid)
+              if (existingPending && existingPending.currentAttempt === 1 && existingPending.status === "PENDING") {
+                setPendingTopics(prev => prev.filter(t => t.id !== pendingId));
+                toast.success(
+                  `Tema aprobado para ${studentData.firstName} ${studentData.lastName}`,
+                  { description: `"${assessment.name}" removido de lista de recuperacion`, duration: 3000 }
+                );
+              }
+            }
+          }
+        }
       } else {
         setGradesData((prev) => ({
           ...prev,
@@ -471,7 +538,7 @@ export default function GradesPage() {
         }));
       }
     },
-    [isTrimesterClosed, gradingType]
+    [isTrimesterClosed, gradingType, currentAssessments, pendingTopics, selectedSubject]
   );
 
   // Handle close trimester
@@ -856,10 +923,10 @@ export default function GradesPage() {
 
           {/* Pending Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard label="Total Pendientes" value={pendingStats.total} />
-            <StatCard label="Sin Resolver" value={pendingStats.pending} color="text-[#ffb4ab]" />
-            <StatCard label="En Proceso" value={pendingStats.inProgress} color="text-[#d0bcff]" />
-            <StatCard label="Acreditados" value={pendingStats.accredited} color="text-[#4de082]" />
+            <StatCard label="Total Registros" value={pendingStats.total} />
+            <StatCard label="Sin Acreditar" value={pendingStats.pending} color="text-[#ffb4ab]" />
+            <StatCard label="Reintentos (+1)" value={pendingStats.multipleAttempts} color="text-[#d0bcff]" />
+            <StatCard label="Acreditados" value={pendingStats.cleared} color="text-[#4de082]" />
           </div>
 
           {/* Pending Students Table */}
@@ -878,10 +945,13 @@ export default function GradesPage() {
                       <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alumno</span>
                     </th>
                     <th className="px-4 py-3 text-left">
-                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Tema Adeudado</span>
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Evaluacion Adeudada</span>
                     </th>
                     <th className="px-4 py-3 text-center">
-                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Origen</span>
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Nota Original</span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Intento</span>
                     </th>
                     <th className="px-4 py-3 text-center">
                       <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Estado</span>
@@ -895,103 +965,111 @@ export default function GradesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {pendingStudents.map((student) => {
-                    const isAccredited = student.status === "ACCREDITED";
-                    const isAccrediting = accreditingId === student.id;
+                  {pendingTopics.map((topic) => {
+                    const isCleared = topic.status === "CLEARED";
+                    const isEvaluating = evaluatingId === topic.id;
                     
                     return (
                       <tr 
-                        key={student.id} 
+                        key={topic.id} 
                         className={cn(
                           "transition-colors",
-                          isAccredited ? "opacity-60 bg-[#4de082]/5" : "hover:bg-white/[0.02]"
+                          isCleared ? "opacity-60 bg-[#4de082]/5" : "hover:bg-white/[0.02]"
                         )}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "size-8 rounded-full flex items-center justify-center text-xs font-bold",
-                              isAccredited ? "bg-[#4de082]/20 text-[#4de082]" : "bg-[#ffb4ab]/10 text-[#ffb4ab]"
+                              isCleared ? "bg-[#4de082]/20 text-[#4de082]" : "bg-[#ffb4ab]/10 text-[#ffb4ab]"
                             )}>
-                              {student.firstName[0]}{student.lastName[0]}
+                              {topic.studentName.split(' ')[0][0]}{topic.studentName.split(' ')[1]?.[0] || ''}
                             </div>
                             <div>
                               <p className={cn(
                                 "text-sm font-medium",
-                                isAccredited ? "text-[#4de082] line-through" : "text-[#e4e1ea]"
+                                isCleared ? "text-[#4de082] line-through" : "text-[#e4e1ea]"
                               )}>
-                                {student.lastName}, {student.firstName}
+                                {topic.studentName}
                               </p>
-                              <p className="text-xs text-white/40">{student.legajo}</p>
+                              <p className="text-xs text-white/40">{topic.studentLegajo}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <p className={cn(
                             "text-sm",
-                            isAccredited ? "text-white/40 line-through" : "text-[#e4e1ea]"
+                            isCleared ? "text-white/40 line-through" : "text-[#e4e1ea]"
                           )}>
-                            {student.topic}
+                            {topic.evaluationName}
                           </p>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className="text-xs text-white/60">{student.originYear}</span>
+                          <span className="text-sm font-bold text-[#ffb4ab]">{topic.originalGrade}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase",
+                            topic.currentAttempt === 1 && "bg-white/10 text-white/60",
+                            topic.currentAttempt === 2 && "bg-[#d0bcff]/20 text-[#d0bcff]",
+                            topic.currentAttempt >= 3 && "bg-[#ffb4ab]/20 text-[#ffb4ab]"
+                          )}>
+                            Intento #{topic.currentAttempt}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={cn(
                             "px-2 py-1 rounded-lg text-[10px] font-bold uppercase",
-                            student.status === "PENDING" && "bg-[#ffb4ab]/20 text-[#ffb4ab]",
-                            student.status === "IN_PROGRESS" && "bg-[#d0bcff]/20 text-[#d0bcff]",
-                            student.status === "ACCREDITED" && "bg-[#4de082]/20 text-[#4de082]"
+                            topic.status === "PENDING" && "bg-[#ffb4ab]/20 text-[#ffb4ab]",
+                            topic.status === "CLEARED" && "bg-[#4de082]/20 text-[#4de082]"
                           )}>
-                            {student.status === "PENDING" && "Pendiente"}
-                            {student.status === "IN_PROGRESS" && "En Proceso"}
-                            {student.status === "ACCREDITED" && "Acreditado"}
+                            {topic.status === "PENDING" && "Pendiente"}
+                            {topic.status === "CLEARED" && "Acreditado"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {isAccredited ? (
+                          {isCleared ? (
                             <span className="text-lg font-bold text-[#4de082]">
-                              {student.recoveryGrade}
+                              {topic.clearedGrade}
                             </span>
                           ) : (
                             <Input
                               type="number"
                               min={1}
                               max={10}
-                              value={pendingGrades[student.id] ?? ""}
+                              value={recoveryGrades[topic.id] ?? ""}
                               onChange={(e) => {
                                 const val = e.target.value === "" ? null : parseInt(e.target.value);
-                                setPendingGrades(prev => ({ ...prev, [student.id]: val }));
+                                setRecoveryGrades(prev => ({ ...prev, [topic.id]: val }));
                               }}
-                              disabled={isAccrediting}
+                              disabled={isEvaluating}
                               className="w-16 h-9 text-center text-sm font-medium bg-white/[0.02] border-white/10 mx-auto"
                               placeholder="-"
                             />
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {isAccredited ? (
+                          {isCleared ? (
                             <div className="flex items-center justify-center gap-1 text-[#4de082]">
                               <CheckCircle2 className="size-4" />
                               <span className="text-xs">
-                                {student.accreditedAt?.toLocaleDateString("es-AR")}
+                                {topic.clearedAt?.toLocaleDateString("es-AR")}
                               </span>
                             </div>
                           ) : (
                             <Button
                               size="sm"
-                              onClick={() => handleAccreditStudent(student.id)}
-                              disabled={isAccrediting || !pendingGrades[student.id]}
+                              onClick={() => handleEvaluateTopic(topic.id)}
+                              disabled={isEvaluating || !recoveryGrades[topic.id]}
                               className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 text-xs"
                             >
-                              {isAccrediting ? (
+                              {isEvaluating ? (
                                 <>
                                   <Loader2 className="size-3 mr-1 animate-spin" />
-                                  Procesando...
+                                  Evaluando...
                                 </>
                               ) : (
-                                "Acreditar Saberes"
+                                "Evaluar Saberes"
                               )}
                             </Button>
                           )}
@@ -999,6 +1077,21 @@ export default function GradesPage() {
                       </tr>
                     );
                   })}
+                  
+                  {/* Empty state */}
+                  {pendingTopics.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-12 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <CheckCircle2 className="size-10 text-[#4de082]/40" />
+                          <p className="text-sm text-white/40">No hay temas pendientes de acreditacion</p>
+                          <p className="text-xs text-white/30">
+                            Los temas se agregan automaticamente cuando un alumno obtiene nota menor a 7
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
