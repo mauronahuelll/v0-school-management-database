@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { GradesGrid } from "@/components/grades";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders } from "lucide-react";
+import { BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, Plus, Trash2, Pencil, X, Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ import type {
   GradeScale,
 } from "@/lib/types/grades";
 import { calculateSimpleAverage, isPassingGrade, roundToDecimals } from "@/lib/types/grades";
+import { cn } from "@/lib/utils";
 
 // ============================================
 // MOCK DATA FOR DEMO
@@ -65,17 +67,15 @@ const MOCK_PERIODS = [
   { id: "T3", name: "Tercer Trimestre" },
 ];
 
-const MOCK_ASSESSMENTS_NUMERIC: AssessmentConfig[] = [
+// Initial assessments - now dynamic
+const INITIAL_ASSESSMENTS_NUMERIC: AssessmentConfig[] = [
   { id: "eval-1", name: "Parcial 1", type: "EXAM", weight: 1, maxValue: 10 },
   { id: "eval-2", name: "TP 1", type: "HOMEWORK", weight: 1, maxValue: 10 },
-  { id: "eval-3", name: "Parcial 2", type: "EXAM", weight: 1, maxValue: 10 },
-  { id: "eval-4", name: "TP 2", type: "PROJECT", weight: 1, maxValue: 10 },
 ];
 
-const MOCK_ASSESSMENTS_CONCEPTUAL: AssessmentConfig[] = [
+const INITIAL_ASSESSMENTS_CONCEPTUAL: AssessmentConfig[] = [
   { id: "eval-c1", name: "Evaluacion 1", type: "EXAM", weight: 1, maxValue: 10 },
   { id: "eval-c2", name: "Trabajo Practico", type: "PROJECT", weight: 1, maxValue: 10 },
-  { id: "eval-c3", name: "Evaluacion Final", type: "EXAM", weight: 1, maxValue: 10 },
 ];
 
 const generateMockGrade = (
@@ -97,18 +97,18 @@ const generateMockGrade = (
 });
 
 const MOCK_STUDENTS_DATA = [
-  { id: "s1", firstName: "Sofia", lastName: "Alvarez", legajo: "2024-001", grades: [8, 7, 9, 8], conceptual: ["TEA", "TEA", "TEA"] },
-  { id: "s2", firstName: "Mateo", lastName: "Benitez", legajo: "2024-002", grades: [6, 8, 5, 7], conceptual: ["TEP", "TEP", "TED"] },
-  { id: "s3", firstName: "Valentina", lastName: "Castro", legajo: "2024-003", grades: [10, 9, 10, 10], conceptual: ["TEA", "TEA", "TEA"] },
-  { id: "s4", firstName: "Lucas", lastName: "Diaz", legajo: "2024-004", grades: [4, 5, 4, 6], conceptual: ["TED", "TED", "TED"] },
-  { id: "s5", firstName: "Martina", lastName: "Fernandez", legajo: "2024-005", grades: [7, 8, 7, 8], conceptual: ["TEP", "TEA", "TEP"] },
-  { id: "s6", firstName: "Benjamin", lastName: "Garcia", legajo: "2024-006", grades: [6, 6, 7, 5], conceptual: ["TEP", "TEP", "TED"] },
-  { id: "s7", firstName: "Emma", lastName: "Hernandez", legajo: "2024-007", grades: [9, 9, 8, 9], conceptual: ["TEA", "TEA", "TEA"] },
-  { id: "s8", firstName: "Joaquin", lastName: "Lopez", legajo: "2024-008", grades: [5, 4, 5, 5], conceptual: ["TED", "TED", "TED"] },
-  { id: "s9", firstName: "Isabella", lastName: "Martinez", legajo: "2024-009", grades: [7, 7, 8, 7], conceptual: ["TEP", "TEP", "TEP"] },
-  { id: "s10", firstName: "Thiago", lastName: "Nunez", legajo: "2024-010", grades: [8, 8, 8, 9], conceptual: ["TEA", "TEP", "TEA"] },
-  { id: "s11", firstName: "Mia", lastName: "Ortiz", legajo: "2024-011", grades: [6, 7, 6, 7], conceptual: ["TEP", "TEP", "TEP"] },
-  { id: "s12", firstName: "Santiago", lastName: "Perez", legajo: "2024-012", grades: [3, 4, 3, 5], conceptual: ["TED", "TED", "TED"] },
+  { id: "s1", firstName: "Sofia", lastName: "Alvarez", legajo: "2024-001" },
+  { id: "s2", firstName: "Mateo", lastName: "Benitez", legajo: "2024-002" },
+  { id: "s3", firstName: "Valentina", lastName: "Castro", legajo: "2024-003" },
+  { id: "s4", firstName: "Lucas", lastName: "Diaz", legajo: "2024-004" },
+  { id: "s5", firstName: "Martina", lastName: "Fernandez", legajo: "2024-005" },
+  { id: "s6", firstName: "Benjamin", lastName: "Garcia", legajo: "2024-006" },
+  { id: "s7", firstName: "Emma", lastName: "Hernandez", legajo: "2024-007" },
+  { id: "s8", firstName: "Joaquin", lastName: "Lopez", legajo: "2024-008" },
+  { id: "s9", firstName: "Isabella", lastName: "Martinez", legajo: "2024-009" },
+  { id: "s10", firstName: "Thiago", lastName: "Nunez", legajo: "2024-010" },
+  { id: "s11", firstName: "Mia", lastName: "Ortiz", legajo: "2024-011" },
+  { id: "s12", firstName: "Santiago", lastName: "Perez", legajo: "2024-012" },
 ];
 
 const createMockStudentRow = (
@@ -147,13 +147,22 @@ export default function GradesPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState(MOCK_SUBJECTS[0].id);
   const [selectedPeriodId, setSelectedPeriodId] = useState(MOCK_PERIODS[0].id);
   
+  // DYNAMIC COLUMNS STATE
+  const [numericAssessments, setNumericAssessments] = useState<AssessmentConfig[]>(INITIAL_ASSESSMENTS_NUMERIC);
+  const [conceptualAssessments, setConceptualAssessments] = useState<AssessmentConfig[]>(INITIAL_ASSESSMENTS_CONCEPTUAL);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingColumnName, setEditingColumnName] = useState("");
+  
   // Determine grading type: use school setting OR subject default
   const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
-  // If school has a specific scale, use it; otherwise use subject default
   const gradingType: "NUMERIC" | "CONCEPTUAL" = 
     schoolGradingType === "ALPHABETIC" || schoolGradingType === "CONCEPTUAL" 
       ? "CONCEPTUAL" 
       : selectedSubject.defaultScale as "NUMERIC" | "CONCEPTUAL";
+  
+  // Current assessments based on grading type
+  const currentAssessments = gradingType === "NUMERIC" ? numericAssessments : conceptualAssessments;
+  const setCurrentAssessments = gradingType === "NUMERIC" ? setNumericAssessments : setConceptualAssessments;
   
   // Build current scale from school settings
   const currentScale: GradeScale = useMemo(() => {
@@ -172,27 +181,11 @@ export default function GradesPage() {
     };
   }, [gradingType, settings.gradingScale]);
 
-  const currentAssessments = gradingType === "NUMERIC" ? MOCK_ASSESSMENTS_NUMERIC : MOCK_ASSESSMENTS_CONCEPTUAL;
-
-  // Grades data with real-time calculation
-  const [numericGradesData, setNumericGradesData] = useState<Record<string, Record<string, number | null>>>(() => {
-    const data: Record<string, Record<string, number | null>> = {};
+  // Grades data with real-time calculation - now tracks by assessment ID
+  const [gradesData, setGradesData] = useState<Record<string, Record<string, number | string | null>>>(() => {
+    const data: Record<string, Record<string, number | string | null>> = {};
     MOCK_STUDENTS_DATA.forEach((student) => {
       data[student.id] = {};
-      MOCK_ASSESSMENTS_NUMERIC.forEach((assessment, idx) => {
-        data[student.id][assessment.id] = student.grades[idx] ?? null;
-      });
-    });
-    return data;
-  });
-
-  const [conceptualGradesData, setConceptualGradesData] = useState<Record<string, Record<string, string | null>>>(() => {
-    const data: Record<string, Record<string, string | null>> = {};
-    MOCK_STUDENTS_DATA.forEach((student) => {
-      data[student.id] = {};
-      MOCK_ASSESSMENTS_CONCEPTUAL.forEach((assessment, idx) => {
-        data[student.id][assessment.id] = student.conceptual[idx] ?? null;
-      });
     });
     return data;
   });
@@ -208,19 +201,97 @@ export default function GradesPage() {
     setMounted(true);
   }, []);
 
+  // ============================================
+  // DYNAMIC COLUMN HANDLERS
+  // ============================================
+  
+  const handleAddColumn = useCallback(() => {
+    if (isTrimesterClosed) {
+      toast.error("El trimestre esta cerrado. No se pueden agregar evaluaciones.");
+      return;
+    }
+    
+    const newId = `eval-${Date.now()}`;
+    const columnCount = currentAssessments.length + 1;
+    const newAssessment: AssessmentConfig = {
+      id: newId,
+      name: `Evaluacion ${columnCount}`,
+      type: "EXAM",
+      weight: 1,
+      maxValue: 10,
+    };
+    
+    setCurrentAssessments(prev => [...prev, newAssessment]);
+    toast.success(`Columna "Evaluacion ${columnCount}" agregada`);
+  }, [currentAssessments.length, isTrimesterClosed, setCurrentAssessments]);
+
+  const handleRemoveColumn = useCallback((assessmentId: string) => {
+    if (isTrimesterClosed) {
+      toast.error("El trimestre esta cerrado. No se pueden eliminar evaluaciones.");
+      return;
+    }
+    
+    if (currentAssessments.length <= 1) {
+      toast.error("Debe haber al menos una evaluacion.");
+      return;
+    }
+    
+    const assessment = currentAssessments.find(a => a.id === assessmentId);
+    setCurrentAssessments(prev => prev.filter(a => a.id !== assessmentId));
+    
+    // Also remove grades for this assessment
+    setGradesData(prev => {
+      const newData = { ...prev };
+      Object.keys(newData).forEach(studentId => {
+        const { [assessmentId]: _, ...rest } = newData[studentId];
+        newData[studentId] = rest;
+      });
+      return newData;
+    });
+    
+    toast.info(`Columna "${assessment?.name}" eliminada`);
+  }, [currentAssessments, isTrimesterClosed, setCurrentAssessments]);
+
+  const handleStartEditColumn = useCallback((assessmentId: string) => {
+    const assessment = currentAssessments.find(a => a.id === assessmentId);
+    if (assessment) {
+      setEditingColumnId(assessmentId);
+      setEditingColumnName(assessment.name);
+    }
+  }, [currentAssessments]);
+
+  const handleSaveColumnName = useCallback(() => {
+    if (!editingColumnId || !editingColumnName.trim()) return;
+    
+    setCurrentAssessments(prev => prev.map(a => 
+      a.id === editingColumnId ? { ...a, name: editingColumnName.trim() } : a
+    ));
+    
+    setEditingColumnId(null);
+    setEditingColumnName("");
+    toast.success("Nombre actualizado");
+  }, [editingColumnId, editingColumnName, setCurrentAssessments]);
+
+  const handleCancelEditColumn = useCallback(() => {
+    setEditingColumnId(null);
+    setEditingColumnName("");
+  }, []);
+
   // Calculate students with real-time averages
   const students: StudentGradeRow[] = useMemo(() => {
     return MOCK_STUDENTS_DATA.map((studentData) => {
       const studentGrades: Record<string, GradeEntry | null> = {};
       
-      currentAssessments.forEach((assessment, idx) => {
+      currentAssessments.forEach((assessment) => {
+        const gradeValue = gradesData[studentData.id]?.[assessment.id];
+        
         if (gradingType === "NUMERIC") {
-          const value = numericGradesData[studentData.id]?.[assessment.id] ?? null;
+          const value = typeof gradeValue === "number" ? gradeValue : null;
           studentGrades[assessment.id] = value !== null 
             ? generateMockGrade(studentData.id, assessment.id, value)
             : null;
         } else {
-          const conceptual = conceptualGradesData[studentData.id]?.[assessment.id] ?? null;
+          const conceptual = typeof gradeValue === "string" ? gradeValue : null;
           studentGrades[assessment.id] = conceptual !== null 
             ? generateMockGrade(studentData.id, assessment.id, null, conceptual)
             : null;
@@ -229,7 +300,7 @@ export default function GradesPage() {
 
       return createMockStudentRow(studentData, studentGrades, currentScale);
     });
-  }, [numericGradesData, conceptualGradesData, gradingType, currentScale, currentAssessments]);
+  }, [gradesData, gradingType, currentScale, currentAssessments]);
 
   // Statistics (only for numeric grades)
   const stats = useMemo(() => {
@@ -295,12 +366,11 @@ export default function GradesPage() {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (gradingType === "NUMERIC") {
-        // Validate numeric input (1-10)
         if (value !== null && (value < 1 || value > 10)) {
           toast.error("La nota debe estar entre 1 y 10");
           return;
         }
-        setNumericGradesData((prev) => ({
+        setGradesData((prev) => ({
           ...prev,
           [studentId]: {
             ...prev[studentId],
@@ -308,7 +378,7 @@ export default function GradesPage() {
           },
         }));
       } else {
-        setConceptualGradesData((prev) => ({
+        setGradesData((prev) => ({
           ...prev,
           [studentId]: {
             ...prev[studentId],
@@ -470,8 +540,8 @@ export default function GradesPage() {
               color="text-[#ffb4ab]"
             />
             <StatCard 
-              label="Escala" 
-              value="Conceptual"
+              label="Evaluaciones" 
+              value={currentAssessments.length}
               color="text-[#d0bcff]"
             />
           </>
@@ -498,16 +568,208 @@ export default function GradesPage() {
         )}
       </div>
 
-      {/* Grades Grid */}
-      <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 md:p-6 backdrop-blur-md">
-        <GradesGrid
-          courseInfo={courseInfo}
-          onGradeUpdate={handleGradeUpdate}
-          onPublish={handlePublish}
-          onUnpublish={handleUnpublish}
-          canPublish={!isTrimesterClosed}
-          isReadOnly={isTrimesterClosed}
-        />
+      {/* Grades Table with Dynamic Columns */}
+      <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md overflow-hidden">
+        {/* Dynamic Columns Controls */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.01]">
+          <div className="flex items-center gap-2 text-sm text-white/60">
+            <Calculator className="size-4" />
+            <span>{currentAssessments.length} columnas de evaluacion</span>
+          </div>
+          {!isTrimesterClosed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleAddColumn}
+              className="text-[#d0bcff] hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
+            >
+              <Plus className="size-4 mr-1" />
+              Agregar Evaluacion
+            </Button>
+          )}
+        </div>
+
+        {/* Scrollable Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px]">
+            <thead>
+              <tr className="border-b border-white/5">
+                {/* Student Name Column */}
+                <th className="sticky left-0 z-10 bg-[#131319] px-4 py-3 text-left min-w-[200px]">
+                  <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                    Alumno
+                  </span>
+                </th>
+                
+                {/* Dynamic Assessment Columns */}
+                {currentAssessments.map((assessment) => (
+                  <th key={assessment.id} className="px-2 py-3 text-center min-w-[120px] group relative">
+                    <div className="flex items-center justify-center gap-1">
+                      {editingColumnId === assessment.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editingColumnName}
+                            onChange={(e) => setEditingColumnName(e.target.value)}
+                            className="h-7 w-24 text-xs bg-white/5 border-[#d0bcff]/50 text-center"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveColumnName();
+                              if (e.key === "Escape") handleCancelEditColumn();
+                            }}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 text-[#4de082] hover:bg-[#4de082]/10"
+                            onClick={handleSaveColumnName}
+                          >
+                            <Check className="size-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 text-white/40 hover:bg-white/5"
+                            onClick={handleCancelEditColumn}
+                          >
+                            <X className="size-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <span 
+                            className="text-xs font-semibold text-white/80 cursor-pointer hover:text-[#d0bcff] transition-colors"
+                            onClick={() => !isTrimesterClosed && handleStartEditColumn(assessment.id)}
+                            title="Clic para editar nombre"
+                          >
+                            {assessment.name}
+                          </span>
+                          {!isTrimesterClosed && (
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-5 text-white/40 hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
+                                onClick={() => handleStartEditColumn(assessment.id)}
+                              >
+                                <Pencil className="size-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-5 text-white/40 hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10"
+                                onClick={() => handleRemoveColumn(assessment.id)}
+                              >
+                                <Trash2 className="size-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </th>
+                ))}
+                
+                {/* Average Column */}
+                <th className="px-4 py-3 text-center min-w-[100px] bg-[#d0bcff]/5">
+                  <span className="text-xs font-semibold text-[#d0bcff] uppercase tracking-wider">
+                    Promedio
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {students.map((student) => (
+                <tr key={student.studentId} className="hover:bg-white/[0.02] transition-colors">
+                  {/* Student Info */}
+                  <td className="sticky left-0 z-10 bg-[#131319] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="size-8 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
+                        {student.firstName[0]}{student.lastName[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#e4e1ea]">
+                          {student.lastName}, {student.firstName}
+                        </p>
+                        <p className="text-xs text-white/40">
+                          {student.enrollmentNumber}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  
+                  {/* Grade Cells */}
+                  {currentAssessments.map((assessment) => {
+                    const gradeValue = gradesData[student.studentId]?.[assessment.id];
+                    return (
+                      <td key={assessment.id} className="px-2 py-3 text-center">
+                        {gradingType === "NUMERIC" ? (
+                          <Input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={typeof gradeValue === "number" ? gradeValue : ""}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? null : parseFloat(e.target.value);
+                              handleGradeUpdate(student.studentId, assessment.id, val);
+                            }}
+                            disabled={isTrimesterClosed}
+                            className={cn(
+                              "w-16 h-9 text-center text-sm font-medium bg-white/[0.02] border-white/10",
+                              "focus:border-[#d0bcff] focus:ring-1 focus:ring-[#d0bcff]/20",
+                              typeof gradeValue === "number" && gradeValue >= 7 && "text-[#4de082]",
+                              typeof gradeValue === "number" && gradeValue < 7 && "text-[#ffb4ab]",
+                              isTrimesterClosed && "opacity-60 cursor-not-allowed"
+                            )}
+                          />
+                        ) : (
+                          <Select
+                            value={typeof gradeValue === "string" ? gradeValue : ""}
+                            onValueChange={(val) => handleGradeUpdate(student.studentId, assessment.id, null, val)}
+                            disabled={isTrimesterClosed}
+                          >
+                            <SelectTrigger className={cn(
+                              "w-20 h-9 text-xs bg-white/[0.02] border-white/10",
+                              gradeValue === "TEA" && "text-[#4de082] border-[#4de082]/30",
+                              gradeValue === "TEP" && "text-[#d0bcff] border-[#d0bcff]/30",
+                              gradeValue === "TED" && "text-[#ffb4ab] border-[#ffb4ab]/30",
+                            )}>
+                              <SelectValue placeholder="-" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#131319] border-white/10">
+                              {(currentScale.conceptualValues || ["TEA", "TEP", "TED"]).map((val) => (
+                                <SelectItem key={val} value={val} className="text-[#e4e1ea]">
+                                  {val}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </td>
+                    );
+                  })}
+                  
+                  {/* Average Cell */}
+                  <td className="px-4 py-3 text-center bg-[#d0bcff]/5">
+                    {gradingType === "NUMERIC" ? (
+                      <div className={cn(
+                        "inline-flex items-center justify-center size-10 rounded-xl font-bold text-lg",
+                        student.average !== null && student.average >= 7 
+                          ? "bg-[#4de082]/20 text-[#4de082]" 
+                          : student.average !== null 
+                            ? "bg-[#ffb4ab]/20 text-[#ffb4ab]"
+                            : "bg-white/5 text-white/40"
+                      )}>
+                        {student.average !== null ? student.average.toFixed(1) : "-"}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-white/40">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Close Period Confirmation Dialog */}
@@ -520,36 +782,36 @@ export default function GradesPage() {
               </div>
               <DialogTitle className="text-xl text-[#e4e1ea]">Cerrar Periodo</DialogTitle>
             </div>
-            <DialogDescription className="text-white/60 leading-relaxed">
-              Esta accion enviara las calificaciones a Secretaria Academica para su archivo oficial.
-              <span className="block mt-3 p-3 rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 text-[#ffb4ab] text-sm font-medium">
-                Las notas ya no podran ser editadas despues de esta accion.
-              </span>
+            <DialogDescription className="text-white/60">
+              Esta accion cerrara el <strong className="text-white/80">{selectedPeriod.name}</strong> para{" "}
+              <strong className="text-white/80">{selectedSubject.name}</strong>.
+              <br /><br />
+              Las calificaciones seran publicadas a las familias y enviadas a Secretaria Academica.{" "}
+              <span className="text-[#ffb4ab]">Esta accion no se puede deshacer.</span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsCloseDialogOpen(false)} 
-              disabled={isClosing}
-              className="border-white/10 text-white/60 hover:bg-white/5"
+            <Button
+              variant="outline"
+              onClick={() => setIsCloseDialogOpen(false)}
+              className="border-white/10 text-white/60"
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleCloseTrimester}
               disabled={isClosing}
-              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 font-bold"
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
             >
               {isClosing ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />
-                  Guardando...
+                  Procesando...
                 </>
               ) : (
                 <>
                   <Lock className="size-4 mr-2" />
-                  Confirmar Cierre
+                  Confirmar y Cerrar
                 </>
               )}
             </Button>
@@ -557,28 +819,28 @@ export default function GradesPage() {
         </DialogContent>
       </Dialog>
 
-      <Toaster position="bottom-center" theme="dark" />
+      <Toaster theme="dark" />
     </div>
   );
 }
 
 // ============================================
-// STAT CARD SUB-COMPONENT
+// STAT CARD COMPONENT
 // ============================================
 
 interface StatCardProps {
   label: string;
-  value: string | number;
+  value: number | string;
   color?: string;
   subtext?: string;
 }
 
 function StatCard({ label, value, color = "text-[#e4e1ea]", subtext }: StatCardProps) {
   return (
-    <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl backdrop-blur-md">
-      <p className="text-xs text-white/40 uppercase tracking-wider font-medium">{label}</p>
-      <div className="flex items-baseline gap-2 mt-1">
-        <p className={`text-2xl font-bold ${color}`}>{value}</p>
+    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 backdrop-blur-sm">
+      <p className="text-xs text-white/40 mb-1">{label}</p>
+      <div className="flex items-baseline gap-2">
+        <span className={cn("text-2xl font-bold", color)}>{value}</span>
         {subtext && <span className="text-xs text-white/40">{subtext}</span>}
       </div>
     </div>
