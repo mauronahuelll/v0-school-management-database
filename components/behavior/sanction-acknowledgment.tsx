@@ -149,6 +149,7 @@ export function SanctionAcknowledgment({
     verificationId?: string;
     documentHash?: string;
     signedAt?: string;
+    ipAddress?: string;
     error?: string;
   }>({});
 
@@ -174,6 +175,8 @@ export function SanctionAcknowledgment({
       const response = await onAcknowledge(record.id);
       if (response.success) {
         const now = new Date();
+        // Generate simulated IP address
+        const fakeIP = `${Math.floor(Math.random() * 200) + 50}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
         setSignatureData({
           verificationId: response.verificationId,
           documentHash: response.documentHash || generateFakeHash(),
@@ -181,6 +184,7 @@ export function SanctionAcknowledgment({
             dateStyle: "full",
             timeStyle: "medium",
           }),
+          ipAddress: fakeIP,
         });
         setViewState("success");
       } else {
@@ -287,56 +291,60 @@ export function SanctionAcknowledgment({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            {/* Document Header */}
+            {/* Document Header - Formal Acta Style */}
             <div className="relative p-6 rounded-xl bg-gradient-to-br from-red-950/50 to-red-900/20 border border-red-500/20">
-              <div className="absolute top-3 right-3">
-                <span className={cn(
-                  "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border",
-                  severityConfig.color
-                )}>
-                  {severityConfig.label}
-                </span>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-                  <AlertTriangle className="h-6 w-6 text-red-400" />
+              {/* Formal Document Margin Lines */}
+              <div className="absolute left-4 top-4 bottom-4 w-px bg-red-500/20" />
+              <div className="pl-4">
+                <div className="absolute top-3 right-3">
+                  <span className={cn(
+                    "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border",
+                    severityConfig.color
+                  )}>
+                    {severityConfig.label}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-red-400/70 mb-1">
-                    Sancion Disciplinaria Pendiente de Firma
+
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                    <AlertTriangle className="h-6 w-6 text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-red-400/70 mb-1">
+                      Sancion Disciplinaria Pendiente de Firma
+                    </p>
+                    <h3 className="text-lg font-serif font-bold text-foreground">
+                      {record.sanction?.sanctionTypeName}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 font-mono">{record.date}</p>
+                  </div>
+                </div>
+
+                {/* Student Info */}
+                <div className="mt-4 p-3 rounded-lg bg-black/20 border border-white/5">
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                    Estudiante
                   </p>
-                  <h3 className="text-lg font-bold text-foreground">
-                    {record.sanction?.sanctionTypeName}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">{record.date}</p>
+                  <p className="font-serif font-semibold text-foreground">{record.studentName}</p>
                 </div>
-              </div>
 
-              {/* Student Info */}
-              <div className="mt-4 p-3 rounded-lg bg-black/20 border border-white/5">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-                  Estudiante
-                </p>
-                <p className="font-semibold text-foreground">{record.studentName}</p>
-              </div>
+                {/* Description */}
+                <div className="mt-4">
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
+                    Descripcion de los Hechos
+                  </p>
+                  <p className="text-sm leading-relaxed text-foreground/80 font-serif italic">
+                    {record.description}
+                  </p>
+                </div>
 
-              {/* Description */}
-              <div className="mt-4">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
-                  Descripcion de los Hechos
-                </p>
-                <p className="text-sm leading-relaxed text-foreground/80">
-                  {record.description}
-                </p>
-              </div>
-
-              {/* Category Badge */}
-              <div className="mt-4 flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">Categoria:</span>
-                <span className="px-2 py-0.5 rounded-md bg-white/5 text-xs font-medium text-foreground">
-                  {record.category}
-                </span>
+                {/* Category Badge */}
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground font-mono">Categoria:</span>
+                  <span className="px-2 py-0.5 rounded-md bg-white/5 text-xs font-medium text-foreground">
+                    {record.category}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -537,26 +545,32 @@ export function SanctionAcknowledgment({
               </p>
             </div>
 
-            {/* Cryptographic Details Console */}
-            <div className="rounded-xl bg-black/50 p-4 font-mono text-[10px] space-y-2 border border-white/5">
+            {/* Cryptographic Details Console - Audit Block */}
+            <div className="rounded-xl bg-black/60 p-4 font-mono text-[10px] space-y-2 border border-white/5">
               <div className="flex items-center gap-2 text-[#4de082]">
                 <CheckCircle2 className="h-3 w-3" />
                 <span>Firma Digital Validada</span>
               </div>
               
-              <div className="pt-2 border-t border-white/5 space-y-1.5 text-muted-foreground">
+              <div className="pt-2 border-t border-white/5 space-y-1.5 text-white/60">
                 <div className="flex items-start gap-2">
                   <Hash className="h-3 w-3 mt-0.5 text-primary shrink-0" />
                   <div>
-                    <span className="text-white/50">Hash SHA-256:</span>
+                    <span className="text-white/50">SHA-256:</span>
                     <p className="text-white/80 break-all">{signatureData.documentHash}</p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
                   <Clock className="h-3 w-3 text-primary" />
-                  <span className="text-white/50">Fecha/Hora:</span>
+                  <span className="text-white/50">Marca de Tiempo:</span>
                   <span className="text-white/80">{signatureData.signedAt}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Shield className="h-3 w-3 text-primary" />
+                  <span className="text-white/50">IP de Origen:</span>
+                  <span className="text-white/80">{signatureData.ipAddress}</span>
                 </div>
                 
                 <div className="flex items-center gap-2">
