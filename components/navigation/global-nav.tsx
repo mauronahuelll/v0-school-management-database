@@ -31,38 +31,38 @@ const NAV_ITEMS_ADMIN = [
   { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
-  { id: "comunicados", label: "Comunicados", href: "/comunicados", icon: Megaphone },
+  { id: "communications", label: "Comunicados", href: "/communications", icon: Megaphone },
   { id: "import", label: "Importar Matricula", href: "/admin/import", icon: Upload },
   { id: "config", label: "Config. Institucion", href: "/admin/config", icon: Sliders },
-  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
-  { id: "users", label: "Usuarios", href: "/users", icon: Users },
+  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
+  { id: "users", label: "Personal", href: "/users", icon: Users },
   { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
   { id: "permissions", label: "Permisos", href: "/permissions", icon: ShieldCheck },
-  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
+  { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
 const NAV_ITEMS_PRECEPTOR = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
-  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
+  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
-  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
+  { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
 const NAV_ITEMS_DOCENTE = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
-  { id: "cursos", label: "Cursos", href: "/cursos", icon: BookOpen },
+  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
   { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
-  { id: "settings", label: "Ajustes", href: "/ajustes", icon: Settings },
+  { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
 const NAV_ITEMS_FAMILIA = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "comunidad", label: "Muro Escolar", href: "/comunidad", icon: MessageSquare },
-  { id: "tramites", label: "Tramites", href: "/tramites", icon: FileText },
+  { id: "community", label: "Muro Escolar", href: "/community", icon: MessageSquare },
+  { id: "procedures", label: "Tramites", href: "/procedures", icon: FileText },
   { id: "profile", label: "Perfil Alumno", href: "/student", icon: GraduationCap },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
 ];
