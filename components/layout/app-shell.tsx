@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
+import { ContextSelector } from "@/components/auth/context-selector"
 import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
@@ -77,6 +78,11 @@ export function AppShell({ children }: AppShellProps) {
     return true
   }, [user, activeContext])
 
+  // Usuario logueado pero sin contexto seleccionado
+  const needsContextSelection = useMemo(() => {
+    return user !== null && availableContexts.length > 0 && activeContext === null
+  }, [user, availableContexts, activeContext])
+
   // Keyboard shortcut (Ctrl + Q) for dev console
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -110,7 +116,21 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   // ====================================================================
-  // RENDER: Usuario NO autenticado o sin contexto seleccionado
+  // RENDER: Usuario logueado pero sin contexto seleccionado
+  // Muestra la pantalla de seleccion de perfil/sombrero
+  // ====================================================================
+  if (needsContextSelection) {
+    return (
+      <main className="w-screen h-screen overflow-hidden bg-background">
+        <ContextSelector />
+        <Toaster position="bottom-center" />
+      </main>
+    )
+  }
+
+  // ====================================================================
+  // RENDER: Usuario NO autenticado
+  // Muestra el contenido raw (pagina de login)
   // ====================================================================
   if (!isAuthenticated) {
     return (
