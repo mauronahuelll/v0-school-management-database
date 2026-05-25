@@ -4,7 +4,11 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { GradesGrid } from "@/components/grades";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, Plus, Trash2, Pencil, X, Check } from "lucide-react";
+import { 
+  BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, 
+  Plus, Trash2, Pencil, X, Check, Grid3X3, ClipboardSignature, CheckCircle2,
+  Bell, User
+} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -22,9 +26,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { useSchoolSettings, type GradingScaleType } from "@/lib/context/school-settings-context";
+import { useSchoolSettings } from "@/lib/context/school-settings-context";
 import type {
   CourseGradeInfo,
   StudentGradeRow,
@@ -43,13 +47,6 @@ const MOCK_SCALE_NUMERIC: GradeScale = {
   type: "NUMERIC",
   minPassing: 7,
   maxGrade: 10,
-};
-
-const MOCK_SCALE_CONCEPTUAL: GradeScale = {
-  type: "CONCEPTUAL",
-  minPassing: 7,
-  maxGrade: 10,
-  conceptualValues: ["TEA", "TEP", "TED"],
 };
 
 const MOCK_SUBJECTS = [
@@ -76,6 +73,66 @@ const INITIAL_ASSESSMENTS_NUMERIC: AssessmentConfig[] = [
 const INITIAL_ASSESSMENTS_CONCEPTUAL: AssessmentConfig[] = [
   { id: "eval-c1", name: "Evaluacion 1", type: "EXAM", weight: 1, maxValue: 10 },
   { id: "eval-c2", name: "Trabajo Practico", type: "PROJECT", weight: 1, maxValue: 10 },
+];
+
+// MOCK DATA FOR PENDING TOPICS (TEMAS ADEUDADOS)
+interface PendingStudent {
+  id: string;
+  firstName: string;
+  lastName: string;
+  legajo: string;
+  topic: string;
+  originYear: string;
+  status: "PENDING" | "IN_PROGRESS" | "ACCREDITED";
+  recoveryGrade: number | null;
+  accreditedAt: Date | null;
+}
+
+const MOCK_PENDING_STUDENTS: PendingStudent[] = [
+  { 
+    id: "p1", 
+    firstName: "Valentina", 
+    lastName: "Castro", 
+    legajo: "2024-003",
+    topic: "Unidad 2: Ecuaciones Cuadraticas",
+    originYear: "3° Ano - 2024",
+    status: "PENDING",
+    recoveryGrade: null,
+    accreditedAt: null,
+  },
+  { 
+    id: "p2", 
+    firstName: "Lucas", 
+    lastName: "Diaz", 
+    legajo: "2024-004",
+    topic: "Unidad 4: Funciones Trigonometricas",
+    originYear: "3° Ano - 2024",
+    status: "PENDING",
+    recoveryGrade: null,
+    accreditedAt: null,
+  },
+  { 
+    id: "p3", 
+    firstName: "Emma", 
+    lastName: "Hernandez", 
+    legajo: "2024-007",
+    topic: "Unidad 1: Numeros Complejos",
+    originYear: "4° Ano - 2024",
+    status: "IN_PROGRESS",
+    recoveryGrade: null,
+    accreditedAt: null,
+  },
+  { 
+    id: "p4", 
+    firstName: "Thiago", 
+    lastName: "Nunez", 
+    legajo: "2024-010",
+    topic: "Unidad 3: Probabilidad y Estadistica",
+    originYear: "3° Ano - 2023",
+    status: "PENDING",
+    recoveryGrade: null,
+    accreditedAt: null,
+  },
 ];
 
 const generateMockGrade = (
@@ -138,6 +195,7 @@ const createMockStudentRow = (
 
 export default function GradesPage() {
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState("regular");
   
   // Get school settings from context
   const { settings } = useSchoolSettings();
@@ -152,6 +210,11 @@ export default function GradesPage() {
   const [conceptualAssessments, setConceptualAssessments] = useState<AssessmentConfig[]>(INITIAL_ASSESSMENTS_CONCEPTUAL);
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnName, setEditingColumnName] = useState("");
+  
+  // PENDING STUDENTS STATE
+  const [pendingStudents, setPendingStudents] = useState<PendingStudent[]>(MOCK_PENDING_STUDENTS);
+  const [pendingGrades, setPendingGrades] = useState<Record<string, number | null>>({});
+  const [accreditingId, setAccreditingId] = useState<string | null>(null);
   
   // Determine grading type: use school setting OR subject default
   const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
@@ -195,7 +258,6 @@ export default function GradesPage() {
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isTrimesterClosed, setIsTrimesterClosed] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -277,6 +339,44 @@ export default function GradesPage() {
     setEditingColumnName("");
   }, []);
 
+  // ============================================
+  // PENDING TOPICS HANDLERS
+  // ============================================
+
+  const handleAccreditStudent = useCallback(async (studentId: string) => {
+    const grade = pendingGrades[studentId];
+    if (grade === null || grade === undefined || grade < 1 || grade > 10) {
+      toast.error("Ingrese una nota valida entre 1 y 10");
+      return;
+    }
+
+    const student = pendingStudents.find(s => s.id === studentId);
+    if (!student) return;
+
+    setAccreditingId(studentId);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Update student status
+    setPendingStudents(prev => prev.map(s => 
+      s.id === studentId 
+        ? { ...s, status: "ACCREDITED" as const, recoveryGrade: grade, accreditedAt: new Date() }
+        : s
+    ));
+
+    setAccreditingId(null);
+
+    // Show success toast with webhook simulation
+    toast.success(
+      `Nota registrada. Secretaria y Familia de ${student.firstName} ${student.lastName} han sido notificadas automaticamente.`,
+      {
+        description: `Tema "${student.topic}" acreditado con nota ${grade}`,
+        duration: 5000,
+      }
+    );
+  }, [pendingGrades, pendingStudents]);
+
   // Calculate students with real-time averages
   const students: StudentGradeRow[] = useMemo(() => {
     return MOCK_STUDENTS_DATA.map((studentData) => {
@@ -302,7 +402,7 @@ export default function GradesPage() {
     });
   }, [gradesData, gradingType, currentScale, currentAssessments]);
 
-  // Statistics (only for numeric grades)
+  // Statistics
   const stats = useMemo(() => {
     if (gradingType !== "NUMERIC") {
       const teaCount = students.filter(s => {
@@ -329,31 +429,15 @@ export default function GradesPage() {
     return { total, passing, failing, averageGeneral: roundToDecimals(averageGeneral), isConceptual: false };
   }, [students, gradingType]);
 
-  const selectedPeriod = MOCK_PERIODS.find((p) => p.id === selectedPeriodId)!;
+  // Pending stats
+  const pendingStats = useMemo(() => {
+    const pending = pendingStudents.filter(s => s.status === "PENDING").length;
+    const inProgress = pendingStudents.filter(s => s.status === "IN_PROGRESS").length;
+    const accredited = pendingStudents.filter(s => s.status === "ACCREDITED").length;
+    return { pending, inProgress, accredited, total: pendingStudents.length };
+  }, [pendingStudents]);
 
-  const courseInfo: CourseGradeInfo = {
-    courseId: "course-1",
-    courseName: "4to Ano",
-    divisionId: "div-b",
-    divisionName: "B",
-    periodId: selectedPeriodId,
-    periodName: selectedPeriod.name,
-    subject: {
-      id: selectedSubjectId,
-      name: selectedSubject.name,
-      shortName: selectedSubject.shortName,
-      teacherId: "teacher-1",
-      teacherName: "Prof. Maria Gonzalez",
-      weeklyHours: 5,
-      gradeScale: currentScale,
-      hasCustomScale: false,
-    },
-    assessments: currentAssessments,
-    students,
-    publicationStatus,
-    lastPublishedAt,
-    lastPublishedBy: lastPublishedAt ? "Prof. Maria Gonzalez" : undefined,
-  };
+  const selectedPeriod = MOCK_PERIODS.find((p) => p.id === selectedPeriodId)!;
 
   // Handle grade update with real-time average recalculation
   const handleGradeUpdate = useCallback(
@@ -390,30 +474,6 @@ export default function GradesPage() {
     [isTrimesterClosed, gradingType]
   );
 
-  // Handle publish
-  const handlePublish = useCallback(async () => {
-    setIsPublishing(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    setPublicationStatus("PUBLISHED");
-    setLastPublishedAt(new Date());
-    setIsPublishing(false);
-
-    toast.success("Calificaciones publicadas", {
-      description: "Los tutores han sido notificados y pueden ver las notas.",
-    });
-  }, []);
-
-  // Handle unpublish
-  const handleUnpublish = useCallback(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setPublicationStatus("DRAFT");
-
-    toast.info("Notas despublicadas", {
-      description: "Las notas ya no son visibles para los tutores.",
-    });
-  }, []);
-
   // Handle close trimester
   const handleCloseTrimester = useCallback(async () => {
     setIsClosing(true);
@@ -434,7 +494,7 @@ export default function GradesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Selectors */}
+      {/* Header */}
       <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">Calificaciones</h1>
@@ -443,9 +503,8 @@ export default function GradesPage() {
           </p>
         </div>
 
-        {/* Selectors Row */}
+        {/* Global Selectors */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Subject Selector */}
           <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={isTrimesterClosed}>
             <SelectTrigger className="w-[220px] bg-white/[0.02] border-white/10 text-[#e4e1ea]">
               <BookOpen className="size-4 mr-2 text-[#d0bcff]" />
@@ -467,7 +526,6 @@ export default function GradesPage() {
             </SelectContent>
           </Select>
 
-          {/* Period Selector */}
           <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId} disabled={isTrimesterClosed}>
             <SelectTrigger className="w-[180px] bg-white/[0.02] border-white/10 text-[#e4e1ea]">
               <SelectValue placeholder="Seleccionar periodo" />
@@ -481,7 +539,6 @@ export default function GradesPage() {
             </SelectContent>
           </Select>
 
-          {/* Scale Indicator with Link to Config */}
           <Link 
             href="/admin/config"
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-white/5 ${
@@ -505,272 +562,449 @@ export default function GradesPage() {
             )}
             <Sliders className="size-3 opacity-50" />
           </Link>
-
-          {/* Close/Publish Button */}
-          {!isTrimesterClosed ? (
-            <Button
-              onClick={() => setIsCloseDialogOpen(true)}
-              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 font-bold"
-            >
-              <Lock className="size-4 mr-2" />
-              Cerrar Periodo y Publicar
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#4de082]/10 border border-[#4de082]/20 text-[#4de082] text-sm">
-              <Lock className="size-4" />
-              <span className="font-medium">Periodo Cerrado</span>
-            </div>
-          )}
         </div>
       </header>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Alumnos" value={stats.total} />
-        {stats.isConceptual ? (
-          <>
-            <StatCard 
-              label="Avanzados (TEA)" 
-              value={stats.passing} 
-              color="text-[#4de082]" 
-            />
-            <StatCard 
-              label="Dificultades (TED)" 
-              value={stats.failing} 
-              color="text-[#ffb4ab]"
-            />
-            <StatCard 
-              label="Evaluaciones" 
-              value={currentAssessments.length}
-              color="text-[#d0bcff]"
-            />
-          </>
-        ) : (
-          <>
-            <StatCard 
-              label="Aprobados" 
-              value={stats.passing} 
-              color="text-[#4de082]" 
-              subtext={`${Math.round((stats.passing / stats.total) * 100)}%`} 
-            />
-            <StatCard 
-              label="Desaprobados" 
-              value={stats.failing} 
-              color="text-[#ffb4ab]"
-              subtext={`${Math.round((stats.failing / stats.total) * 100)}%`}
-            />
-            <StatCard 
-              label="Promedio General" 
-              value={stats.averageGeneral.toFixed(1)} 
-              color={stats.averageGeneral >= 7 ? "text-[#4de082]" : "text-[#ffb4ab]"}
-            />
-          </>
-        )}
-      </div>
+      {/* TABS SYSTEM */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-white/[0.02] border border-white/5 p-1">
+          <TabsTrigger 
+            value="regular" 
+            className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] gap-2"
+          >
+            <Grid3X3 className="size-4" />
+            Cursada Regular
+          </TabsTrigger>
+          <TabsTrigger 
+            value="pending" 
+            className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] gap-2"
+          >
+            <ClipboardSignature className="size-4" />
+            Acreditacion de Temas Pendientes
+            {pendingStats.pending > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#ffb4ab]/20 text-[#ffb4ab] text-[10px] font-bold">
+                {pendingStats.pending}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Grades Table with Dynamic Columns */}
-      <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md overflow-hidden">
-        {/* Dynamic Columns Controls */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.01]">
-          <div className="flex items-center gap-2 text-sm text-white/60">
-            <Calculator className="size-4" />
-            <span>{currentAssessments.length} columnas de evaluacion</span>
+        {/* TAB 1: CURSADA REGULAR */}
+        <TabsContent value="regular" className="space-y-6 mt-0">
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard label="Total Alumnos" value={stats.total} />
+            {stats.isConceptual ? (
+              <>
+                <StatCard label="Avanzados (TEA)" value={stats.passing} color="text-[#4de082]" />
+                <StatCard label="Dificultades (TED)" value={stats.failing} color="text-[#ffb4ab]" />
+                <StatCard label="Evaluaciones" value={currentAssessments.length} color="text-[#d0bcff]" />
+              </>
+            ) : (
+              <>
+                <StatCard 
+                  label="Aprobados" 
+                  value={stats.passing} 
+                  color="text-[#4de082]" 
+                  subtext={`${Math.round((stats.passing / stats.total) * 100)}%`} 
+                />
+                <StatCard 
+                  label="Desaprobados" 
+                  value={stats.failing} 
+                  color="text-[#ffb4ab]"
+                  subtext={`${Math.round((stats.failing / stats.total) * 100)}%`}
+                />
+                <StatCard 
+                  label="Promedio General" 
+                  value={stats.averageGeneral.toFixed(1)} 
+                  color={stats.averageGeneral >= 7 ? "text-[#4de082]" : "text-[#ffb4ab]"}
+                />
+              </>
+            )}
           </div>
-          {!isTrimesterClosed && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleAddColumn}
-              className="text-[#d0bcff] hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
-            >
-              <Plus className="size-4 mr-1" />
-              Agregar Evaluacion
-            </Button>
-          )}
-        </div>
 
-        {/* Scrollable Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
-            <thead>
-              <tr className="border-b border-white/5">
-                {/* Student Name Column */}
-                <th className="sticky left-0 z-10 bg-[#131319] px-4 py-3 text-left min-w-[200px]">
-                  <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">
-                    Alumno
-                  </span>
-                </th>
-                
-                {/* Dynamic Assessment Columns */}
-                {currentAssessments.map((assessment) => (
-                  <th key={assessment.id} className="px-2 py-3 text-center min-w-[120px] group relative">
-                    <div className="flex items-center justify-center gap-1">
-                      {editingColumnId === assessment.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            value={editingColumnName}
-                            onChange={(e) => setEditingColumnName(e.target.value)}
-                            className="h-7 w-24 text-xs bg-white/5 border-[#d0bcff]/50 text-center"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleSaveColumnName();
-                              if (e.key === "Escape") handleCancelEditColumn();
-                            }}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 text-[#4de082] hover:bg-[#4de082]/10"
-                            onClick={handleSaveColumnName}
-                          >
-                            <Check className="size-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 text-white/40 hover:bg-white/5"
-                            onClick={handleCancelEditColumn}
-                          >
-                            <X className="size-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <span 
-                            className="text-xs font-semibold text-white/80 cursor-pointer hover:text-[#d0bcff] transition-colors"
-                            onClick={() => !isTrimesterClosed && handleStartEditColumn(assessment.id)}
-                            title="Clic para editar nombre"
-                          >
-                            {assessment.name}
-                          </span>
-                          {!isTrimesterClosed && (
-                            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+          {/* Grades Table with Dynamic Columns */}
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md overflow-hidden">
+            {/* Dynamic Columns Controls */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-sm text-white/60">
+                  <Calculator className="size-4" />
+                  <span>{currentAssessments.length} columnas de evaluacion</span>
+                </div>
+                {!isTrimesterClosed ? (
+                  <Button
+                    onClick={() => setIsCloseDialogOpen(true)}
+                    className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 font-bold"
+                    size="sm"
+                  >
+                    <Lock className="size-4 mr-2" />
+                    Cerrar Periodo
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#4de082]/10 border border-[#4de082]/20 text-[#4de082] text-sm">
+                    <Lock className="size-4" />
+                    <span className="font-medium">Periodo Cerrado</span>
+                  </div>
+                )}
+              </div>
+              {!isTrimesterClosed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddColumn}
+                  className="text-[#d0bcff] hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
+                >
+                  <Plus className="size-4 mr-1" />
+                  Agregar Evaluacion
+                </Button>
+              )}
+            </div>
+
+            {/* Scrollable Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="sticky left-0 z-10 bg-[#131319] px-4 py-3 text-left min-w-[200px]">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                        Alumno
+                      </span>
+                    </th>
+                    
+                    {currentAssessments.map((assessment) => (
+                      <th key={assessment.id} className="px-2 py-3 text-center min-w-[120px] group relative">
+                        <div className="flex items-center justify-center gap-1">
+                          {editingColumnId === assessment.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={editingColumnName}
+                                onChange={(e) => setEditingColumnName(e.target.value)}
+                                className="h-7 w-24 text-xs bg-white/5 border-[#d0bcff]/50 text-center"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveColumnName();
+                                  if (e.key === "Escape") handleCancelEditColumn();
+                                }}
+                              />
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="size-5 text-white/40 hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
-                                onClick={() => handleStartEditColumn(assessment.id)}
+                                className="size-6 text-[#4de082] hover:bg-[#4de082]/10"
+                                onClick={handleSaveColumnName}
                               >
-                                <Pencil className="size-3" />
+                                <Check className="size-3" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="size-5 text-white/40 hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10"
-                                onClick={() => handleRemoveColumn(assessment.id)}
+                                className="size-6 text-white/40 hover:bg-white/5"
+                                onClick={handleCancelEditColumn}
                               >
-                                <Trash2 className="size-3" />
+                                <X className="size-3" />
                               </Button>
                             </div>
+                          ) : (
+                            <>
+                              <span 
+                                className="text-xs font-semibold text-white/80 cursor-pointer hover:text-[#d0bcff] transition-colors"
+                                onClick={() => !isTrimesterClosed && handleStartEditColumn(assessment.id)}
+                                title="Clic para editar nombre"
+                              >
+                                {assessment.name}
+                              </span>
+                              {!isTrimesterClosed && (
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-5 text-white/40 hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
+                                    onClick={() => handleStartEditColumn(assessment.id)}
+                                  >
+                                    <Pencil className="size-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-5 text-white/40 hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10"
+                                    onClick={() => handleRemoveColumn(assessment.id)}
+                                  >
+                                    <Trash2 className="size-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </>
                           )}
-                        </>
-                      )}
-                    </div>
-                  </th>
-                ))}
-                
-                {/* Average Column */}
-                <th className="px-4 py-3 text-center min-w-[100px] bg-[#d0bcff]/5">
-                  <span className="text-xs font-semibold text-[#d0bcff] uppercase tracking-wider">
-                    Promedio
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {students.map((student) => (
-                <tr key={student.studentId} className="hover:bg-white/[0.02] transition-colors">
-                  {/* Student Info */}
-                  <td className="sticky left-0 z-10 bg-[#131319] px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="size-8 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
-                        {student.firstName[0]}{student.lastName[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-[#e4e1ea]">
-                          {student.lastName}, {student.firstName}
-                        </p>
-                        <p className="text-xs text-white/40">
-                          {student.enrollmentNumber}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  
-                  {/* Grade Cells */}
-                  {currentAssessments.map((assessment) => {
-                    const gradeValue = gradesData[student.studentId]?.[assessment.id];
-                    return (
-                      <td key={assessment.id} className="px-2 py-3 text-center">
-                        {gradingType === "NUMERIC" ? (
-                          <Input
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={typeof gradeValue === "number" ? gradeValue : ""}
-                            onChange={(e) => {
-                              const val = e.target.value === "" ? null : parseFloat(e.target.value);
-                              handleGradeUpdate(student.studentId, assessment.id, val);
-                            }}
-                            disabled={isTrimesterClosed}
-                            className={cn(
-                              "w-16 h-9 text-center text-sm font-medium bg-white/[0.02] border-white/10",
-                              "focus:border-[#d0bcff] focus:ring-1 focus:ring-[#d0bcff]/20",
-                              typeof gradeValue === "number" && gradeValue >= 7 && "text-[#4de082]",
-                              typeof gradeValue === "number" && gradeValue < 7 && "text-[#ffb4ab]",
-                              isTrimesterClosed && "opacity-60 cursor-not-allowed"
+                        </div>
+                      </th>
+                    ))}
+                    
+                    <th className="px-4 py-3 text-center min-w-[100px] bg-[#d0bcff]/5">
+                      <span className="text-xs font-semibold text-[#d0bcff] uppercase tracking-wider">
+                        Promedio
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {students.map((student) => (
+                    <tr key={student.studentId} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="sticky left-0 z-10 bg-[#131319] px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="size-8 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
+                            {student.firstName[0]}{student.lastName[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-[#e4e1ea]">
+                              {student.lastName}, {student.firstName}
+                            </p>
+                            <p className="text-xs text-white/40">
+                              {student.enrollmentNumber}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      
+                      {currentAssessments.map((assessment) => {
+                        const gradeValue = gradesData[student.studentId]?.[assessment.id];
+                        return (
+                          <td key={assessment.id} className="px-2 py-3 text-center">
+                            {gradingType === "NUMERIC" ? (
+                              <Input
+                                type="number"
+                                min={1}
+                                max={10}
+                                value={typeof gradeValue === "number" ? gradeValue : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? null : parseFloat(e.target.value);
+                                  handleGradeUpdate(student.studentId, assessment.id, val);
+                                }}
+                                disabled={isTrimesterClosed}
+                                className={cn(
+                                  "w-16 h-9 text-center text-sm font-medium bg-white/[0.02] border-white/10",
+                                  "focus:border-[#d0bcff] focus:ring-1 focus:ring-[#d0bcff]/20",
+                                  typeof gradeValue === "number" && gradeValue >= 7 && "text-[#4de082]",
+                                  typeof gradeValue === "number" && gradeValue < 7 && "text-[#ffb4ab]",
+                                  isTrimesterClosed && "opacity-60 cursor-not-allowed"
+                                )}
+                              />
+                            ) : (
+                              <Select
+                                value={typeof gradeValue === "string" ? gradeValue : ""}
+                                onValueChange={(val) => handleGradeUpdate(student.studentId, assessment.id, null, val)}
+                                disabled={isTrimesterClosed}
+                              >
+                                <SelectTrigger className={cn(
+                                  "w-20 h-9 text-xs bg-white/[0.02] border-white/10",
+                                  gradeValue === "TEA" && "text-[#4de082] border-[#4de082]/30",
+                                  gradeValue === "TEP" && "text-[#d0bcff] border-[#d0bcff]/30",
+                                  gradeValue === "TED" && "text-[#ffb4ab] border-[#ffb4ab]/30",
+                                )}>
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#131319] border-white/10">
+                                  {(currentScale.conceptualValues || ["TEA", "TEP", "TED"]).map((val) => (
+                                    <SelectItem key={val} value={val} className="text-[#e4e1ea]">
+                                      {val}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             )}
-                          />
+                          </td>
+                        );
+                      })}
+                      
+                      <td className="px-4 py-3 text-center bg-[#d0bcff]/5">
+                        {gradingType === "NUMERIC" ? (
+                          <div className={cn(
+                            "inline-flex items-center justify-center size-10 rounded-xl font-bold text-lg",
+                            student.average !== null && student.average >= 7 
+                              ? "bg-[#4de082]/20 text-[#4de082]" 
+                              : student.average !== null 
+                                ? "bg-[#ffb4ab]/20 text-[#ffb4ab]"
+                                : "bg-white/5 text-white/40"
+                          )}>
+                            {student.average !== null ? student.average.toFixed(1) : "-"}
+                          </div>
                         ) : (
-                          <Select
-                            value={typeof gradeValue === "string" ? gradeValue : ""}
-                            onValueChange={(val) => handleGradeUpdate(student.studentId, assessment.id, null, val)}
-                            disabled={isTrimesterClosed}
-                          >
-                            <SelectTrigger className={cn(
-                              "w-20 h-9 text-xs bg-white/[0.02] border-white/10",
-                              gradeValue === "TEA" && "text-[#4de082] border-[#4de082]/30",
-                              gradeValue === "TEP" && "text-[#d0bcff] border-[#d0bcff]/30",
-                              gradeValue === "TED" && "text-[#ffb4ab] border-[#ffb4ab]/30",
-                            )}>
-                              <SelectValue placeholder="-" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-[#131319] border-white/10">
-                              {(currentScale.conceptualValues || ["TEA", "TEP", "TED"]).map((val) => (
-                                <SelectItem key={val} value={val} className="text-[#e4e1ea]">
-                                  {val}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <span className="text-sm text-white/40">-</span>
                         )}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* TAB 2: TEMAS PENDIENTES */}
+        <TabsContent value="pending" className="space-y-6 mt-0">
+          {/* Info Alert */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+            <Bell className="size-5 text-[#d0bcff] mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-[#d0bcff]">
+                Informacion visible y notificada a la familia del estudiante en tiempo real
+              </p>
+              <p className="text-xs text-white/50 mt-1">
+                Al acreditar un tema, se enviara automaticamente una notificacion a Secretaria Academica y al tutor legal del alumno.
+              </p>
+            </div>
+          </div>
+
+          {/* Pending Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard label="Total Pendientes" value={pendingStats.total} />
+            <StatCard label="Sin Resolver" value={pendingStats.pending} color="text-[#ffb4ab]" />
+            <StatCard label="En Proceso" value={pendingStats.inProgress} color="text-[#d0bcff]" />
+            <StatCard label="Acreditados" value={pendingStats.accredited} color="text-[#4de082]" />
+          </div>
+
+          {/* Pending Students Table */}
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/5 bg-white/[0.01]">
+              <h3 className="text-sm font-semibold text-[#e4e1ea]">
+                Alumnos con Temas Adeudados - {selectedSubject.name}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alumno</span>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Tema Adeudado</span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Origen</span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Estado</span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Nota Recuperacion</span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Accion</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {pendingStudents.map((student) => {
+                    const isAccredited = student.status === "ACCREDITED";
+                    const isAccrediting = accreditingId === student.id;
+                    
+                    return (
+                      <tr 
+                        key={student.id} 
+                        className={cn(
+                          "transition-colors",
+                          isAccredited ? "opacity-60 bg-[#4de082]/5" : "hover:bg-white/[0.02]"
+                        )}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "size-8 rounded-full flex items-center justify-center text-xs font-bold",
+                              isAccredited ? "bg-[#4de082]/20 text-[#4de082]" : "bg-[#ffb4ab]/10 text-[#ffb4ab]"
+                            )}>
+                              {student.firstName[0]}{student.lastName[0]}
+                            </div>
+                            <div>
+                              <p className={cn(
+                                "text-sm font-medium",
+                                isAccredited ? "text-[#4de082] line-through" : "text-[#e4e1ea]"
+                              )}>
+                                {student.lastName}, {student.firstName}
+                              </p>
+                              <p className="text-xs text-white/40">{student.legajo}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className={cn(
+                            "text-sm",
+                            isAccredited ? "text-white/40 line-through" : "text-[#e4e1ea]"
+                          )}>
+                            {student.topic}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-xs text-white/60">{student.originYear}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={cn(
+                            "px-2 py-1 rounded-lg text-[10px] font-bold uppercase",
+                            student.status === "PENDING" && "bg-[#ffb4ab]/20 text-[#ffb4ab]",
+                            student.status === "IN_PROGRESS" && "bg-[#d0bcff]/20 text-[#d0bcff]",
+                            student.status === "ACCREDITED" && "bg-[#4de082]/20 text-[#4de082]"
+                          )}>
+                            {student.status === "PENDING" && "Pendiente"}
+                            {student.status === "IN_PROGRESS" && "En Proceso"}
+                            {student.status === "ACCREDITED" && "Acreditado"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {isAccredited ? (
+                            <span className="text-lg font-bold text-[#4de082]">
+                              {student.recoveryGrade}
+                            </span>
+                          ) : (
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={pendingGrades[student.id] ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value === "" ? null : parseInt(e.target.value);
+                                setPendingGrades(prev => ({ ...prev, [student.id]: val }));
+                              }}
+                              disabled={isAccrediting}
+                              className="w-16 h-9 text-center text-sm font-medium bg-white/[0.02] border-white/10 mx-auto"
+                              placeholder="-"
+                            />
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {isAccredited ? (
+                            <div className="flex items-center justify-center gap-1 text-[#4de082]">
+                              <CheckCircle2 className="size-4" />
+                              <span className="text-xs">
+                                {student.accreditedAt?.toLocaleDateString("es-AR")}
+                              </span>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAccreditStudent(student.id)}
+                              disabled={isAccrediting || !pendingGrades[student.id]}
+                              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 text-xs"
+                            >
+                              {isAccrediting ? (
+                                <>
+                                  <Loader2 className="size-3 mr-1 animate-spin" />
+                                  Procesando...
+                                </>
+                              ) : (
+                                "Acreditar Saberes"
+                              )}
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
                     );
                   })}
-                  
-                  {/* Average Cell */}
-                  <td className="px-4 py-3 text-center bg-[#d0bcff]/5">
-                    {gradingType === "NUMERIC" ? (
-                      <div className={cn(
-                        "inline-flex items-center justify-center size-10 rounded-xl font-bold text-lg",
-                        student.average !== null && student.average >= 7 
-                          ? "bg-[#4de082]/20 text-[#4de082]" 
-                          : student.average !== null 
-                            ? "bg-[#ffb4ab]/20 text-[#ffb4ab]"
-                            : "bg-white/5 text-white/40"
-                      )}>
-                        {student.average !== null ? student.average.toFixed(1) : "-"}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-white/40">-</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Close Period Confirmation Dialog */}
       <Dialog open={isCloseDialogOpen} onOpenChange={setIsCloseDialogOpen}>
