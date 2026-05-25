@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, History, FileText, BookOpen } from "lucide-react";
+import { ArrowLeft, User, History, FileText, BookOpen, Users, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { StatsOverview } from "./stats-overview";
 import { EventTimeline } from "./event-timeline";
 import { MedicalContactCard } from "./medical-contact-card";
 import { StudentTrayectoria } from "./student-trayectoria";
+import { StudentFamilyNetwork } from "./student-family-network";
 import type { Student360Data } from "@/lib/types/student";
 
 interface Student360ViewProps {
@@ -29,6 +30,7 @@ export function Student360View({
 
   // Count pending subjects for badge
   const pendingSubjectsCount = 2; // This would come from data in real implementation
+  const hasRestrictions = true; // Mock: would come from contacts data
 
   return (
     <div className="min-h-screen pb-8">
@@ -80,6 +82,16 @@ export function Student360View({
               )}
             </TabsTrigger>
             <TabsTrigger
+              value="familia"
+              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Red Familiar
+              {hasRestrictions && (
+                <ShieldAlert className="h-3.5 w-3.5 ml-1.5 text-red-400" />
+              )}
+            </TabsTrigger>
+            <TabsTrigger
               value="historial"
               className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
             >
@@ -113,6 +125,14 @@ export function Student360View({
           {/* Trayectoria Tab - New Content */}
           <TabsContent value="trayectoria" className="mt-6">
             <StudentTrayectoria 
+              studentName={`${data.profile.firstName} ${data.profile.lastName}`}
+              canEdit={true}
+            />
+          </TabsContent>
+
+          {/* Red Familiar Tab - Family Network */}
+          <TabsContent value="familia" className="mt-6">
+            <StudentFamilyNetwork 
               studentName={`${data.profile.firstName} ${data.profile.lastName}`}
               canEdit={true}
             />
