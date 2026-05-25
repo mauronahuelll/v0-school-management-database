@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
-import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu } from "lucide-react"
+import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
@@ -12,9 +12,26 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 
 interface AppShellProps {
   children: React.ReactNode
+}
+
+// Role icons mapping
+const ROLE_ICONS = {
+  ADMIN: School,
+  DOCENTE: BookOpen,
+  PRECEPTOR: Users,
+  FAMILIA: Home,
+}
+
+// Level labels
+const LEVEL_LABELS = {
+  INICIAL: "Nivel Inicial",
+  PRIMARIO: "Nivel Primario",
+  SECUNDARIO: "Nivel Secundario",
+  TERCIARIO: "Nivel Terciario",
 }
 
 /**
@@ -24,30 +41,41 @@ interface AppShellProps {
  * - Detectar autenticacion y renderizar layout apropiado
  * - Manejar responsividad (mobile/desktop)
  * - Proveer navegacion global y utilidades
- * 
- * NO debe manejar:
- * - Logica de enrutamiento (eso es del AuthContext)
- * - Estados de paginas individuales
+ * - Soportar Multi-Contexto (mismo usuario, diferentes roles)
  */
 export function AppShell({ children }: AppShellProps) {
-  const { role, userName, schoolId, schoolName, logout, clearSchool } = useAuth()
+  const { 
+    user, 
+    activeContext, 
+    availableContexts, 
+    logout, 
+    switchContext 
+  } = useAuth()
+  
   const pathname = usePathname()
   const router = useRouter()
   const [consoleOpen, setConsoleOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [contextSelectorOpen, setContextSelectorOpen] = useState(false)
   const [logs, setLogs] = useState<string[]>([
     "[SYS] Initializing Sequency Core v4.2.0...",
     "[OK] Socket connected to node_AR_BUE_01",
   ])
   
+  // Derived values from activeContext
+  const role = activeContext?.role ?? null
+  const schoolId = activeContext?.schoolId ?? null
+  const schoolName = activeContext?.schoolName ?? null
+  const userName = user?.name ?? ""
+  
   // Determinar si el usuario tiene sesion activa completa
   const isAuthenticated = useMemo(() => {
-    // Usuario sin rol = no autenticado
-    if (!role) return false
-    // ADMIN sin escuela seleccionada = parcialmente autenticado (mostrar selector)
-    if (role === "ADMIN" && !schoolId) return false
+    // Usuario sin user = no autenticado
+    if (!user) return false
+    // Usuario sin contexto activo = debe seleccionar contexto
+    if (!activeContext) return false
     return true
-  }, [role, schoolId])
+  }, [user, activeContext])
 
   // Keyboard shortcut (Ctrl + Q) for dev console
   useEffect(() => {
@@ -63,26 +91,26 @@ export function AppShell({ children }: AppShellProps) {
 
   // Add route change logs
   useEffect(() => {
-    if (role && schoolId) {
+    if (user && activeContext) {
       const time = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
       setLogs((prev) => [...prev.slice(-8), `[${time}] Route: ${pathname}`])
     }
-  }, [pathname, role, schoolId])
+  }, [pathname, user, activeContext])
 
   // Close mobile menu on route change
   useEffect(() => {
     setMobileMenuOpen(false)
+    setContextSelectorOpen(false)
   }, [pathname])
 
-  // Handle switching schools (for ADMIN)
-  const handleSwitchSchool = () => {
-    clearSchool()
-    router.push("/")
+  // Handle context switch
+  const handleSwitchContext = (contextId: string) => {
+    switchContext(contextId)
+    setContextSelectorOpen(false)
   }
 
   // ====================================================================
-  // RENDER: Usuario NO autenticado o ADMIN sin escuela seleccionada
-  // Muestra solo el contenido (Login/Selector de escuela) sin shell
+  // RENDER: Usuario NO autenticado o sin contexto seleccionado
   // ====================================================================
   if (!isAuthenticated) {
     return (
@@ -93,8 +121,10 @@ export function AppShell({ children }: AppShellProps) {
     )
   }
 
+  const RoleIcon = ROLE_ICONS[role!] || School
+
   // ====================================================================
-  // RENDER: Usuario autenticado con sesion completa
+  // RENDER: Usuario autenticado con contexto activo
   // Layout responsivo de 3 columnas (mobile-first)
   // ====================================================================
   return (
@@ -103,15 +133,21 @@ export function AppShell({ children }: AppShellProps) {
       {/* MOBILE TOP HEADER (visible only on small screens) */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-background/95 backdrop-blur-xl border-b border-white/5">
         {/* School & Role Compact */}
-        <div className="flex items-center gap-2">
+        <button 
+          onClick={() => setContextSelectorOpen(true)}
+          className="flex items-center gap-2 hover:bg-white/5 rounded-lg px-2 py-1 transition-colors"
+        >
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
-            <School className="w-4 h-4 text-primary" />
+            <RoleIcon className="w-4 h-4 text-primary" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 text-left">
             <p className="text-xs font-bold text-foreground truncate max-w-[120px]">{schoolName || "Sequency"}</p>
             <p className="text-[9px] text-primary uppercase tracking-widest font-bold">{role}</p>
           </div>
-        </div>
+          {availableContexts.length > 1 && (
+            <ChevronDown className="w-3 h-3 text-muted-foreground" />
+          )}
+        </button>
 
         {/* Mobile Actions */}
         <div className="flex items-center gap-2">
@@ -133,29 +169,90 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </header>
 
+      {/* CONTEXT SELECTOR SHEET (Mobile) */}
+      <Sheet open={contextSelectorOpen} onOpenChange={setContextSelectorOpen}>
+        <SheetContent side="bottom" className="h-auto max-h-[70vh] p-0 bg-background border-t border-white/5 rounded-t-2xl">
+          <SheetHeader className="p-4 border-b border-white/5">
+            <SheetTitle className="text-left text-sm font-bold">
+              Cambiar Contexto
+            </SheetTitle>
+            <p className="text-xs text-muted-foreground">
+              Selecciona el rol con el que deseas trabajar
+            </p>
+          </SheetHeader>
+
+          <div className="p-4 space-y-2 max-h-[50vh] overflow-y-auto">
+            {availableContexts.map((ctx) => {
+              const CtxIcon = ROLE_ICONS[ctx.role]
+              const isActive = ctx.id === activeContext?.id
+              
+              return (
+                <button
+                  key={ctx.id}
+                  onClick={() => handleSwitchContext(ctx.id)}
+                  className={cn(
+                    "w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
+                    isActive 
+                      ? "bg-primary/10 border-primary/30" 
+                      : "bg-white/[0.02] border-white/5 hover:bg-white/5"
+                  )}
+                >
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                    isActive ? "bg-primary/20" : "bg-white/5"
+                  )}>
+                    <CtxIcon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest",
+                        isActive ? "text-primary" : "text-muted-foreground"
+                      )}>
+                        {ctx.role}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground">
+                        {LEVEL_LABELS[ctx.level]}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-foreground truncate">{ctx.schoolName}</p>
+                    {ctx.description && (
+                      <p className="text-xs text-muted-foreground truncate">{ctx.description}</p>
+                    )}
+                  </div>
+                  {isActive && (
+                    <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* MOBILE NAVIGATION DRAWER (Sheet) */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent side="left" className="w-[280px] p-0 bg-background border-r border-white/5">
           <SheetHeader className="p-4 border-b border-white/5">
             <SheetTitle className="text-left">
-              <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5">
+              <button 
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setContextSelectorOpen(true)
+                }}
+                className="w-full flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-colors"
+              >
                 <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 shrink-0">
-                  <School className="w-4 h-4 text-primary" />
+                  <RoleIcon className="w-4 h-4 text-primary" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 text-left">
                   <p className="text-xs font-bold text-foreground truncate">{schoolName || "Sequency"}</p>
                   <p className="text-[10px] text-primary uppercase tracking-widest font-bold">{role}</p>
                 </div>
-                {role === "ADMIN" && (
-                  <button 
-                    onClick={handleSwitchSchool}
-                    className="p-1.5 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                    title="Cambiar Institucion"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                {availableContexts.length > 1 && (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 )}
-              </div>
+              </button>
             </SheetTitle>
           </SheetHeader>
 
@@ -170,7 +267,7 @@ export function AppShell({ children }: AppShellProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{role}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
               </div>
             </div>
             <button 
@@ -185,26 +282,35 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* DESKTOP SIDEBAR (hidden on mobile, visible md+) */}
       <aside className="hidden md:flex w-[15%] min-w-[240px] flex-col glass-panel border-r border-white/5 z-20">
-        {/* School & Role Header */}
+        {/* School & Role Header - Clickable for context switch */}
         <div className="p-4 border-b border-white/5">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5">
+          <button 
+            onClick={() => setContextSelectorOpen(true)}
+            className="w-full flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-colors"
+          >
             <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 shrink-0">
-              <School className="w-4 h-4 text-primary" />
+              <RoleIcon className="w-4 h-4 text-primary" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 text-left">
               <p className="text-xs font-bold text-foreground truncate">{schoolName || "Sequency"}</p>
-              <p className="text-[10px] text-primary uppercase tracking-widest font-bold">{role}</p>
+              <div className="flex items-center gap-1">
+                <p className="text-[10px] text-primary uppercase tracking-widest font-bold">{role}</p>
+                {activeContext?.level && (
+                  <span className="text-[8px] text-muted-foreground">• {activeContext.level}</span>
+                )}
+              </div>
             </div>
-            {role === "ADMIN" && (
-              <button 
-                onClick={handleSwitchSchool}
-                className="p-1.5 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                title="Cambiar Institucion"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+            {availableContexts.length > 1 && (
+              <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
             )}
-          </div>
+          </button>
+          
+          {/* Context description */}
+          {activeContext?.description && (
+            <p className="mt-2 px-2 text-[10px] text-muted-foreground truncate">
+              {activeContext.description}
+            </p>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-galactic px-4 py-4">
@@ -218,7 +324,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{role}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
             </div>
           </div>
           <button 
@@ -229,6 +335,70 @@ export function AppShell({ children }: AppShellProps) {
           </button>
         </div>
       </aside>
+
+      {/* DESKTOP CONTEXT SELECTOR DROPDOWN */}
+      {contextSelectorOpen && (
+        <>
+          <div 
+            className="hidden md:block fixed inset-0 z-30" 
+            onClick={() => setContextSelectorOpen(false)}
+          />
+          <div className="hidden md:block fixed left-4 top-20 w-80 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden">
+            <div className="p-3 border-b border-white/5">
+              <p className="text-xs font-bold text-foreground">Cambiar Contexto</p>
+              <p className="text-[10px] text-muted-foreground">
+                {availableContexts.length} perfil{availableContexts.length !== 1 ? "es" : ""} disponible{availableContexts.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <div className="p-2 max-h-80 overflow-y-auto">
+              {availableContexts.map((ctx) => {
+                const CtxIcon = ROLE_ICONS[ctx.role]
+                const isActive = ctx.id === activeContext?.id
+                
+                return (
+                  <button
+                    key={ctx.id}
+                    onClick={() => handleSwitchContext(ctx.id)}
+                    className={cn(
+                      "w-full flex items-start gap-3 p-2.5 rounded-lg transition-all text-left",
+                      isActive 
+                        ? "bg-primary/10" 
+                        : "hover:bg-white/5"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                      isActive ? "bg-primary/20" : "bg-white/5"
+                    )}>
+                      <CtxIcon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest",
+                          isActive ? "text-primary" : "text-muted-foreground"
+                        )}>
+                          {ctx.role}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground">
+                          {LEVEL_LABELS[ctx.level]}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground truncate">{ctx.schoolName}</p>
+                      {ctx.description && (
+                        <p className="text-[10px] text-muted-foreground truncate">{ctx.description}</p>
+                      )}
+                    </div>
+                    {isActive && (
+                      <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* MAIN CONTENT AREA (full width mobile, flex-1 on desktop) */}
       <main className="flex-1 h-full overflow-y-auto relative scrollbar-galactic pt-14 md:pt-0">
@@ -330,9 +500,12 @@ export function AppShell({ children }: AppShellProps) {
                   {log}
                 </p>
               ))}
-              <p className="text-secondary">[AUTH] session: {role}</p>
+              <p className="text-secondary">[AUTH] user: {user?.email}</p>
+              <p className="text-secondary">[AUTH] context: {activeContext?.id}</p>
+              <p className="text-secondary">[AUTH] role: {role}</p>
               <p className="text-secondary">[AUTH] school: {schoolId}</p>
-              <p className="text-secondary">[AUTH] user: {userName}</p>
+              <p className="text-secondary">[AUTH] level: {activeContext?.level}</p>
+              <p className="text-white/40">[AUTH] contexts: {availableContexts.length} available</p>
             </div>
             <p className="text-white/30 mt-auto">root@sequency:~$ <span className="animate-pulse">_</span></p>
           </div>
