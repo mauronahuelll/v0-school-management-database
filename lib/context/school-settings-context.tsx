@@ -7,6 +7,18 @@ import { createContext, useContext, useState, useCallback, useMemo, type ReactNo
 // ============================================
 
 export type GradingScaleType = "NUMERIC" | "ALPHABETIC" | "CONCEPTUAL"
+export type AcademicPeriodType = "TRIMESTRAL" | "CUATRIMESTRAL" | "BIMESTRAL"
+
+export interface AcademicPeriodConfig {
+  type: AcademicPeriodType
+  periods: {
+    id: string
+    name: string
+    shortName: string
+    startDate: string
+    endDate: string
+  }[]
+}
 
 export interface GradingScale {
   type: GradingScaleType
@@ -44,6 +56,7 @@ export interface SchoolSettings {
   academicYear: number
   currentPeriod: string
   periodsPerYear: number
+  academicPeriodConfig: AcademicPeriodConfig
   
   // Role permissions
   rolePermissions: RolePermission[]
@@ -54,9 +67,12 @@ interface SchoolSettingsContextType {
   updateGradingScale: (scale: GradingScale) => void
   updateAcademicYear: (year: number) => void
   updateCurrentPeriod: (period: string) => void
+  updateAcademicPeriodConfig: (config: AcademicPeriodConfig) => void
   updateRolePermission: (roleId: string, permissions: Partial<RolePermission>) => void
   resetToDefaults: () => void
   isLoading: boolean
+  // Helpers
+  getAvailablePeriods: () => { id: string; name: string; shortName: string }[]
 }
 
 // ============================================
@@ -94,6 +110,40 @@ const DEFAULT_CONCEPTUAL_SCALE: GradingScale = {
     "TED": "Trayectoria Educativa en Desarrollo",
   },
 }
+
+// Default Academic Period Configurations
+const DEFAULT_TRIMESTRAL_CONFIG: AcademicPeriodConfig = {
+  type: "TRIMESTRAL",
+  periods: [
+    { id: "1T", name: "1° Trimestre", shortName: "1T", startDate: "2026-03-02", endDate: "2026-06-06" },
+    { id: "2T", name: "2° Trimestre", shortName: "2T", startDate: "2026-06-09", endDate: "2026-09-12" },
+    { id: "3T", name: "3° Trimestre", shortName: "3T", startDate: "2026-09-15", endDate: "2026-12-11" },
+  ],
+}
+
+const DEFAULT_CUATRIMESTRAL_CONFIG: AcademicPeriodConfig = {
+  type: "CUATRIMESTRAL",
+  periods: [
+    { id: "1C", name: "1° Cuatrimestre", shortName: "1C", startDate: "2026-03-02", endDate: "2026-07-10" },
+    { id: "2C", name: "2° Cuatrimestre", shortName: "2C", startDate: "2026-08-03", endDate: "2026-12-11" },
+  ],
+}
+
+const DEFAULT_BIMESTRAL_CONFIG: AcademicPeriodConfig = {
+  type: "BIMESTRAL",
+  periods: [
+    { id: "1B", name: "1° Bimestre", shortName: "1B", startDate: "2026-03-02", endDate: "2026-04-30" },
+    { id: "2B", name: "2° Bimestre", shortName: "2B", startDate: "2026-05-04", endDate: "2026-07-03" },
+    { id: "3B", name: "3° Bimestre", shortName: "3B", startDate: "2026-08-03", endDate: "2026-10-02" },
+    { id: "4B", name: "4° Bimestre", shortName: "4B", startDate: "2026-10-05", endDate: "2026-12-11" },
+  ],
+}
+
+export const ACADEMIC_PERIOD_PRESETS = {
+  TRIMESTRAL: DEFAULT_TRIMESTRAL_CONFIG,
+  CUATRIMESTRAL: DEFAULT_CUATRIMESTRAL_CONFIG,
+  BIMESTRAL: DEFAULT_BIMESTRAL_CONFIG,
+} as const
 
 const DEFAULT_ROLE_PERMISSIONS: RolePermission[] = [
   {
@@ -157,6 +207,7 @@ const DEFAULT_SETTINGS: SchoolSettings = {
   academicYear: new Date().getFullYear(),
   currentPeriod: "1T",
   periodsPerYear: 3,
+  academicPeriodConfig: DEFAULT_TRIMESTRAL_CONFIG,
   rolePermissions: DEFAULT_ROLE_PERMISSIONS,
 }
 
@@ -206,6 +257,15 @@ export function SchoolSettingsProvider({
     }))
   }, [])
 
+  const updateAcademicPeriodConfig = useCallback((config: AcademicPeriodConfig) => {
+    setSettings(prev => ({
+      ...prev,
+      academicPeriodConfig: config,
+      periodsPerYear: config.periods.length,
+      currentPeriod: config.periods[0]?.id || "1T",
+    }))
+  }, [])
+
   const updateRolePermission = useCallback((roleId: string, permissions: Partial<RolePermission>) => {
     setSettings(prev => ({
       ...prev,
@@ -219,22 +279,34 @@ export function SchoolSettingsProvider({
     setSettings(DEFAULT_SETTINGS)
   }, [])
 
+  const getAvailablePeriods = useCallback(() => {
+    return settings.academicPeriodConfig.periods.map(p => ({
+      id: p.id,
+      name: p.name,
+      shortName: p.shortName,
+    }))
+  }, [settings.academicPeriodConfig])
+
   const value = useMemo(() => ({
     settings,
     updateGradingScale,
     updateAcademicYear,
     updateCurrentPeriod,
+    updateAcademicPeriodConfig,
     updateRolePermission,
     resetToDefaults,
     isLoading,
+    getAvailablePeriods,
   }), [
     settings,
     updateGradingScale,
     updateAcademicYear,
     updateCurrentPeriod,
+    updateAcademicPeriodConfig,
     updateRolePermission,
     resetToDefaults,
     isLoading,
+    getAvailablePeriods,
   ])
 
   return (

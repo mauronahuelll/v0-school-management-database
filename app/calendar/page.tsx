@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth, type Role } from "@/lib/context/auth-context";
+import { useSchoolSettings, ACADEMIC_PERIOD_PRESETS, type AcademicPeriodType } from "@/lib/context/school-settings-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -147,6 +148,7 @@ function getDevRole(): Role | null {
 
 export default function CalendarPage() {
   const { activeContext } = useAuth();
+  const { settings, updateAcademicPeriodConfig } = useSchoolSettings();
   const [mounted, setMounted] = useState(false);
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   
@@ -154,10 +156,9 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [markedDays, setMarkedDays] = useState<MarkedDay[]>([]);
   
-  // Admin config state
-  const [periodSystem, setPeriodSystem] = useState("trimestre");
-  const [startDate, setStartDate] = useState("2026-03-02");
-  const [endDate, setEndDate] = useState("2026-12-11");
+  // Admin config state - synced from context
+  const [periodSystem, setPeriodSystem] = useState<AcademicPeriodType>(settings.academicPeriodConfig.type);
+  const [periodDates, setPeriodDates] = useState(settings.academicPeriodConfig.periods);
   const [recesoStart, setRecesoStart] = useState("2026-07-20");
   const [recesoEnd, setRecesoEnd] = useState("2026-07-31");
   
@@ -231,6 +232,25 @@ export default function CalendarPage() {
   // ========================================
   // Handlers
   // ========================================
+  // Handle period system change - updates context and local state
+  const handlePeriodSystemChange = useCallback((newType: AcademicPeriodType) => {
+    setPeriodSystem(newType);
+    const newConfig = ACADEMIC_PERIOD_PRESETS[newType];
+    setPeriodDates(newConfig.periods);
+    updateAcademicPeriodConfig(newConfig);
+    toast.success(`Regimen academico cambiado a ${newType === "TRIMESTRAL" ? "Trimestres" : newType === "CUATRIMESTRAL" ? "Cuatrimestres" : "Bimestres"}`);
+  }, [updateAcademicPeriodConfig]);
+
+  // Handle period date update
+  const handlePeriodDateUpdate = useCallback((periodId: string, field: "startDate" | "endDate", value: string) => {
+    setPeriodDates(prev => {
+      const updated = prev.map(p => p.id === periodId ? { ...p, [field]: value } : p);
+      // Also update context
+      updateAcademicPeriodConfig({ type: periodSystem, periods: updated });
+      return updated;
+    });
+  }, [periodSystem, updateAcademicPeriodConfig]);
+
   const handleAutoFillFeriados = useCallback(() => {
     const existingDates = new Set(markedDays.filter(d => d.type === "FERIADO").map(d => d.date));
     const newFeriados = FERIADOS_NACIONALES_2026.filter(f => !existingDates.has(f.date));
@@ -404,35 +424,52 @@ export default function CalendarPage() {
               
               <div className="space-y-2">
                 <Label className="text-xs text-white/50">Regimen Academico</Label>
-                <Select value={periodSystem} onValueChange={setPeriodSystem}>
+                <Select value={periodSystem} onValueChange={(v) => handlePeriodSystemChange(v as AcademicPeriodType)}>
                   <SelectTrigger className="bg-black/40 border-white/10">
                     <SelectValue placeholder="Seleccionar" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="trimestre">Trimestres (Clasico)</SelectItem>
-                    <SelectItem value="cuatrimestre">Cuatrimestres</SelectItem>
+                    <SelectItem value="TRIMESTRAL">Trimestres (3 periodos)</SelectItem>
+                    <SelectItem value="CUATRIMESTRAL">Cuatrimestres (2 periodos)</SelectItem>
+                    <SelectItem value="BIMESTRAL">Bimestres (4 periodos)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-white/40 uppercase">Inicio Clases</Label>
-                  <Input 
-                    type="date" 
-                    className="bg-black/40 border-white/10 text-xs" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+              {/* DYNAMIC PERIOD DATE INPUTS */}
+              <div className="space-y-3 pt-3 border-t border-white/5">
+                <div className="flex items-center gap-2">
+                  <div className="size-2 rounded-full bg-purple-400" />
+                  <h3 className="text-xs font-bold text-white/70">Fechas de {periodSystem === "TRIMESTRAL" ? "Trimestres" : periodSystem === "CUATRIMESTRAL" ? "Cuatrimestres" : "Bimestres"}</h3>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-white/40 uppercase">Fin Clases</Label>
-                  <Input 
-                    type="date" 
-                    className="bg-black/40 border-white/10 text-xs" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
+                <div className="space-y-2">
+                  {periodDates.map((period, idx) => (
+                    <div key={period.id} className="p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl space-y-2">
+                      <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/20">
+                        {period.name}
+                      </Badge>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[9px] text-white/40 uppercase">Inicio</Label>
+                          <Input 
+                            type="date" 
+                            className="bg-black/40 border-white/10 text-[10px] h-7" 
+                            value={period.startDate}
+                            onChange={(e) => handlePeriodDateUpdate(period.id, "startDate", e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[9px] text-white/40 uppercase">Fin</Label>
+                          <Input 
+                            type="date" 
+                            className="bg-black/40 border-white/10 text-[10px] h-7" 
+                            value={period.endDate}
+                            onChange={(e) => handlePeriodDateUpdate(period.id, "endDate", e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
