@@ -32,6 +32,7 @@ const NAV_ITEMS_ADMIN = [
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
   { id: "communications", label: "Comunicados", href: "/communications", icon: Megaphone },
+  { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "import", label: "Importar Matricula", href: "/admin/import", icon: Upload },
   { id: "config", label: "Config. Institucion", href: "/admin/config", icon: Sliders },
   { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
