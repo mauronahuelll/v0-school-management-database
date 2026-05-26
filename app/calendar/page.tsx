@@ -7,20 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
 import { 
   ShieldAlert, 
   CalendarDays, 
   Plus, 
   Trash2, 
   Download,
-  Loader2,
   Sparkles,
   Flag,
   Check,
   GraduationCap,
   FileText,
   PenLine,
-  Presentation
+  Presentation,
+  AlertTriangle,
+  X,
+  BookOpen,
+  Calendar as CalendarIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -33,12 +37,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 // ============================================
 // TYPES
 // ============================================
 
 type TeacherEventType = "EXAMEN" | "TRABAJO_PRACTICO" | "CLASE_ESPECIAL";
+type CustomEventType = "JORNADA" | "FERIADO_LOCAL" | "SUSPENSION";
 
 interface TeacherEvent {
   id: string;
@@ -48,6 +54,20 @@ interface TeacherEvent {
   title: string;
   course: string;
   notes: string;
+}
+
+interface AccreditationPeriod {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+interface CustomEvent {
+  id: string;
+  date: string;
+  title: string;
+  type: CustomEventType;
 }
 
 interface MarkedDay {
@@ -64,6 +84,12 @@ const TEACHER_EVENT_CONFIG: Record<TeacherEventType, { label: string; color: str
   EXAMEN: { label: "Fecha de Examen", color: "text-[#ff6b6b]", bgColor: "bg-[#ff6b6b]/20", icon: FileText },
   TRABAJO_PRACTICO: { label: "Entrega de TP", color: "text-[#4ecdc4]", bgColor: "bg-[#4ecdc4]/20", icon: PenLine },
   CLASE_ESPECIAL: { label: "Clase Especial", color: "text-[#ffe66d]", bgColor: "bg-[#ffe66d]/20", icon: Presentation },
+};
+
+const CUSTOM_EVENT_CONFIG: Record<CustomEventType, { label: string; color: string; bgColor: string; borderColor: string }> = {
+  JORNADA: { label: "Jornada Docente", color: "text-[#63a4ff]", bgColor: "bg-[#63a4ff]/20", borderColor: "border-[#63a4ff]/30" },
+  FERIADO_LOCAL: { label: "Feriado Local", color: "text-[#ff6b6b]", bgColor: "bg-[#ff6b6b]/20", borderColor: "border-[#ff6b6b]/30" },
+  SUSPENSION: { label: "Suspension", color: "text-[#ffb93d]", bgColor: "bg-[#ffb93d]/20", borderColor: "border-[#ffb93d]/30" },
 };
 
 const MOCK_TEACHER_COURSES = [
@@ -134,8 +160,21 @@ export default function CalendarPage() {
   const [endDate, setEndDate] = useState("2026-12-11");
   const [recesoStart, setRecesoStart] = useState("2026-07-20");
   const [recesoEnd, setRecesoEnd] = useState("2026-07-31");
-  const [acredStart, setAcredStart] = useState("2026-12-14");
-  const [acredEnd, setAcredEnd] = useState("2026-12-18");
+  
+  // DYNAMIC: Multiple Accreditation Periods
+  const [accreditationPeriods, setAccreditationPeriods] = useState<AccreditationPeriod[]>([
+    { id: "acred-1", label: "Mesas de Febrero", startDate: "2026-02-23", endDate: "2026-02-27" },
+    { id: "acred-2", label: "Instancia Intermedia Julio", startDate: "2026-07-06", endDate: "2026-07-10" },
+    { id: "acred-3", label: "Acreditacion Final Diciembre", startDate: "2026-12-14", endDate: "2026-12-18" },
+  ]);
+  
+  // DYNAMIC: Custom Events (Jornadas, Feriados Locales, Suspensiones)
+  const [customEvents, setCustomEvents] = useState<CustomEvent[]>([]);
+  const [customEventDialogOpen, setCustomEventDialogOpen] = useState(false);
+  const [newCustomEvent, setNewCustomEvent] = useState<Partial<CustomEvent>>({
+    title: "",
+    type: "JORNADA",
+  });
   
   // Teacher event state
   const [teacherEvents, setTeacherEvents] = useState<TeacherEvent[]>([]);
@@ -155,7 +194,6 @@ export default function CalendarPage() {
   // ========================================
   useEffect(() => {
     setMounted(true);
-    // Fallback estrategico: si el contexto tarda, lee el rol del sandbox inmediato
     const role = activeContext?.role || getDevRole() || "ADMIN";
     setCurrentRole(role);
   }, [activeContext]);
@@ -173,6 +211,23 @@ export default function CalendarPage() {
     return [...MOCK_CHILD_EVENTS].sort((a, b) => a.date.localeCompare(b.date));
   }, [currentRole]);
 
+  // Check if a date is within any accreditation period
+  const isInAccreditationPeriod = useCallback((dateStr: string) => {
+    return accreditationPeriods.some(period => 
+      dateStr >= period.startDate && dateStr <= period.endDate
+    );
+  }, [accreditationPeriods]);
+
+  // Check if a date is in receso
+  const isInReceso = useCallback((dateStr: string) => {
+    return dateStr >= recesoStart && dateStr <= recesoEnd;
+  }, [recesoStart, recesoEnd]);
+
+  // Get custom event for a date
+  const getCustomEventForDate = useCallback((dateStr: string) => {
+    return customEvents.find(e => e.date === dateStr);
+  }, [customEvents]);
+
   // ========================================
   // Handlers
   // ========================================
@@ -188,9 +243,65 @@ export default function CalendarPage() {
   }, [markedDays]);
 
   const handlePublishCalendar = useCallback(() => {
-    toast.success("Calendario global guardado y publicado");
+    toast.success("Calendario global guardado y publicado para toda la institucion");
   }, []);
 
+  // Accreditation Period Handlers
+  const handleAddAccreditationPeriod = useCallback(() => {
+    const newPeriod: AccreditationPeriod = {
+      id: `acred-${Date.now()}`,
+      label: "",
+      startDate: "",
+      endDate: "",
+    };
+    setAccreditationPeriods(prev => [...prev, newPeriod]);
+  }, []);
+
+  const handleUpdateAccreditationPeriod = useCallback((id: string, field: keyof AccreditationPeriod, value: string) => {
+    setAccreditationPeriods(prev => prev.map(p => 
+      p.id === id ? { ...p, [field]: value } : p
+    ));
+  }, []);
+
+  const handleDeleteAccreditationPeriod = useCallback((id: string) => {
+    setAccreditationPeriods(prev => prev.filter(p => p.id !== id));
+    toast.success("Periodo de acreditacion eliminado");
+  }, []);
+
+  // Custom Event Handlers
+  const handleOpenCustomEventDialog = useCallback((date?: Date) => {
+    if (date) {
+      setSelectedDate(date);
+    }
+    setNewCustomEvent({ title: "", type: "JORNADA" });
+    setCustomEventDialogOpen(true);
+  }, []);
+
+  const handleCreateCustomEvent = useCallback(() => {
+    if (!selectedDate || !newCustomEvent.title || !newCustomEvent.type) {
+      toast.error("Complete todos los campos requeridos");
+      return;
+    }
+    const dateKey = selectedDate.toISOString().split("T")[0];
+    const newEvent: CustomEvent = {
+      id: `ce-${Date.now()}`,
+      date: dateKey,
+      title: newCustomEvent.title,
+      type: newCustomEvent.type as CustomEventType,
+    };
+    setCustomEvents(prev => [...prev, newEvent]);
+    setCustomEventDialogOpen(false);
+    setSelectedDate(undefined);
+    setNewCustomEvent({ title: "", type: "JORNADA" });
+    toast.success("Evento personalizado agregado al calendario");
+  }, [selectedDate, newCustomEvent]);
+
+  const handleDeleteCustomEvent = useCallback((id: string) => {
+    setCustomEvents(prev => prev.filter(e => e.id !== id));
+    toast.success("Evento eliminado del calendario");
+  }, []);
+
+  // Teacher Event Handlers
   const handleCreateTeacherEvent = useCallback(() => {
     if (!selectedDate || !newTeacherEvent.title || !newTeacherEvent.course) {
       toast.error("Complete todos los campos requeridos");
@@ -227,102 +338,201 @@ export default function CalendarPage() {
   // ========================================
   if (!mounted || !currentRole) return null;
 
+  const isAdmin = currentRole === "ADMIN";
+
   // ========================================
   // RENDER
   // ========================================
   return (
     <div className="space-y-6 text-[#e4e1ea]">
       {/* HEADER DE LA PAGINA */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-white/[0.01] border border-white/[0.05] rounded-2xl backdrop-blur-md">
+      <header className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-white/[0.01] border border-white/[0.05] rounded-3xl backdrop-blur-md">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-widest text-purple-400 font-bold">Cronograma General</span>
           <h1 className="text-2xl font-bold tracking-tight mt-1">Calendario Institucional</h1>
           <p className="text-xs text-white/40">Planificacion de ciclos, recesos y fechas de evaluacion.</p>
         </div>
-        <div className="mt-2 md:mt-0 px-3 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-300 font-mono text-xs rounded-xl">
-          Vista Operativa: {currentRole}
+        <div className="flex items-center gap-3 mt-3 md:mt-0">
+          <Badge variant="outline" className="bg-purple-500/10 border-purple-500/20 text-purple-300 font-mono text-xs">
+            Vista: {currentRole}
+          </Badge>
+          {isAdmin && (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="border-purple-500/30 text-purple-300 text-xs"
+              onClick={() => handleOpenCustomEventDialog()}
+            >
+              <Plus className="size-3.5 mr-1.5" />
+              Agregar Evento
+            </Button>
+          )}
         </div>
       </header>
 
+      {/* REGLAS DE NEGOCIO - ALERT */}
+      <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-200 rounded-3xl p-5">
+        <ShieldAlert className="size-5 text-amber-400" />
+        <AlertTitle className="text-sm font-bold uppercase tracking-wide">Reglas de Negocio de Presentismo</AlertTitle>
+        <AlertDescription className="text-xs text-amber-200/80 mt-2 leading-relaxed space-y-2">
+          <div className="flex items-start gap-2">
+            <div className="size-1.5 rounded-full bg-[#ff6b6b] mt-1.5 shrink-0" />
+            <p>
+              <strong className="text-[#ffb4ab]">Regla A (Feriados / Receso de Invierno):</strong> Bloquean la toma de asistencia y suspenden los disparadores automaticos de notificaciones por inasistencia.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="size-1.5 rounded-full bg-[#4de082] mt-1.5 shrink-0" />
+            <p>
+              <strong className="text-[#4de082]">Regla B (Multiples Semanas de Acreditacion):</strong> Mantienen el presentismo y el control de inasistencias plenamente activo en todas sus instancias por corresponder a dias escolares obligatorios de examen.
+            </p>
+          </div>
+        </AlertDescription>
+      </Alert>
+
       {/* RENDER CONDICIONAL MAESTRO */}
-      {currentRole === "ADMIN" ? (
+      {isAdmin ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* CONFIGURACION DEL ADMIN (COLUMNA IZQUIERDA - 1 PARTE) */}
-          <div className="lg:col-span-1 space-y-4 bg-white/[0.02] border border-white/5 p-6 rounded-2xl backdrop-blur-md">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-purple-400">Parametros de Ciclo Lectivo</h2>
-            
-            <div className="space-y-2">
-              <label className="text-xs text-white/50">Regimen Academico</label>
-              <Select value={periodSystem} onValueChange={setPeriodSystem}>
-                <SelectTrigger className="bg-black/40 border-white/10">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="trimestre">Trimestres (Clasico)</SelectItem>
-                  <SelectItem value="cuatrimestre">Cuatrimestres</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-[10px] text-white/40 uppercase">Inicio Clases</label>
-                <Input 
-                  type="date" 
-                  className="bg-black/40 border-white/10 text-xs" 
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+          {/* CONFIGURACION DEL ADMIN (COLUMNA IZQUIERDA) */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Parametros Basicos */}
+            <div className="bg-white/[0.02] border border-white/[0.05] p-6 rounded-3xl backdrop-blur-md space-y-4">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                <CalendarIcon className="size-4" />
+                Parametros de Ciclo Lectivo
+              </h2>
+              
+              <div className="space-y-2">
+                <Label className="text-xs text-white/50">Regimen Academico</Label>
+                <Select value={periodSystem} onValueChange={setPeriodSystem}>
+                  <SelectTrigger className="bg-black/40 border-white/10">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="trimestre">Trimestres (Clasico)</SelectItem>
+                    <SelectItem value="cuatrimestre">Cuatrimestres</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] text-white/40 uppercase">Fin Clases</label>
-                <Input 
-                  type="date" 
-                  className="bg-black/40 border-white/10 text-xs" 
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <h3 className="text-xs font-bold text-white/70">Receso de Invierno</h3>
               <div className="grid grid-cols-2 gap-2">
-                <Input 
-                  type="date" 
-                  className="bg-black/40 border-white/10 text-xs" 
-                  value={recesoStart}
-                  onChange={(e) => setRecesoStart(e.target.value)}
-                />
-                <Input 
-                  type="date" 
-                  className="bg-black/40 border-white/10 text-xs" 
-                  value={recesoEnd}
-                  onChange={(e) => setRecesoEnd(e.target.value)}
-                />
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-white/40 uppercase">Inicio Clases</Label>
+                  <Input 
+                    type="date" 
+                    className="bg-black/40 border-white/10 text-xs" 
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-white/40 uppercase">Fin Clases</Label>
+                  <Input 
+                    type="date" 
+                    className="bg-black/40 border-white/10 text-xs" 
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-white/5">
+                <div className="flex items-center gap-2">
+                  <div className="size-2 rounded-full bg-[#ffb93d]" />
+                  <h3 className="text-xs font-bold text-white/70">Receso de Invierno</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input 
+                    type="date" 
+                    className="bg-black/40 border-white/10 text-xs" 
+                    value={recesoStart}
+                    onChange={(e) => setRecesoStart(e.target.value)}
+                  />
+                  <Input 
+                    type="date" 
+                    className="bg-black/40 border-white/10 text-xs" 
+                    value={recesoEnd}
+                    onChange={(e) => setRecesoEnd(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <h3 className="text-xs font-bold text-white/70">Semanas de Acreditacion</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <Input 
-                  type="date" 
-                  className="bg-black/40 border-white/10 text-xs" 
-                  value={acredStart}
-                  onChange={(e) => setAcredStart(e.target.value)}
-                />
-                <Input 
-                  type="date" 
-                  className="bg-black/40 border-white/10 text-xs" 
-                  value={acredEnd}
-                  onChange={(e) => setAcredEnd(e.target.value)}
-                />
+            {/* SEMANAS DE ACREDITACION DINAMICAS */}
+            <div className="bg-white/[0.02] border border-white/[0.05] p-6 rounded-3xl backdrop-blur-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                  <GraduationCap className="size-4" />
+                  Semanas de Acreditacion
+                </h2>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-7 text-xs text-purple-400 hover:text-purple-300"
+                  onClick={handleAddAccreditationPeriod}
+                >
+                  <Plus className="size-3.5 mr-1" />
+                  Agregar
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {accreditationPeriods.map((period, idx) => (
+                  <div 
+                    key={period.id}
+                    className="p-3 bg-[#d0bcff]/10 border border-[#d0bcff]/20 rounded-xl space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-[10px] bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/30">
+                        Periodo {idx + 1}
+                      </Badge>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="size-6 text-white/40 hover:text-[#ff6b6b]"
+                        onClick={() => handleDeleteAccreditationPeriod(period.id)}
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="Nombre del periodo (Ej: Mesas de Febrero)"
+                      value={period.label}
+                      onChange={(e) => handleUpdateAccreditationPeriod(period.id, "label", e.target.value)}
+                      className="bg-black/40 border-white/10 text-xs h-8"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input 
+                        type="date" 
+                        className="bg-black/40 border-white/10 text-[10px] h-7" 
+                        value={period.startDate}
+                        onChange={(e) => handleUpdateAccreditationPeriod(period.id, "startDate", e.target.value)}
+                      />
+                      <Input 
+                        type="date" 
+                        className="bg-black/40 border-white/10 text-[10px] h-7" 
+                        value={period.endDate}
+                        onChange={(e) => handleUpdateAccreditationPeriod(period.id, "endDate", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+                
+                {accreditationPeriods.length === 0 && (
+                  <p className="text-xs text-white/30 text-center py-4">
+                    No hay periodos de acreditacion configurados
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <h3 className="text-xs font-bold text-white/70">Feriados Nacionales</h3>
+            {/* Feriados y Eventos Personalizados */}
+            <div className="bg-white/[0.02] border border-white/[0.05] p-6 rounded-3xl backdrop-blur-md space-y-4">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                <Flag className="size-4" />
+                Feriados y Eventos
+              </h2>
+              
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -330,57 +540,137 @@ export default function CalendarPage() {
                 onClick={handleAutoFillFeriados}
               >
                 <Sparkles className="size-3.5 mr-2" />
-                Cargar Feriados 2026
+                Cargar Feriados Nacionales 2026
               </Button>
+              
               <p className="text-[10px] text-white/30 text-center">
-                {markedDays.filter(d => d.type === "FERIADO").length} feriados cargados
+                {markedDays.filter(d => d.type === "FERIADO").length} feriados nacionales cargados
               </p>
+
+              {/* Custom Events List */}
+              {customEvents.length > 0 && (
+                <div className="space-y-2 pt-3 border-t border-white/5">
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider">Eventos Personalizados</p>
+                  {customEvents.map((event) => {
+                    const config = CUSTOM_EVENT_CONFIG[event.type];
+                    return (
+                      <div 
+                        key={event.id}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-lg border",
+                          config.bgColor,
+                          config.borderColor
+                        )}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-xs font-medium truncate", config.color)}>{event.title}</p>
+                          <p className="text-[10px] text-white/40">{event.date}</p>
+                        </div>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="size-6 shrink-0"
+                          onClick={() => handleDeleteCustomEvent(event.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
+            {/* Publicar */}
             <Button 
-              className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold mt-4 py-5 rounded-xl transition-all shadow-lg" 
+              className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-5 rounded-xl transition-all shadow-lg" 
               onClick={handlePublishCalendar}
             >
+              <Check className="size-4 mr-2" />
               Publicar Calendario Maestro
             </Button>
           </div>
 
           {/* CALENDARIO VISUAL (COLUMNA DERECHA - 2 PARTES) */}
           <div className="lg:col-span-2 space-y-4">
-            <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-200 rounded-2xl p-4">
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <AlertTitle className="text-xs font-bold uppercase tracking-wide">Regla de Negocio de Presentismo</AlertTitle>
-              <AlertDescription className="text-xs text-amber-200/70 mt-1 leading-relaxed">
-                Durante el <strong>Receso de Invierno</strong> y <strong>Feriados oficiales</strong>, el sistema pausara automaticamente el envio de alertas por inasistencia y bloqueara la toma de lista. Las <strong>Semanas de Acreditacion de Saberes</strong> mantienen el control de presentismo y la toma de lista completamente activos por corresponder a dias escolares de asistencia obligatoria.
-              </AlertDescription>
-            </Alert>
-
-            <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex justify-center backdrop-blur-md">
+            <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl flex justify-center backdrop-blur-md">
               <Calendar 
                 mode="single" 
                 selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="rounded-md border-none scale-110 font-sans" 
+                onSelect={(date) => {
+                  setSelectedDate(date);
+                  if (date) {
+                    handleOpenCustomEventDialog(date);
+                  }
+                }}
+                className="rounded-md border-none scale-110 font-sans"
+                modifiers={{
+                  accreditation: (date) => {
+                    const dateStr = date.toISOString().split("T")[0];
+                    return isInAccreditationPeriod(dateStr);
+                  },
+                  receso: (date) => {
+                    const dateStr = date.toISOString().split("T")[0];
+                    return isInReceso(dateStr);
+                  },
+                  feriado: (date) => {
+                    const dateStr = date.toISOString().split("T")[0];
+                    return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
+                  },
+                  customEvent: (date) => {
+                    const dateStr = date.toISOString().split("T")[0];
+                    return customEvents.some(e => e.date === dateStr);
+                  },
+                }}
+                modifiersStyles={{
+                  accreditation: { backgroundColor: "rgba(208, 188, 255, 0.2)", color: "#d0bcff" },
+                  receso: { backgroundColor: "rgba(255, 185, 61, 0.2)", color: "#ffb93d" },
+                  feriado: { backgroundColor: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
+                  customEvent: { backgroundColor: "rgba(99, 164, 255, 0.2)", color: "#63a4ff" },
+                }}
               />
             </div>
             
             {/* Stats Panel */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+              <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
                 <p className="text-[10px] text-white/40 uppercase">Feriados</p>
-                <p className="text-lg font-bold text-[#ffb4ab]">{markedDays.filter(d => d.type === "FERIADO").length}</p>
+                <p className="text-xl font-bold text-[#ffb4ab]">{markedDays.filter(d => d.type === "FERIADO").length}</p>
               </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+              <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
                 <p className="text-[10px] text-white/40 uppercase">Dias Receso</p>
-                <p className="text-lg font-bold text-[#ffb93d]">12</p>
+                <p className="text-xl font-bold text-[#ffb93d]">
+                  {recesoStart && recesoEnd ? Math.ceil((new Date(recesoEnd).getTime() - new Date(recesoStart).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0}
+                </p>
               </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <p className="text-[10px] text-white/40 uppercase">Acreditacion</p>
-                <p className="text-lg font-bold text-[#d0bcff]">5</p>
+              <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
+                <p className="text-[10px] text-white/40 uppercase">Periodos Acred.</p>
+                <p className="text-xl font-bold text-[#d0bcff]">{accreditationPeriods.length}</p>
               </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <p className="text-[10px] text-white/40 uppercase">Dias Lectivos</p>
-                <p className="text-lg font-bold text-[#4de082]">180</p>
+              <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
+                <p className="text-[10px] text-white/40 uppercase">Eventos Custom</p>
+                <p className="text-xl font-bold text-[#63a4ff]">{customEvents.length}</p>
+              </div>
+            </div>
+
+            {/* Leyenda */}
+            <div className="flex flex-wrap items-center gap-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
+              <span className="text-[10px] text-white/40 uppercase tracking-wider">Leyenda:</span>
+              <div className="flex items-center gap-1.5">
+                <div className="size-3 rounded bg-[#ff6b6b]/30" />
+                <span className="text-[10px] text-white/60">Feriados</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-3 rounded bg-[#ffb93d]/30" />
+                <span className="text-[10px] text-white/60">Receso</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-3 rounded bg-[#d0bcff]/30" />
+                <span className="text-[10px] text-white/60">Acreditacion</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-3 rounded bg-[#63a4ff]/30" />
+                <span className="text-[10px] text-white/60">Eventos</span>
               </div>
             </div>
           </div>
@@ -388,7 +678,7 @@ export default function CalendarPage() {
       ) : (
         /* VISTA PARA OTROS ROLES (DOCENTE, PRECEPTOR, FAMILIA) */
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col items-center backdrop-blur-md">
+          <div className="md:col-span-2 p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl flex flex-col items-center backdrop-blur-md">
             <Calendar 
               mode="single" 
               selected={selectedDate}
@@ -399,10 +689,46 @@ export default function CalendarPage() {
                   setTeacherEventDialogOpen(true);
                 }
               }}
-              className="border-none" 
+              className="border-none"
+              modifiers={{
+                accreditation: (date) => {
+                  const dateStr = date.toISOString().split("T")[0];
+                  return isInAccreditationPeriod(dateStr);
+                },
+                receso: (date) => {
+                  const dateStr = date.toISOString().split("T")[0];
+                  return isInReceso(dateStr);
+                },
+                feriado: (date) => {
+                  const dateStr = date.toISOString().split("T")[0];
+                  return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
+                },
+              }}
+              modifiersStyles={{
+                accreditation: { backgroundColor: "rgba(208, 188, 255, 0.2)", color: "#d0bcff" },
+                receso: { backgroundColor: "rgba(255, 185, 61, 0.2)", color: "#ffb93d" },
+                feriado: { backgroundColor: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
+              }}
             />
+            
+            {/* Leyenda para no-admin */}
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-4 pt-4 border-t border-white/5 w-full">
+              <div className="flex items-center gap-1.5">
+                <div className="size-2.5 rounded bg-[#ff6b6b]/30" />
+                <span className="text-[10px] text-white/50">Feriados</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-2.5 rounded bg-[#ffb93d]/30" />
+                <span className="text-[10px] text-white/50">Receso</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-2.5 rounded bg-[#d0bcff]/30" />
+                <span className="text-[10px] text-white/50">Acreditacion</span>
+              </div>
+            </div>
           </div>
-          <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4 backdrop-blur-md">
+          
+          <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl space-y-4 backdrop-blur-md">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-purple-400">Fechas Importantes</h2>
               {currentRole === "DOCENTE" && (
@@ -418,7 +744,7 @@ export default function CalendarPage() {
                     }
                   }}
                 >
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Agendar Examen
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Agendar
                 </Button>
               )}
               {currentRole === "FAMILIA" && (
@@ -433,7 +759,7 @@ export default function CalendarPage() {
               )}
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {/* Hitos Institucionales */}
               <div className="p-3 bg-white/[0.01] border border-white/5 rounded-xl text-xs space-y-1">
                 <p className="font-bold text-white">Inicio de Clases - Ciclo 2026</p>
@@ -443,6 +769,16 @@ export default function CalendarPage() {
                 <p className="font-bold text-amber-300">Receso de Invierno</p>
                 <p className="text-amber-400/50 font-mono text-[10px]">20 Jul - 31 Jul - Sin asistencia</p>
               </div>
+              
+              {/* Periodos de Acreditacion */}
+              {accreditationPeriods.filter(p => p.label && p.startDate).map((period) => (
+                <div key={period.id} className="p-3 bg-[#d0bcff]/10 border border-[#d0bcff]/20 rounded-xl text-xs space-y-1">
+                  <p className="font-bold text-[#d0bcff]">{period.label}</p>
+                  <p className="text-[#d0bcff]/50 font-mono text-[10px]">
+                    {period.startDate} al {period.endDate}
+                  </p>
+                </div>
+              ))}
               
               {/* Teacher Events (Docente) */}
               {currentRole === "DOCENTE" && myTeacherEvents.length > 0 && (
@@ -454,24 +790,26 @@ export default function CalendarPage() {
                     const Icon = config.icon;
                     return (
                       <div 
-                        key={event.id} 
-                        className={cn("p-3 border rounded-xl text-xs space-y-1", config.bgColor, "border-white/5")}
+                        key={event.id}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl border",
+                          config.bgColor,
+                          "border-white/5"
+                        )}
                       >
-                        <div className="flex items-center justify-between">
-                          <p className={cn("font-bold flex items-center gap-1.5", config.color)}>
-                            <Icon className="size-3" />
-                            {event.title}
-                          </p>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 text-white/40 hover:text-[#ffb4ab]"
-                            onClick={() => handleDeleteTeacherEvent(event.id)}
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
+                        <Icon className={cn("size-4 shrink-0", config.color)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-white truncate">{event.title}</p>
+                          <p className="text-[10px] text-white/40">{event.course} - {event.date}</p>
                         </div>
-                        <p className="text-white/50 font-mono text-[10px]">{event.course} - {event.date}</p>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="size-6"
+                          onClick={() => handleDeleteTeacherEvent(event.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
                       </div>
                     );
                   })}
@@ -482,52 +820,124 @@ export default function CalendarPage() {
               {currentRole === "FAMILIA" && childEvents.length > 0 && (
                 <>
                   <div className="h-px bg-white/5 my-2" />
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Evaluaciones de {childName.split(' ')[0]}</p>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Evaluaciones de {childName.split(" ")[0]}</p>
                   {childEvents.map((event) => {
                     const config = TEACHER_EVENT_CONFIG[event.type];
                     const Icon = config.icon;
                     return (
                       <div 
-                        key={event.id} 
-                        className={cn("p-3 border rounded-xl text-xs space-y-1", config.bgColor, "border-white/5")}
+                        key={event.id}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl border",
+                          config.bgColor,
+                          "border-white/5"
+                        )}
                       >
-                        <p className={cn("font-bold flex items-center gap-1.5", config.color)}>
-                          <Icon className="size-3" />
-                          {event.title}
-                        </p>
-                        <p className="text-white/50 font-mono text-[10px]">{event.course} - {event.date}</p>
-                        {event.notes && <p className="text-white/30 text-[10px] italic">{event.notes}</p>}
+                        <Icon className={cn("size-4 shrink-0", config.color)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-white truncate">{event.title}</p>
+                          <p className="text-[10px] text-white/40">{event.course} - {event.date}</p>
+                        </div>
                       </div>
                     );
                   })}
                 </>
-              )}
-              
-              {/* Placeholder for Preceptor */}
-              {currentRole === "PRECEPTOR" && (
-                <div className="p-3 bg-white/[0.01] border border-white/5 rounded-xl text-xs space-y-1">
-                  <p className="font-bold text-purple-300">Mesa de Examen Diciembre</p>
-                  <p className="text-purple-400/50 font-mono text-[10px]">14 Dic - 18 Dic - Acreditacion activa</p>
-                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Dialog para Docente - Agendar Evaluacion */}
+      {/* DIALOG: Crear Evento Personalizado (Admin) */}
+      <Dialog open={customEventDialogOpen} onOpenChange={setCustomEventDialogOpen}>
+        <DialogContent className="bg-[#1a1a2e] border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <CalendarDays className="size-5 text-purple-400" />
+              Agregar Evento al Calendario
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              {selectedDate && (
+                <span>
+                  Fecha seleccionada:{" "}
+                  <span className="text-purple-400 font-medium">
+                    {selectedDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  </span>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Tipo de Evento</Label>
+              <Select
+                value={newCustomEvent.type}
+                onValueChange={(v) => setNewCustomEvent(prev => ({ ...prev, type: v as CustomEventType }))}
+              >
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(CUSTOM_EVENT_CONFIG) as Array<CustomEventType>).map((type) => {
+                    const config = CUSTOM_EVENT_CONFIG[type];
+                    return (
+                      <SelectItem key={type} value={type}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn("size-2 rounded-full", config.bgColor.replace("/20", ""))} />
+                          <span>{config.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Titulo del Evento *</Label>
+              <Input
+                placeholder="Ej: Jornada Institucional Docente, Feriado Municipal..."
+                value={newCustomEvent.title}
+                onChange={(e) => setNewCustomEvent(prev => ({ ...prev, title: e.target.value }))}
+                className="bg-white/[0.02] border-white/10"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setCustomEventDialogOpen(false)}
+              className="text-white/60 hover:text-white hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateCustomEvent}
+              disabled={!newCustomEvent.title}
+              className="bg-purple-600 text-white hover:bg-purple-500"
+            >
+              <Check className="size-4 mr-2" />
+              Guardar Evento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG: Crear Evento Docente */}
       <Dialog open={teacherEventDialogOpen} onOpenChange={setTeacherEventDialogOpen}>
         <DialogContent className="bg-[#1a1a2e] border-white/10 max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
-              <Plus className="size-5 text-[#d0bcff]" />
-              Agregar Evento de Catedra
+              <BookOpen className="size-5 text-purple-400" />
+              Agendar Evaluacion
             </DialogTitle>
             <DialogDescription className="text-white/50">
               {selectedDate && (
                 <span>
                   Programar para el{" "}
-                  <span className="text-[#d0bcff] font-medium">
+                  <span className="text-purple-400 font-medium">
                     {selectedDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
                   </span>
                 </span>
@@ -537,7 +947,7 @@ export default function CalendarPage() {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-xs text-white/60 font-medium">Tipo de Evento</label>
+              <Label className="text-xs text-white/60">Tipo de Evento</Label>
               <Select
                 value={newTeacherEvent.type}
                 onValueChange={(v) => setNewTeacherEvent(prev => ({ ...prev, type: v as TeacherEventType }))}
@@ -563,7 +973,7 @@ export default function CalendarPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs text-white/60 font-medium">Titulo de la Evaluacion *</label>
+              <Label className="text-xs text-white/60">Titulo de la Evaluacion *</Label>
               <Input
                 placeholder="Ej: Parcial Unidad 3"
                 value={newTeacherEvent.title}
@@ -573,7 +983,7 @@ export default function CalendarPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs text-white/60 font-medium">Curso / Division *</label>
+              <Label className="text-xs text-white/60">Curso / Division *</Label>
               <Select
                 value={newTeacherEvent.course}
                 onValueChange={(v) => setNewTeacherEvent(prev => ({ ...prev, course: v }))}
@@ -592,7 +1002,7 @@ export default function CalendarPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs text-white/60 font-medium">Notas Adicionales</label>
+              <Label className="text-xs text-white/60">Notas Adicionales</Label>
               <Textarea
                 placeholder="Temas a evaluar, indicaciones especiales..."
                 value={newTeacherEvent.notes}
@@ -613,10 +1023,10 @@ export default function CalendarPage() {
             <Button
               onClick={handleCreateTeacherEvent}
               disabled={!newTeacherEvent.title || !newTeacherEvent.course}
-              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+              className="bg-purple-600 text-white hover:bg-purple-500"
             >
               <Check className="size-4 mr-2" />
-              Programar Evento
+              Programar Evaluacion
             </Button>
           </DialogFooter>
         </DialogContent>
