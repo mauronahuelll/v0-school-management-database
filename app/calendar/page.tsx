@@ -19,7 +19,11 @@ import {
   Snowflake,
   ClipboardCheck,
   Shield,
-  Eye
+  Eye,
+  Plus,
+  FileText,
+  Presentation,
+  PenLine
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +35,21 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/context/auth-context";
 
 // ============================================
@@ -66,6 +79,48 @@ interface SpecialWindow {
   startDate: string;
   endDate: string;
 }
+
+// Teacher private events
+type TeacherEventType = "EXAMEN" | "TRABAJO_PRACTICO" | "CLASE_ESPECIAL";
+
+interface TeacherEvent {
+  id: string;
+  teacherId: string; // Scoped to specific teacher
+  date: string; // YYYY-MM-DD
+  type: TeacherEventType;
+  title: string;
+  course: string;
+  notes: string;
+}
+
+const TEACHER_EVENT_CONFIG: Record<TeacherEventType, { label: string; color: string; bgColor: string; icon: typeof FileText }> = {
+  EXAMEN: { 
+    label: "Fecha de Examen", 
+    color: "text-[#ff6b6b]", 
+    bgColor: "bg-[#ff6b6b]/20",
+    icon: FileText 
+  },
+  TRABAJO_PRACTICO: { 
+    label: "Entrega de TP", 
+    color: "text-[#4ecdc4]", 
+    bgColor: "bg-[#4ecdc4]/20",
+    icon: PenLine 
+  },
+  CLASE_ESPECIAL: { 
+    label: "Clase Especial", 
+    color: "text-[#ffe66d]", 
+    bgColor: "bg-[#ffe66d]/20",
+    icon: Presentation 
+  },
+};
+
+// Mock courses for teacher
+const MOCK_TEACHER_COURSES = [
+  { id: "c1", name: "Matematica - 4to A" },
+  { id: "c2", name: "Matematica - 4to B" },
+  { id: "c3", name: "Matematica - 5to A" },
+  { id: "c4", name: "Algebra - 6to A" },
+];
 
 // ============================================
 // CONSTANTS
@@ -207,13 +262,28 @@ export default function CalendarPage() {
   
   // Permission check
   const isAdmin = activeContext?.role === "ADMIN";
-  const canEdit = isAdmin;
+  const isDocente = activeContext?.role === "DOCENTE";
+  const canEditGlobal = isAdmin;
+  const canAddTeacherEvents = isDocente;
+  
+  // Mock teacher ID (would come from activeContext in real implementation)
+  const currentTeacherId = activeContext?.id || "teacher-001";
   
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [markedDays, setMarkedDays] = useState<MarkedDay[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  
+  // Teacher events state (scoped by teacherId)
+  const [teacherEvents, setTeacherEvents] = useState<TeacherEvent[]>([]);
+  const [teacherEventDialogOpen, setTeacherEventDialogOpen] = useState(false);
+  const [newTeacherEvent, setNewTeacherEvent] = useState<Partial<TeacherEvent>>({
+    type: "EXAMEN",
+    title: "",
+    course: "",
+    notes: "",
+  });
   
   // Academic configuration
   const [academicYear, setAcademicYear] = useState({
@@ -249,6 +319,21 @@ export default function CalendarPage() {
     markedDays.forEach(day => map.set(day.date, day));
     return map;
   }, [markedDays]);
+
+  // Filter teacher events to only show current teacher's events (blindaje entre colegas)
+  const myTeacherEvents = useMemo(() => {
+    return teacherEvents.filter(e => e.teacherId === currentTeacherId);
+  }, [teacherEvents, currentTeacherId]);
+
+  // Create map for teacher events by date
+  const teacherEventsMap = useMemo(() => {
+    const map = new Map<string, TeacherEvent[]>();
+    myTeacherEvents.forEach(event => {
+      const existing = map.get(event.date) || [];
+      map.set(event.date, [...existing, event]);
+    });
+    return map;
+  }, [myTeacherEvents]);
 
   // Check if a date is in any special window
   const getSpecialWindowType = useCallback((dateKey: string): "RECESO" | "ACREDITACION" | null => {
@@ -308,13 +393,25 @@ export default function CalendarPage() {
   }, [currentMonth]);
 
   const handleDayClick = useCallback((date: Date) => {
-    if (!canEdit) return;
-    setSelectedDate(date);
-    setPopoverOpen(true);
-  }, [canEdit]);
+    if (canEditGlobal) {
+      // Admin can mark global days
+      setSelectedDate(date);
+      setPopoverOpen(true);
+    } else if (canAddTeacherEvents) {
+      // Docente can add their own events
+      setSelectedDate(date);
+      setNewTeacherEvent({
+        type: "EXAMEN",
+        title: "",
+        course: "",
+        notes: "",
+      });
+      setTeacherEventDialogOpen(true);
+    }
+  }, [canEditGlobal, canAddTeacherEvents]);
 
   const handleMarkDay = useCallback((type: DayType) => {
-    if (!selectedDate || !canEdit) return;
+    if (!selectedDate || !canEditGlobal) return;
     
     const dateKey = formatDateKey(selectedDate);
     
@@ -334,10 +431,10 @@ export default function CalendarPage() {
     
     setPopoverOpen(false);
     setSelectedDate(null);
-  }, [selectedDate, canEdit]);
+  }, [selectedDate, canEditGlobal]);
 
   const handleAutoFillFeriados = useCallback(() => {
-    if (!canEdit) return;
+    if (!canEditGlobal) return;
     
     const existingDates = new Set(markedDays.filter(d => d.type === "FERIADO").map(d => d.date));
     const newFeriados = FERIADOS_NACIONALES_2025.filter(f => !existingDates.has(f.date));
@@ -349,21 +446,52 @@ export default function CalendarPage() {
     
     setMarkedDays(prev => [...prev, ...newFeriados]);
     toast.success(`${newFeriados.length} feriados nacionales agregados al calendario`);
-  }, [markedDays, canEdit]);
+  }, [markedDays, canEditGlobal]);
 
   const handlePeriodDateChange = useCallback((periodId: string, field: "startDate" | "endDate", value: string) => {
-    if (!canEdit) return;
+    if (!canEditGlobal) return;
     setAcademicPeriods(prev => prev.map(p => 
       p.id === periodId ? { ...p, [field]: value } : p
     ));
-  }, [canEdit]);
+  }, [canEditGlobal]);
 
   const handleSpecialWindowChange = useCallback((windowId: string, field: "startDate" | "endDate", value: string) => {
-    if (!canEdit) return;
+    if (!canEditGlobal) return;
     setSpecialWindows(prev => prev.map(w => 
       w.id === windowId ? { ...w, [field]: value } : w
     ));
-  }, [canEdit]);
+  }, [canEditGlobal]);
+
+  // Teacher event handlers
+  const handleCreateTeacherEvent = useCallback(() => {
+    if (!selectedDate || !canAddTeacherEvents || !newTeacherEvent.title || !newTeacherEvent.course) {
+      toast.error("Complete todos los campos requeridos");
+      return;
+    }
+
+    const dateKey = formatDateKey(selectedDate);
+    const newEvent: TeacherEvent = {
+      id: `te-${Date.now()}`,
+      teacherId: currentTeacherId,
+      date: dateKey,
+      type: newTeacherEvent.type as TeacherEventType,
+      title: newTeacherEvent.title,
+      course: newTeacherEvent.course,
+      notes: newTeacherEvent.notes || "",
+    };
+
+    setTeacherEvents(prev => [...prev, newEvent]);
+    setTeacherEventDialogOpen(false);
+    setSelectedDate(null);
+    setNewTeacherEvent({ type: "EXAMEN", title: "", course: "", notes: "" });
+    
+    toast.success("Fecha de evaluacion programada y publicada para el curso asignado");
+  }, [selectedDate, canAddTeacherEvents, newTeacherEvent, currentTeacherId]);
+
+  const handleDeleteTeacherEvent = useCallback((eventId: string) => {
+    setTeacherEvents(prev => prev.filter(e => e.id !== eventId));
+    toast.success("Evento eliminado del calendario");
+  }, []);
 
   if (!mounted) return null;
 
@@ -386,7 +514,15 @@ export default function CalendarPage() {
           </div>
         </div>
         
-        {!canEdit && <ReadOnlyBadge />}
+        <div className="flex items-center gap-3">
+          {!canEditGlobal && !canAddTeacherEvents && <ReadOnlyBadge />}
+          {canAddTeacherEvents && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#d0bcff]/10 border border-[#d0bcff]/20">
+              <Plus className="size-3.5 text-[#d0bcff]" />
+              <span className="text-xs text-[#d0bcff]">Clic en un dia para agregar evento</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Alert Banner - System Impact */}
@@ -460,11 +596,13 @@ export default function CalendarPage() {
               const inAcademicYear = dateKey >= academicYear.startDate && dateKey <= academicYear.endDate;
               const specialType = getSpecialWindowType(dateKey);
               const currentPeriod = getPeriodForDate(dateKey);
+              const dayTeacherEvents = teacherEventsMap.get(dateKey) || [];
+              const hasTeacherEvents = dayTeacherEvents.length > 0;
               
               return (
                 <Popover 
                   key={idx} 
-                  open={isSelected && popoverOpen && canEdit}
+                  open={isSelected && popoverOpen && canEditGlobal}
                   onOpenChange={(open) => {
                     if (!open) {
                       setPopoverOpen(false);
@@ -475,11 +613,11 @@ export default function CalendarPage() {
                   <PopoverTrigger asChild>
                     <button
                       onClick={() => handleDayClick(date)}
-                      disabled={!canEdit}
+                      disabled={!canEditGlobal && !canAddTeacherEvents}
                       className={cn(
                         "relative aspect-square p-1 rounded-lg text-sm font-medium transition-all",
-                        canEdit && "hover:bg-white/5 focus:outline-none focus:ring-1 focus:ring-[#d0bcff]/50",
-                        !canEdit && "cursor-default",
+                        (canEditGlobal || canAddTeacherEvents) && "hover:bg-white/5 focus:outline-none focus:ring-1 focus:ring-[#d0bcff]/50",
+                        (!canEditGlobal && !canAddTeacherEvents) && "cursor-default",
                         !isCurrentMonth && "opacity-30",
                         isCurrentMonth && !marked && !weekend && !specialType && "text-[#e4e1ea]",
                         isCurrentMonth && !marked && weekend && "text-white/40",
@@ -491,7 +629,9 @@ export default function CalendarPage() {
                         specialType === "RECESO" && !marked && "bg-[#ffb93d]/15 text-[#ffb93d]",
                         specialType === "ACREDITACION" && !marked && "bg-[#d0bcff]/15 text-[#d0bcff]",
                         // Period background
-                        inAcademicYear && !marked && !weekend && !specialType && "bg-white/[0.02]"
+                        inAcademicYear && !marked && !weekend && !specialType && "bg-white/[0.02]",
+                        // Teacher events indicator
+                        hasTeacherEvents && "ring-1 ring-[#4ecdc4]/50"
                       )}
                     >
                       <span className="relative z-10">{date.getDate()}</span>
@@ -512,11 +652,21 @@ export default function CalendarPage() {
                         {specialType === "ACREDITACION" && !marked && (
                           <div className="size-1.5 rounded-full bg-[#d0bcff]" />
                         )}
+                        {/* Teacher event dots */}
+                        {dayTeacherEvents.slice(0, 3).map((evt, i) => (
+                          <div 
+                            key={i}
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              TEACHER_EVENT_CONFIG[evt.type].bgColor.replace('/20', '')
+                            )} 
+                          />
+                        ))}
                       </div>
                     </button>
                   </PopoverTrigger>
                   
-                  {canEdit && (
+                  {canEditGlobal && (
                     <PopoverContent 
                       className="w-64 p-0 bg-[#1a1a2e] border-white/10"
                       align="start"
@@ -608,6 +758,21 @@ export default function CalendarPage() {
               <div className="size-3 rounded bg-[#d0bcff]/20" />
               <span className="text-xs text-white/50">Acreditacion</span>
             </div>
+            {/* Teacher event legend items */}
+            {canAddTeacherEvents && (
+              <>
+                <div className="w-px h-4 bg-white/10 mx-2" />
+                {(Object.keys(TEACHER_EVENT_CONFIG) as Array<TeacherEventType>).map((type) => {
+                  const config = TEACHER_EVENT_CONFIG[type];
+                  return (
+                    <div key={type} className="flex items-center gap-2">
+                      <div className={cn("size-3 rounded", config.bgColor)} />
+                      <span className="text-xs text-white/50">{config.label}</span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
 
@@ -615,7 +780,7 @@ export default function CalendarPage() {
         <div className="space-y-4">
           
           {/* Admin-Only Configuration */}
-          {canEdit ? (
+          {canEditGlobal ? (
             <>
               {/* Period System Selector */}
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md">
@@ -805,6 +970,165 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* Teacher Event Dialog */}
+      <Dialog open={teacherEventDialogOpen} onOpenChange={setTeacherEventDialogOpen}>
+        <DialogContent className="bg-[#1a1a2e] border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <Plus className="size-5 text-[#d0bcff]" />
+              Agregar Evento de Catedra
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              {selectedDate && (
+                <span>
+                  Programar para el{" "}
+                  <span className="text-[#d0bcff] font-medium">
+                    {selectedDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
+                  </span>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Event Type */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/60 font-medium">Tipo de Evento</label>
+              <Select
+                value={newTeacherEvent.type}
+                onValueChange={(v) => setNewTeacherEvent(prev => ({ ...prev, type: v as TeacherEventType }))}
+              >
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(TEACHER_EVENT_CONFIG) as Array<TeacherEventType>).map((type) => {
+                    const config = TEACHER_EVENT_CONFIG[type];
+                    const Icon = config.icon;
+                    return (
+                      <SelectItem key={type} value={type}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={cn("size-4", config.color)} />
+                          <span>{config.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/60 font-medium">Titulo de la Evaluacion *</label>
+              <Input
+                placeholder="Ej: Parcial Unidad 3"
+                value={newTeacherEvent.title}
+                onChange={(e) => setNewTeacherEvent(prev => ({ ...prev, title: e.target.value }))}
+                className="bg-white/[0.02] border-white/10"
+              />
+            </div>
+
+            {/* Course */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/60 font-medium">Curso / Division *</label>
+              <Select
+                value={newTeacherEvent.course}
+                onValueChange={(v) => setNewTeacherEvent(prev => ({ ...prev, course: v }))}
+              >
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue placeholder="Seleccionar curso" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOCK_TEACHER_COURSES.map((course) => (
+                    <SelectItem key={course.id} value={course.name}>
+                      {course.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/60 font-medium">Notas Adicionales</label>
+              <Textarea
+                placeholder="Temas a evaluar, indicaciones especiales..."
+                value={newTeacherEvent.notes}
+                onChange={(e) => setNewTeacherEvent(prev => ({ ...prev, notes: e.target.value }))}
+                className="bg-white/[0.02] border-white/10 resize-none h-20"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setTeacherEventDialogOpen(false)}
+              className="text-white/60 hover:text-white hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateTeacherEvent}
+              disabled={!newTeacherEvent.title || !newTeacherEvent.course}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              <Check className="size-4 mr-2" />
+              Programar Evento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Teacher Events List Panel (for teachers) */}
+      {canAddTeacherEvents && myTeacherEvents.length > 0 && (
+        <div className="mt-6 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="size-4 text-[#4ecdc4]" />
+            <h3 className="text-sm font-semibold text-[#e4e1ea]">Mis Eventos Programados</h3>
+            <span className="ml-auto text-xs text-white/40">{myTeacherEvents.length} eventos</span>
+          </div>
+          
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {myTeacherEvents
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((event) => {
+                const config = TEACHER_EVENT_CONFIG[event.type];
+                const Icon = config.icon;
+                const eventDate = new Date(event.date + "T00:00:00");
+                
+                return (
+                  <div 
+                    key={event.id}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border transition-colors",
+                      config.bgColor,
+                      "border-white/5 hover:border-white/10"
+                    )}
+                  >
+                    <Icon className={cn("size-4 shrink-0", config.color)} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#e4e1ea] truncate">{event.title}</p>
+                      <p className="text-xs text-white/50">
+                        {event.course} &middot; {eventDate.toLocaleDateString("es-AR", { day: "numeric", month: "short" })}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteTeacherEvent(event.id)}
+                      className="size-7 text-white/40 hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10"
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
