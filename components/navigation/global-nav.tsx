@@ -18,6 +18,7 @@ import {
   Megaphone,
   Upload,
   Sliders,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, Role } from "@/lib/context/auth-context";
@@ -30,6 +31,7 @@ const NAV_ITEMS_ADMIN = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
+  { id: "students", label: "Alumnos", href: "/students", icon: UserCheck },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
   { id: "communications", label: "Comunicados", href: "/communications", icon: Megaphone },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
@@ -45,6 +47,8 @@ const NAV_ITEMS_ADMIN = [
 const NAV_ITEMS_PRECEPTOR = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
+  { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
+  { id: "students", label: "Alumnos", href: "/students", icon: UserCheck },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
   { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },

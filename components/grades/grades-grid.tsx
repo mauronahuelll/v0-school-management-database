@@ -58,6 +58,8 @@ interface GradesGridProps {
   onUnpublish: () => Promise<void>;
   canPublish: boolean;
   isReadOnly?: boolean;
+  /** User role - PRECEPTOR and DOCENTE can edit grades */
+  userRole?: "ADMIN" | "DOCENTE" | "PRECEPTOR" | "FAMILIA" | string | null;
 }
 
 type SortField = "name" | "average" | "status";
@@ -71,6 +73,7 @@ export function GradesGrid({
   onUnpublish,
   canPublish,
   isReadOnly = false,
+  userRole = null,
 }: GradesGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("name");
@@ -80,6 +83,10 @@ export function GradesGrid({
   const { subject, assessments, students, periodName, courseName, divisionName } =
     courseInfo;
   const scale = subject.gradeScale;
+
+  // Determine if user can edit grades based on role
+  // DOCENTE and PRECEPTOR can edit, others cannot
+  const canEditGrades = !isReadOnly && (userRole === "DOCENTE" || userRole === "PRECEPTOR" || userRole === "ADMIN");
 
   // Filter and sort students
   const filteredStudents = useMemo(() => {
@@ -360,7 +367,7 @@ export function GradesGrid({
                     scale={scale}
                     isPublished={courseInfo.publicationStatus === "PUBLISHED"}
                     onGradeUpdate={onGradeUpdate}
-                    isReadOnly={isReadOnly}
+                    isReadOnly={!canEditGrades}
                     index={index}
                   />
                 ))}
