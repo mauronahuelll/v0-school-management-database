@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { 
   BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, 
   Plus, Trash2, Pencil, X, Check, Grid3X3, ClipboardSignature, CheckCircle2,
-  Bell, User, FileStack, Send
+  Bell, User, FileStack, Send, Download
 } from "lucide-react";
 import {
   Sheet,
@@ -230,6 +230,7 @@ export default function GradesPage() {
   const [isValoracionSheetOpen, setIsValoracionSheetOpen] = useState(false);
   const [valoracionData, setValoracionData] = useState<Record<string, "TEA" | "TEP" | "TED" | null>>({});
   const [isSubmittingValoracion, setIsSubmittingValoracion] = useState(false);
+  const [isExportingValoracion, setIsExportingValoracion] = useState(false);
   
   // Determine grading type: use school setting OR subject default
   const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
@@ -585,6 +586,52 @@ export default function GradesPage() {
       duration: 5000,
     });
   }, []);
+
+  // Export valoracion to CSV
+  const handleExportValoracion = useCallback(async () => {
+    setIsExportingValoracion(true);
+    
+    // Simulate export process
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    // Build CSV content with UTF-8 BOM for proper encoding
+    const BOM = "\uFEFF";
+    const headers = ["Legajo", "Apellido", "Nombre", "Promedio Parcial", "Valoracion Preliminar"];
+    const rows = students.map((student) => {
+      const valoracion = valoracionData[student.studentId] || "Sin Evaluar";
+      const promedio = student.average !== null ? student.average.toFixed(1) : "-";
+      
+      return [
+        student.enrollmentNumber,
+        student.lastName,
+        student.firstName,
+        promedio,
+        valoracion,
+      ].map(cell => `"${cell}"`).join(",");
+    });
+    
+    const csvContent = BOM + [headers.join(","), ...rows].join("\n");
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    // Generate filename
+    const subjectSlug = selectedSubject.shortName.toLowerCase();
+    const periodSlug = selectedPeriod.name.toLowerCase().replace(/\s+/g, "_");
+    const filename = `valoraciones_preliminares_${subjectSlug}_${periodSlug}.csv`;
+    
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    setIsExportingValoracion(false);
+    toast.success("Planilla exportada con exito en su dispositivo");
+  }, [students, valoracionData, selectedSubject, selectedPeriod]);
 
   if (!mounted) return null;
 
@@ -1189,13 +1236,36 @@ export default function GradesPage() {
       <Sheet open={isValoracionSheetOpen} onOpenChange={setIsValoracionSheetOpen}>
         <SheetContent className="bg-[#131319] border-l-white/10 w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader className="pb-4 border-b border-white/5">
-            <SheetTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
-              <FileStack className="size-5 text-[#d0bcff]" />
-              Valoracion Preliminar del Periodo
-            </SheetTitle>
-            <SheetDescription className="text-white/50">
-              {selectedSubject.name} - {selectedPeriod.name}
-            </SheetDescription>
+            <div className="flex items-start justify-between">
+              <div>
+                <SheetTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+                  <FileStack className="size-5 text-[#d0bcff]" />
+                  Valoracion Preliminar del Periodo
+                </SheetTitle>
+                <SheetDescription className="text-white/50 mt-1">
+                  {selectedSubject.name} - {selectedPeriod.name}
+                </SheetDescription>
+              </div>
+              <Button
+                onClick={handleExportValoracion}
+                disabled={isExportingValoracion}
+                variant="outline"
+                size="sm"
+                className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+              >
+                {isExportingValoracion ? (
+                  <>
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-4 mr-2" />
+                    Exportar a Excel
+                  </>
+                )}
+              </Button>
+            </div>
           </SheetHeader>
 
           <div className="py-6 space-y-4">
