@@ -23,7 +23,11 @@ import {
   Plus,
   FileText,
   Presentation,
-  PenLine
+  PenLine,
+  Download,
+  Loader2,
+  User,
+  List
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,6 +124,65 @@ const MOCK_TEACHER_COURSES = [
   { id: "c2", name: "Matematica - 4to B" },
   { id: "c3", name: "Matematica - 5to A" },
   { id: "c4", name: "Algebra - 6to A" },
+];
+
+// Mock: Events from teachers of the child's subjects (for FAMILIA view)
+// In production, this would be fetched based on the child's enrolled courses
+const MOCK_CHILD_TEACHER_EVENTS: TeacherEvent[] = [
+  {
+    id: "cte-1",
+    teacherId: "teacher-002",
+    date: "2025-03-20",
+    type: "EXAMEN",
+    title: "Parcial 1 - Funciones",
+    course: "Matematica - 4to A",
+    notes: "Unidades 1 y 2",
+  },
+  {
+    id: "cte-2",
+    teacherId: "teacher-003",
+    date: "2025-03-25",
+    type: "TRABAJO_PRACTICO",
+    title: "Entrega TP Celula",
+    course: "Biologia - 4to A",
+    notes: "Trabajo grupal",
+  },
+  {
+    id: "cte-3",
+    teacherId: "teacher-004",
+    date: "2025-04-10",
+    type: "EXAMEN",
+    title: "Evaluacion Escrita",
+    course: "Historia - 4to A",
+    notes: "Rev. de Mayo hasta 1850",
+  },
+  {
+    id: "cte-4",
+    teacherId: "teacher-002",
+    date: "2025-04-22",
+    type: "CLASE_ESPECIAL",
+    title: "Clase de Repaso",
+    course: "Matematica - 4to A",
+    notes: "Preparacion para el parcial",
+  },
+  {
+    id: "cte-5",
+    teacherId: "teacher-005",
+    date: "2025-05-08",
+    type: "EXAMEN",
+    title: "Parcial Literatura",
+    course: "Lengua - 4to A",
+    notes: "Romanticismo y Realismo",
+  },
+  {
+    id: "cte-6",
+    teacherId: "teacher-003",
+    date: "2025-05-15",
+    type: "TRABAJO_PRACTICO",
+    title: "Informe de Laboratorio",
+    course: "Biologia - 4to A",
+    notes: "Microscopia",
+  },
 ];
 
 // ============================================
@@ -263,17 +326,22 @@ export default function CalendarPage() {
   // Permission check
   const isAdmin = activeContext?.role === "ADMIN";
   const isDocente = activeContext?.role === "DOCENTE";
+  const isFamilia = activeContext?.role === "FAMILIA";
   const canEditGlobal = isAdmin;
   const canAddTeacherEvents = isDocente;
   
   // Mock teacher ID (would come from activeContext in real implementation)
   const currentTeacherId = activeContext?.id || "teacher-001";
   
+  // Mock child name for FAMILIA view
+  const childName = "Santiago Martinez";
+  
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [markedDays, setMarkedDays] = useState<MarkedDay[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Teacher events state (scoped by teacherId)
   const [teacherEvents, setTeacherEvents] = useState<TeacherEvent[]>([]);
@@ -334,6 +402,31 @@ export default function CalendarPage() {
     });
     return map;
   }, [myTeacherEvents]);
+
+  // For FAMILIA: create map of child's teacher events
+  const childEventsMap = useMemo(() => {
+    const map = new Map<string, TeacherEvent[]>();
+    if (isFamilia) {
+      MOCK_CHILD_TEACHER_EVENTS.forEach(event => {
+        const existing = map.get(event.date) || [];
+        map.set(event.date, [...existing, event]);
+      });
+    }
+    return map;
+  }, [isFamilia]);
+
+  // Unified events for calendar display (based on role)
+  const calendarEventsMap = useMemo(() => {
+    if (isFamilia) return childEventsMap;
+    if (isDocente) return teacherEventsMap;
+    return new Map<string, TeacherEvent[]>();
+  }, [isFamilia, isDocente, childEventsMap, teacherEventsMap]);
+
+  // Get all child events sorted by date for list view
+  const sortedChildEvents = useMemo(() => {
+    if (!isFamilia) return [];
+    return [...MOCK_CHILD_TEACHER_EVENTS].sort((a, b) => a.date.localeCompare(b.date));
+  }, [isFamilia]);
 
   // Check if a date is in any special window
   const getSpecialWindowType = useCallback((dateKey: string): "RECESO" | "ACREDITACION" | null => {
@@ -493,6 +586,17 @@ export default function CalendarPage() {
     toast.success("Evento eliminado del calendario");
   }, []);
 
+  // Export calendar handler for FAMILIA
+  const handleExportCalendar = useCallback(async () => {
+    setIsExporting(true);
+    
+    // Simulate export process
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    setIsExporting(false);
+    toast.success("Calendario sincronizado y descargado en formato estandar (.ics / PDF)");
+  }, []);
+
   if (!mounted) return null;
 
   return (
@@ -506,21 +610,40 @@ export default function CalendarPage() {
           <div>
             <h1 className="text-xl font-bold text-[#e4e1ea]">Calendario Institucional</h1>
             <p className="text-xs text-white/40">
-              {canEdit 
-                ? "Configuracion del ciclo lectivo y dias inhabiles" 
-                : "Vista del ciclo lectivo institucional"
-              }
+              {canEditGlobal && "Configuracion del ciclo lectivo y dias inhabiles"}
+              {canAddTeacherEvents && "Vista del ciclo lectivo - Agregar eventos de catedra"}
+              {isFamilia && `Calendario escolar de ${childName}`}
+              {!canEditGlobal && !canAddTeacherEvents && !isFamilia && "Vista del ciclo lectivo institucional"}
             </p>
           </div>
         </div>
         
         <div className="flex items-center gap-3">
-          {!canEditGlobal && !canAddTeacherEvents && <ReadOnlyBadge />}
+          {!canEditGlobal && !canAddTeacherEvents && !isFamilia && <ReadOnlyBadge />}
           {canAddTeacherEvents && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#d0bcff]/10 border border-[#d0bcff]/20">
               <Plus className="size-3.5 text-[#d0bcff]" />
               <span className="text-xs text-[#d0bcff]">Clic en un dia para agregar evento</span>
             </div>
+          )}
+          {isFamilia && (
+            <Button
+              onClick={handleExportCalendar}
+              disabled={isExporting}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <Download className="size-4 mr-2" />
+                  Exportar Calendario Escolar
+                </>
+              )}
+            </Button>
           )}
         </div>
       </div>
@@ -596,7 +719,7 @@ export default function CalendarPage() {
               const inAcademicYear = dateKey >= academicYear.startDate && dateKey <= academicYear.endDate;
               const specialType = getSpecialWindowType(dateKey);
               const currentPeriod = getPeriodForDate(dateKey);
-              const dayTeacherEvents = teacherEventsMap.get(dateKey) || [];
+              const dayTeacherEvents = calendarEventsMap.get(dateKey) || [];
               const hasTeacherEvents = dayTeacherEvents.length > 0;
               
               return (
@@ -617,7 +740,8 @@ export default function CalendarPage() {
                       className={cn(
                         "relative aspect-square p-1 rounded-lg text-sm font-medium transition-all",
                         (canEditGlobal || canAddTeacherEvents) && "hover:bg-white/5 focus:outline-none focus:ring-1 focus:ring-[#d0bcff]/50",
-                        (!canEditGlobal && !canAddTeacherEvents) && "cursor-default",
+                        (!canEditGlobal && !canAddTeacherEvents && !isFamilia) && "cursor-default",
+                        isFamilia && "cursor-default",
                         !isCurrentMonth && "opacity-30",
                         isCurrentMonth && !marked && !weekend && !specialType && "text-[#e4e1ea]",
                         isCurrentMonth && !marked && weekend && "text-white/40",
@@ -759,9 +883,14 @@ export default function CalendarPage() {
               <span className="text-xs text-white/50">Acreditacion</span>
             </div>
             {/* Teacher event legend items */}
-            {canAddTeacherEvents && (
+            {(canAddTeacherEvents || isFamilia) && (
               <>
                 <div className="w-px h-4 bg-white/10 mx-2" />
+                {isFamilia && (
+                  <span className="text-[10px] text-white/40 uppercase tracking-wider">
+                    Evaluaciones de {childName.split(' ')[0]}:
+                  </span>
+                )}
                 {(Object.keys(TEACHER_EVENT_CONFIG) as Array<TeacherEventType>).map((type) => {
                   const config = TEACHER_EVENT_CONFIG[type];
                   return (
@@ -1126,6 +1255,147 @@ export default function CalendarPage() {
                   </div>
                 );
               })}
+          </div>
+        </div>
+      )}
+
+      {/* FAMILIA: Mobile Event List View */}
+      {isFamilia && (
+        <div className="mt-6 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md lg:hidden">
+          <div className="flex items-center gap-2 mb-4">
+            <List className="size-4 text-[#d0bcff]" />
+            <h3 className="text-sm font-semibold text-[#e4e1ea]">Proximas Evaluaciones</h3>
+            <span className="ml-auto text-xs text-white/40">{sortedChildEvents.length} eventos</span>
+          </div>
+          
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {sortedChildEvents.map((event) => {
+              const config = TEACHER_EVENT_CONFIG[event.type];
+              const Icon = config.icon;
+              const eventDate = new Date(event.date + "T00:00:00");
+              const isPast = new Date(event.date) < new Date();
+              
+              return (
+                <div 
+                  key={event.id}
+                  className={cn(
+                    "flex items-start gap-3 p-3 rounded-lg border transition-colors",
+                    config.bgColor,
+                    "border-white/5",
+                    isPast && "opacity-50"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    config.bgColor
+                  )}>
+                    <Icon className={cn("size-4", config.color)} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#e4e1ea]">{event.title}</p>
+                    <p className="text-xs text-white/60 mt-0.5">{event.course}</p>
+                    <p className="text-xs text-white/40 mt-1">
+                      {eventDate.toLocaleDateString("es-AR", { 
+                        weekday: "long", 
+                        day: "numeric", 
+                        month: "long" 
+                      })}
+                    </p>
+                    {event.notes && (
+                      <p className="text-[10px] text-white/30 mt-1 italic">{event.notes}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {sortedChildEvents.length === 0 && (
+              <div className="text-center py-8">
+                <CalendarIcon className="size-8 text-white/20 mx-auto mb-2" />
+                <p className="text-sm text-white/40">No hay evaluaciones programadas</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* FAMILIA: Desktop Right Panel - Upcoming Events */}
+      {isFamilia && (
+        <div className="hidden lg:block mt-6">
+          <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="size-4 text-[#d0bcff]" />
+              <h3 className="text-sm font-semibold text-[#e4e1ea]">Calendario de {childName}</h3>
+            </div>
+            
+            <p className="text-xs text-white/50 mb-4">
+              Evaluaciones y entregas programadas por los docentes de las materias que cursa.
+            </p>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {sortedChildEvents.map((event) => {
+                const config = TEACHER_EVENT_CONFIG[event.type];
+                const Icon = config.icon;
+                const eventDate = new Date(event.date + "T00:00:00");
+                const isPast = new Date(event.date) < new Date();
+                
+                return (
+                  <div 
+                    key={event.id}
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded-lg border transition-colors",
+                      "bg-white/[0.02] border-white/5 hover:border-white/10",
+                      isPast && "opacity-50"
+                    )}
+                  >
+                    <div className={cn(
+                      "p-1.5 rounded-lg shrink-0",
+                      config.bgColor
+                    )}>
+                      <Icon className={cn("size-3.5", config.color)} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-[#e4e1ea] truncate">{event.title}</p>
+                        <span className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded shrink-0",
+                          config.bgColor,
+                          config.color
+                        )}>
+                          {config.label.split(' ')[0]}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/50 mt-0.5">{event.course}</p>
+                      <p className="text-[10px] text-white/40 mt-1">
+                        {eventDate.toLocaleDateString("es-AR", { 
+                          weekday: "short", 
+                          day: "numeric", 
+                          month: "short" 
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {sortedChildEvents.length === 0 && (
+                <div className="text-center py-6">
+                  <CalendarIcon className="size-6 text-white/20 mx-auto mb-2" />
+                  <p className="text-xs text-white/40">No hay evaluaciones programadas</p>
+                </div>
+              )}
+            </div>
+
+            {/* Familia info banner */}
+            <div className="mt-4 pt-4 border-t border-white/5">
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-[#63a4ff]/10 border border-[#63a4ff]/20">
+                <Info className="size-4 text-[#63a4ff] shrink-0 mt-0.5" />
+                <p className="text-[10px] text-white/60 leading-relaxed">
+                  Este calendario muestra unicamente las evaluaciones de las materias que cursa {childName.split(' ')[0]}. 
+                  Los hitos institucionales (feriados, recesos) son visibles para toda la comunidad.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
