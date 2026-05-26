@@ -7,8 +7,17 @@ import { toast } from "sonner";
 import { 
   BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, 
   Plus, Trash2, Pencil, X, Check, Grid3X3, ClipboardSignature, CheckCircle2,
-  Bell, User
+  Bell, User, FileStack, Send, Download
 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -216,6 +225,12 @@ export default function GradesPage() {
   const [pendingTopics, setPendingTopics] = useState<PendingTopic[]>(INITIAL_PENDING_TOPICS);
   const [recoveryGrades, setRecoveryGrades] = useState<Record<string, number | null>>({});
   const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
+  
+  // VALORACION PRELIMINAR STATE (TEA/TEP/TED Mid-term)
+  const [isValoracionSheetOpen, setIsValoracionSheetOpen] = useState(false);
+  const [valoracionData, setValoracionData] = useState<Record<string, "TEA" | "TEP" | "TED" | null>>({});
+  const [isSubmittingValoracion, setIsSubmittingValoracion] = useState(false);
+  const [isExportingValoracion, setIsExportingValoracion] = useState(false);
   
   // Determine grading type: use school setting OR subject default
   const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
@@ -557,6 +572,67 @@ export default function GradesPage() {
     });
   }, []);
 
+  // Handle valoracion preliminar submit
+  const handleSubmitValoracion = useCallback(async () => {
+    setIsSubmittingValoracion(true);
+    
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    
+    setIsSubmittingValoracion(false);
+    setIsValoracionSheetOpen(false);
+    
+    toast.success("Valoraciones preliminares registradas. Los boletines parciales ya estan disponibles para las familias.", {
+      duration: 5000,
+    });
+  }, []);
+
+  // Export valoracion to CSV
+  const handleExportValoracion = useCallback(async () => {
+    setIsExportingValoracion(true);
+    
+    // Simulate export process
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    // Build CSV content with UTF-8 BOM for proper encoding
+    const BOM = "\uFEFF";
+    const headers = ["Legajo", "Apellido", "Nombre", "Promedio Parcial", "Valoracion Preliminar"];
+    const rows = students.map((student) => {
+      const valoracion = valoracionData[student.studentId] || "Sin Evaluar";
+      const promedio = student.average !== null ? student.average.toFixed(1) : "-";
+      
+      return [
+        student.enrollmentNumber,
+        student.lastName,
+        student.firstName,
+        promedio,
+        valoracion,
+      ].map(cell => `"${cell}"`).join(",");
+    });
+    
+    const csvContent = BOM + [headers.join(","), ...rows].join("\n");
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    // Generate filename
+    const subjectSlug = selectedSubject.shortName.toLowerCase();
+    const periodSlug = selectedPeriod.name.toLowerCase().replace(/\s+/g, "_");
+    const filename = `valoraciones_preliminares_${subjectSlug}_${periodSlug}.csv`;
+    
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    setIsExportingValoracion(false);
+    toast.success("Planilla exportada con exito en su dispositivo");
+  }, [students, valoracionData, selectedSubject, selectedPeriod]);
+
   if (!mounted) return null;
 
   return (
@@ -629,6 +705,16 @@ export default function GradesPage() {
             )}
             <Sliders className="size-3 opacity-50" />
           </Link>
+
+          {/* Valoracion Preliminar Button */}
+          <Button
+            onClick={() => setIsValoracionSheetOpen(true)}
+            variant="outline"
+            className="border-[#d0bcff]/30 bg-[#d0bcff]/10 text-[#d0bcff] hover:bg-[#d0bcff]/20 hover:text-[#d0bcff]"
+          >
+            <FileStack className="size-4 mr-2" />
+            Carga de Valoracion Preliminar
+          </Button>
         </div>
       </header>
 
@@ -1145,6 +1231,195 @@ export default function GradesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Valoracion Preliminar Sheet */}
+      <Sheet open={isValoracionSheetOpen} onOpenChange={setIsValoracionSheetOpen}>
+        <SheetContent className="bg-[#131319] border-l-white/10 w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader className="pb-4 border-b border-white/5">
+            <div className="flex items-start justify-between">
+              <div>
+                <SheetTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+                  <FileStack className="size-5 text-[#d0bcff]" />
+                  Valoracion Preliminar del Periodo
+                </SheetTitle>
+                <SheetDescription className="text-white/50 mt-1">
+                  {selectedSubject.name} - {selectedPeriod.name}
+                </SheetDescription>
+              </div>
+              <Button
+                onClick={handleExportValoracion}
+                disabled={isExportingValoracion}
+                variant="outline"
+                size="sm"
+                className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+              >
+                {isExportingValoracion ? (
+                  <>
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-4 mr-2" />
+                    Exportar a Excel
+                  </>
+                )}
+              </Button>
+            </div>
+          </SheetHeader>
+
+          <div className="py-6 space-y-4">
+            {/* Info Alert */}
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+              <Bell className="size-4 text-[#d0bcff] mt-0.5 shrink-0" />
+              <p className="text-xs text-white/60 leading-relaxed">
+                La valoracion preliminar (TEA/TEP/TED) se basa en el promedio actual del alumno. 
+                Al confirmar, las familias recibiran el boletin parcial.
+              </p>
+            </div>
+
+            {/* Students Table */}
+            <div className="border border-white/5 rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-white/[0.02] border-b border-white/5">
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alumno</span>
+                    </th>
+                    <th className="px-3 py-3 text-center">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Prom. Actual</span>
+                    </th>
+                    <th className="px-3 py-3 text-center">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Valoracion</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {students.map((student) => {
+                    const currentValoracion = valoracionData[student.studentId] || null;
+                    
+                    return (
+                      <tr key={student.studentId} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
+                              {student.firstName[0]}{student.lastName[0]}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-[#e4e1ea]">
+                                {student.lastName}, {student.firstName}
+                              </p>
+                              <p className="text-xs text-white/40">
+                                {student.enrollmentNumber}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {gradingType === "NUMERIC" && student.average !== null ? (
+                            <span className={cn(
+                              "inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-sm font-bold",
+                              student.average >= 7 
+                                ? "bg-[#4de082]/20 text-[#4de082]" 
+                                : "bg-[#ffb4ab]/20 text-[#ffb4ab]"
+                            )}>
+                              {student.average.toFixed(1)}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-white/40">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <Select
+                            value={currentValoracion || ""}
+                            onValueChange={(val) => {
+                              setValoracionData(prev => ({
+                                ...prev,
+                                [student.studentId]: val as "TEA" | "TEP" | "TED"
+                              }));
+                            }}
+                          >
+                            <SelectTrigger className={cn(
+                              "w-24 h-9 text-xs bg-white/[0.02] border-white/10 mx-auto",
+                              currentValoracion === "TEA" && "text-[#4de082] border-[#4de082]/30 bg-[#4de082]/10",
+                              currentValoracion === "TEP" && "text-[#d0bcff] border-[#d0bcff]/30 bg-[#d0bcff]/10",
+                              currentValoracion === "TED" && "text-[#ffb4ab] border-[#ffb4ab]/30 bg-[#ffb4ab]/10",
+                            )}>
+                              <SelectValue placeholder="Seleccionar" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#131319] border-white/10">
+                              <SelectItem value="TEA" className="text-[#4de082]">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold">TEA</span>
+                                  <span className="text-white/40 text-[10px]">Avanzado</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="TEP" className="text-[#d0bcff]">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold">TEP</span>
+                                  <span className="text-white/40 text-[10px]">En Proceso</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="TED" className="text-[#ffb4ab]">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold">TED</span>
+                                  <span className="text-white/40 text-[10px]">Dificultades</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary */}
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              <div className="p-3 rounded-lg bg-[#4de082]/10 border border-[#4de082]/20 text-center">
+                <p className="text-lg font-bold text-[#4de082]">
+                  {Object.values(valoracionData).filter(v => v === "TEA").length}
+                </p>
+                <p className="text-[10px] text-white/50 uppercase">TEA</p>
+              </div>
+              <div className="p-3 rounded-lg bg-[#d0bcff]/10 border border-[#d0bcff]/20 text-center">
+                <p className="text-lg font-bold text-[#d0bcff]">
+                  {Object.values(valoracionData).filter(v => v === "TEP").length}
+                </p>
+                <p className="text-[10px] text-white/50 uppercase">TEP</p>
+              </div>
+              <div className="p-3 rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 text-center">
+                <p className="text-lg font-bold text-[#ffb4ab]">
+                  {Object.values(valoracionData).filter(v => v === "TED").length}
+                </p>
+                <p className="text-[10px] text-white/50 uppercase">TED</p>
+              </div>
+            </div>
+          </div>
+
+          <SheetFooter className="pt-4 border-t border-white/5">
+            <Button
+              onClick={handleSubmitValoracion}
+              disabled={isSubmittingValoracion || Object.keys(valoracionData).length === 0}
+              className="w-full bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 font-bold py-5"
+            >
+              {isSubmittingValoracion ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Enviando a Secretaria...
+                </>
+              ) : (
+                <>
+                  <Send className="size-4 mr-2" />
+                  Confirmar y Enviar a Secretaria
+                </>
+              )}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <Toaster theme="dark" />
     </div>
