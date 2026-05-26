@@ -649,15 +649,18 @@ export default function CalendarPage() {
       </div>
 
       {/* Alert Banner - System Impact */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-[#63a4ff]/10 border border-[#63a4ff]/20">
-        <Shield className="size-5 text-[#63a4ff] shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-[#ffb4ab]/10 border border-[#ffb4ab]/20">
+        <AlertTriangle className="size-5 text-[#ffb4ab] shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-medium text-[#63a4ff]">Bloqueo Automatico de Alertas</p>
-          <p className="text-xs text-white/60 mt-1">
-            Durante el <span className="text-[#ffb93d] font-medium">Receso de Invierno</span>, 
-            <span className="text-[#ffb4ab] font-medium"> Feriados</span> y 
-            <span className="text-[#d0bcff] font-medium"> Semanas de Acreditacion</span>, 
-            el sistema congela automaticamente el envio de notificaciones por inasistencia y bloquea la toma de lista.
+          <p className="text-sm font-medium text-[#ffb4ab]">Reglas de Bloqueo del Sistema</p>
+          <p className="text-xs text-white/60 mt-1 leading-relaxed">
+            Durante el <span className="text-[#ffb93d] font-medium">Receso de Invierno</span> y los 
+            <span className="text-[#ffb4ab] font-medium"> Feriados oficiales</span>, el sistema 
+            pausara automaticamente el envio de alertas por inasistencia y bloqueara la toma de lista.
+          </p>
+          <p className="text-xs text-[#4de082] mt-2 flex items-center gap-1.5">
+            <Check className="size-3.5" />
+            Las <span className="font-medium">Semanas de Acreditacion de Saberes</span> mantienen el control de presentismo activo.
           </p>
         </div>
       </div>
@@ -911,6 +914,35 @@ export default function CalendarPage() {
           {/* Admin-Only Configuration */}
           {canEditGlobal ? (
             <>
+              {/* Ciclo Lectivo Principal */}
+              <div className="p-4 rounded-2xl bg-[#d0bcff]/5 border border-[#d0bcff]/20 backdrop-blur-md">
+                <div className="flex items-center gap-2 mb-4">
+                  <CalendarIcon className="size-4 text-[#d0bcff]" />
+                  <h3 className="text-sm font-semibold text-[#d0bcff]">Ciclo Lectivo 2025</h3>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-white/40 mb-1 block">Inicio de Clases</label>
+                    <Input
+                      type="date"
+                      value={academicYear.startDate}
+                      onChange={(e) => setAcademicYear(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="bg-white/[0.02] border-[#d0bcff]/20 text-xs h-8"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/40 mb-1 block">Fin de Clases</label>
+                    <Input
+                      type="date"
+                      value={academicYear.endDate}
+                      onChange={(e) => setAcademicYear(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="bg-white/[0.02] border-[#d0bcff]/20 text-xs h-8"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Period System Selector */}
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md">
                 <div className="flex items-center gap-2 mb-4">
@@ -1036,11 +1068,11 @@ export default function CalendarPage() {
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md">
                 <div className="flex items-center gap-2 mb-3">
                   <Flag className="size-4 text-[#ffb4ab]" />
-                  <h3 className="text-sm font-semibold text-[#e4e1ea]">Feriados Nacionales</h3>
+                  <h3 className="text-sm font-semibold text-[#e4e1ea]">Feriados y Dias Inhabiles</h3>
                 </div>
                 
                 <p className="text-xs text-white/40 mb-3">
-                  Carga automaticamente los feriados nacionales de Argentina 2025.
+                  Haz clic en cualquier dia del calendario para marcarlo como Feriado, Jornada Docente o Suspendido.
                 </p>
                 
                 <Button
@@ -1048,8 +1080,12 @@ export default function CalendarPage() {
                   className="w-full bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 text-sm"
                 >
                   <Sparkles className="size-4 mr-2" />
-                  Autocompletar Feriados
+                  Autocompletar Feriados Nacionales 2025
                 </Button>
+                
+                <p className="text-[10px] text-white/30 mt-2 text-center">
+                  Carga automatica de {FERIADOS_NACIONALES_2025.length} feriados oficiales
+                </p>
               </div>
             </>
           ) : (
