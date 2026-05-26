@@ -19,7 +19,8 @@ import {
   ChevronRight,
   AlertTriangle,
   Check,
-  Building2
+  Building2,
+  Inbox
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/context/auth-context";
 
 // ============================================
 // TYPES
@@ -702,12 +704,24 @@ function SecretaryView() {
 
 export default function ProceduresPage() {
   const [mounted, setMounted] = useState(false);
+  const { activeContext } = useAuth();
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Role detection with localStorage fallback for dev sandbox
+    const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "FAMILIA";
+    setCurrentRole(role);
+  }, [activeContext]);
 
-  if (!mounted) return null;
+  if (!mounted || !currentRole) return null;
+
+  // Role-based view detection
+  const isAdmin = currentRole === "ADMIN";
+  const isFamilia = currentRole === "FAMILIA";
+  const showAdminView = isAdmin;
+  const showFamilyView = isFamilia;
+  const showHybridTabs = !isAdmin && !isFamilia; // For DOCENTE/PRECEPTOR show selector
 
   return (
     <div className="space-y-6">
@@ -715,47 +729,61 @@ export default function ProceduresPage() {
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
-            Gestor Documental
+            {isAdmin ? "Bandeja de Auditoria Documental" : "Centro de Tramites"}
           </h1>
           <p className="text-sm text-white/40 mt-1">
-            Documentacion obligatoria y auditoria de legajos
+            {isAdmin 
+              ? "Revision y aprobacion de documentos enviados por las familias"
+              : "Documentacion obligatoria y estado de tramites"
+            }
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-white/40">
-          <Building2 className="size-4" />
-          <span>Instituto Padre Marquez</span>
-          <ChevronRight className="size-3" />
-          <span>Ciclo 2025</span>
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium",
+            isAdmin 
+              ? "bg-[#d0bcff]/10 border border-[#d0bcff]/20 text-[#d0bcff]" 
+              : "bg-[#4de082]/10 border border-[#4de082]/20 text-[#4de082]"
+          )}>
+            {isAdmin ? <Shield className="size-3.5" /> : <User className="size-3.5" />}
+            Vista: {isAdmin ? "Secretaria" : currentRole}
+          </div>
         </div>
       </header>
 
-      {/* View Selector Tabs */}
-      <Tabs defaultValue="family" className="w-full">
-        <TabsList className="w-full md:w-auto bg-white/[0.02] border border-white/5 p-1">
-          <TabsTrigger 
-            value="family" 
-            className="flex-1 md:flex-none data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff]"
-          >
-            <User className="size-4 mr-2" />
-            Vista Familia
-          </TabsTrigger>
-          <TabsTrigger 
-            value="secretary"
-            className="flex-1 md:flex-none data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff]"
-          >
-            <Shield className="size-4 mr-2" />
-            Vista Secretaria
-          </TabsTrigger>
-        </TabsList>
+      {/* Conditional Rendering Based on Role */}
+      {showAdminView && <SecretaryView />}
+      
+      {showFamilyView && <FamilyView />}
 
-        <TabsContent value="family" className="mt-6">
-          <FamilyView />
-        </TabsContent>
+      {showHybridTabs && (
+        <Tabs defaultValue="family" className="w-full">
+          <TabsList className="w-full md:w-auto bg-white/[0.02] border border-white/5 p-1">
+            <TabsTrigger 
+              value="family" 
+              className="flex-1 md:flex-none data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff]"
+            >
+              <User className="size-4 mr-2" />
+              Vista Familia
+            </TabsTrigger>
+            <TabsTrigger 
+              value="secretary"
+              className="flex-1 md:flex-none data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff]"
+            >
+              <Inbox className="size-4 mr-2" />
+              Vista Bandeja
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="secretary" className="mt-6">
-          <SecretaryView />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="family" className="mt-6">
+            <FamilyView />
+          </TabsContent>
+
+          <TabsContent value="secretary" className="mt-6">
+            <SecretaryView />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
