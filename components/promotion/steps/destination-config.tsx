@@ -9,6 +9,9 @@ import {
   ChevronRight,
   ChevronLeft,
   Users,
+  ArrowRightCircle,
+  Database,
+  FileStack,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -90,8 +93,31 @@ export function DestinationConfig({
     return null;
   };
 
+  // Detect if this is a cross-level promotion
+  const isCrossLevelPromotion = sourceLevel !== destinationLevel && destinationLevel !== null;
+
   return (
     <div className="space-y-10">
+      {/* Cross-Level Transfer Indicator */}
+      {isCrossLevelPromotion && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 border border-purple-500/20"
+        >
+          <div className="flex items-center justify-center gap-3 text-sm">
+            <ArrowRightCircle className="size-5 text-purple-400" />
+            <span className="text-purple-300 font-medium">
+              Traspasando base de datos de{" "}
+              <span className="text-white font-bold">{sourceCourse.name} {getLevelLabel(sourceLevel)}</span>
+              {" "}a{" "}
+              <span className="text-white font-bold">{destinationCourse?.name || "..."} {getLevelLabel(destinationLevel)}</span>
+            </span>
+            <Database className="size-4 text-purple-400" />
+          </div>
+        </motion.div>
+      )}
+
       {/* Transfer summary visual */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

@@ -13,6 +13,11 @@ import {
   AlertTriangle,
   PartyPopper,
   FileText,
+  Database,
+  FileStack,
+  Shield,
+  Archive,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,6 +29,7 @@ import {
   getLevelLabel,
 } from "@/lib/types/school-context";
 import type { PromotionStatus, StudentAuditData } from "@/lib/types/promotion";
+import { toast } from "sonner";
 
 // ============================================
 // STEP 4: EXECUTION
@@ -69,12 +75,32 @@ export function Execution({
   onReset,
 }: ExecutionProps) {
   const [isConfirming, setIsConfirming] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<"snapshot" | "transfer" | "done">("snapshot");
   const totalCount = selectedStudents.length;
   const progress = totalCount > 0 ? (processedCount / totalCount) * 100 : 0;
 
+  // Detect cross-level promotion
+  const isCrossLevelPromotion = sourceLevel !== destinationLevel;
+
   const handleExecute = async () => {
     setIsConfirming(false);
+    setCurrentPhase("snapshot");
+    
+    // Simulate snapshot phase
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    toast.info("Generando snapshot de boletines del ciclo cerrado...", {
+      duration: 2000,
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setCurrentPhase("transfer");
+    
     await onExecute();
+    
+    setCurrentPhase("done");
+    toast.success("Legajos historicos consolidados. Promocion completada.", {
+      duration: 4000,
+    });
   };
 
   return (
@@ -92,6 +118,7 @@ export function Execution({
             destinationDivision={destinationDivision}
             selectedStudents={selectedStudents}
             isConfirming={isConfirming}
+            isCrossLevelPromotion={isCrossLevelPromotion}
             onConfirm={() => setIsConfirming(true)}
             onExecute={handleExecute}
             onCancel={() => setIsConfirming(false)}
@@ -105,6 +132,7 @@ export function Execution({
             progress={progress}
             processedCount={processedCount}
             totalCount={totalCount}
+            currentPhase={currentPhase}
           />
         )}
 
@@ -147,6 +175,7 @@ interface PendingStateProps {
   destinationDivision: Division;
   selectedStudents: StudentAuditData[];
   isConfirming: boolean;
+  isCrossLevelPromotion: boolean;
   onConfirm: () => void;
   onExecute: () => void;
   onCancel: () => void;
@@ -162,6 +191,7 @@ function PendingState({
   destinationDivision,
   selectedStudents,
   isConfirming,
+  isCrossLevelPromotion,
   onConfirm,
   onExecute,
   onCancel,
@@ -180,13 +210,71 @@ function PendingState({
           <Rocket className="size-10 text-primary" />
         </div>
         <h2 className="text-2xl font-bold text-foreground">
-          Confirmar Promocion
+          Confirmar Promocion {isCrossLevelPromotion ? "Trans-Nivel" : ""}
         </h2>
         <p className="text-muted-foreground mt-2 max-w-md mx-auto">
           Revisa los detalles del traspaso antes de ejecutar. Esta accion actualizara
           el legajo de cada alumno.
         </p>
       </div>
+
+      {/* Cross-level indicator */}
+      {isCrossLevelPromotion && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20"
+        >
+          <div className="flex items-center gap-3 text-sm">
+            <Database className="size-5 text-purple-400 shrink-0" />
+            <span className="text-purple-200">
+              <strong>Migracion Trans-Nivel:</strong> Los alumnos seran transferidos de{" "}
+              <span className="text-white font-semibold">{getLevelLabel(sourceLevel)}</span> a{" "}
+              <span className="text-white font-semibold">{getLevelLabel(destinationLevel)}</span>.
+              El sistema consolidara automaticamente el historial academico.
+            </span>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Snapshot info card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="p-5 rounded-2xl bg-blue-500/10 border border-blue-500/20"
+      >
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-xl bg-blue-500/20">
+            <Archive className="size-6 text-blue-400" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-foreground mb-1">
+              Generacion Automatica de Legajo Historico
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Al ejecutar la promocion, el sistema capturara un <strong>snapshot inmutable</strong> del 
+              boletin de cada alumno, incluyendo calificaciones finales, asistencias y observaciones 
+              del ciclo lectivo que cierra. Este registro quedara preservado en el historial academico 
+              permanente antes de mover al alumno a su nueva division.
+            </p>
+            <div className="flex items-center gap-4 mt-3 text-xs">
+              <span className="flex items-center gap-1.5 text-blue-300">
+                <FileStack className="size-3.5" />
+                Calificaciones finales
+              </span>
+              <span className="flex items-center gap-1.5 text-blue-300">
+                <BookOpen className="size-3.5" />
+                Registro de asistencias
+              </span>
+              <span className="flex items-center gap-1.5 text-blue-300">
+                <Shield className="size-3.5" />
+                Observaciones de cierre
+              </span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Transfer summary card */}
       <div className="hero-card p-8">
@@ -349,13 +437,21 @@ interface InProgressStateProps {
   progress: number;
   processedCount: number;
   totalCount: number;
+  currentPhase: "snapshot" | "transfer" | "done";
 }
 
 function InProgressState({
   progress,
   processedCount,
   totalCount,
+  currentPhase,
 }: InProgressStateProps) {
+  const phaseLabels = {
+    snapshot: "Generando snapshot de boletines...",
+    transfer: "Transfiriendo alumnos a nueva division...",
+    done: "Finalizando proceso...",
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -379,8 +475,35 @@ function InProgressState({
           Procesando Promocion
         </h2>
         <p className="text-muted-foreground">
-          Actualizando legajos de alumnos...
+          {phaseLabels[currentPhase]}
         </p>
+      </div>
+
+      {/* Phase indicators */}
+      <div className="flex items-center gap-2 text-xs">
+        <div className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+          currentPhase === "snapshot" ? "bg-blue-500/20 text-blue-400" : "bg-muted text-muted-foreground"
+        )}>
+          <Archive className="size-3.5" />
+          Snapshot
+        </div>
+        <ArrowRight className="size-4 text-muted-foreground" />
+        <div className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+          currentPhase === "transfer" ? "bg-purple-500/20 text-purple-400" : "bg-muted text-muted-foreground"
+        )}>
+          <Database className="size-3.5" />
+          Transferencia
+        </div>
+        <ArrowRight className="size-4 text-muted-foreground" />
+        <div className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+          currentPhase === "done" ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"
+        )}>
+          <CheckCircle2 className="size-3.5" />
+          Completado
+        </div>
       </div>
 
       {/* Progress bar */}

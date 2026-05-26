@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { School, GraduationCap, BookOpen, Users, ChevronRight } from "lucide-react";
+import { School, GraduationCap, BookOpen, Users, ChevronRight, Baby } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,16 @@ import {
   getShiftLabel,
   MOCK_SCHOOL_CONTEXT,
 } from "@/lib/types/school-context";
+
+// Nivel adicional para soporte de Inicial
+type ExtendedCourseLevel = CourseLevel | "INITIAL";
+
+const EXTENDED_LEVEL_LABELS: Record<ExtendedCourseLevel, string> = {
+  INITIAL: "Nivel Inicial",
+  PRIMARY: "Nivel Primario",
+  SECONDARY: "Nivel Secundario",
+  TERTIARY: "Nivel Terciario/Superior",
+};
 
 // ============================================
 // STEP 1: SOURCE SELECTION
@@ -46,6 +56,12 @@ const LEVEL_ACCENT: Record<CourseLevel, string> = {
   TERTIARY: "bg-purple-500 text-white",
 };
 
+const LEVEL_BADGE_COLORS: Record<CourseLevel, string> = {
+  PRIMARY: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  SECONDARY: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  TERTIARY: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+};
+
 export function SourceSelection({
   selectedLevel,
   selectedCourse,
@@ -71,7 +87,7 @@ export function SourceSelection({
             Nivel Educativo de Origen
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Selecciona el nivel desde el cual se promoveran los alumnos
+            Selecciona el nivel desde el cual se promoveran los alumnos al siguiente ciclo
           </p>
         </div>
 
@@ -83,6 +99,13 @@ export function SourceSelection({
               (acc, c) => acc + c.divisions.reduce((a, d) => a + d.studentCount, 0),
               0
             );
+
+            // Determinar cursos de egreso (ultimos del nivel)
+            const lastCourses = level.courses.filter(c => {
+              if (level.id === "PRIMARY") return c.year === 6 || c.year === 7;
+              if (level.id === "SECONDARY") return c.year === 5 || c.year === 6;
+              return c.year === level.courses.length;
+            });
 
             return (
               <motion.button
@@ -127,6 +150,16 @@ export function SourceSelection({
                   <Users className="size-3.5" />
                   {totalStudents} alumnos
                 </div>
+
+                {/* Egreso indicator */}
+                {lastCourses.length > 0 && (
+                  <div className={cn(
+                    "mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border",
+                    LEVEL_BADGE_COLORS[level.id]
+                  )}>
+                    Cursos de egreso: {lastCourses.map(c => `${c.year}°`).join(", ")}
+                  </div>
+                )}
 
                 {/* Selection indicator */}
                 {isSelected && (
