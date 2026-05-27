@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
 import { ContextSelector } from "@/components/auth/context-selector"
-import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home } from "lucide-react"
+import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
@@ -13,6 +13,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 
 interface AppShellProps {
@@ -58,6 +67,7 @@ export function AppShell({ children }: AppShellProps) {
   const [consoleOpen, setConsoleOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [contextSelectorOpen, setContextSelectorOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [logs, setLogs] = useState<string[]>([
     "[SYS] Initializing Sequency Core v4.2.0...",
     "[OK] Socket connected to node_AR_BUE_01",
@@ -89,6 +99,11 @@ export function AppShell({ children }: AppShellProps) {
       if (e.ctrlKey && e.key === "q") {
         e.preventDefault()
         setConsoleOpen((prev) => !prev)
+      }
+      // Cmd+K or Ctrl+K for global search
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setSearchOpen((prev) => !prev)
       }
     }
     window.addEventListener("keydown", handleKeyDown)
@@ -171,6 +186,14 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Mobile Actions */}
         <div className="flex items-center gap-2">
+          {/* Global Search Toggle (Mobile) */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+          
           {/* Dev Console Toggle (Mobile) */}
           <button
             onClick={() => setConsoleOpen(!consoleOpen)}
@@ -249,6 +272,69 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* GLOBAL SEARCH COMMAND DIALOG */}
+      <CommandDialog 
+        open={searchOpen} 
+        onOpenChange={setSearchOpen}
+        title="Buscador Global"
+        description="Busca alumnos, personal o acciones rapidas"
+      >
+        <CommandInput placeholder="Buscar alumnos, personal, acciones..." />
+        <CommandList className="bg-background">
+          <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+          
+          <CommandGroup heading="Alumnos">
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
+              <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+              <span>Sofia Alvarez</span>
+              <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
+            </CommandItem>
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
+              <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+              <span>Mateo Benitez</span>
+              <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
+            </CommandItem>
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
+              <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+              <span>Valentina Castro</span>
+              <span className="ml-auto text-xs text-muted-foreground">4to Ano B</span>
+            </CommandItem>
+          </CommandGroup>
+          
+          <CommandSeparator />
+          
+          <CommandGroup heading="Personal">
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
+              <Users className="mr-2 h-4 w-4 text-[#4de082]" />
+              <span>Prof. Maria Gonzalez</span>
+              <span className="ml-auto text-xs text-muted-foreground">Docente</span>
+            </CommandItem>
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
+              <Users className="mr-2 h-4 w-4 text-[#4de082]" />
+              <span>Lic. Juan Rodriguez</span>
+              <span className="ml-auto text-xs text-muted-foreground">Preceptor</span>
+            </CommandItem>
+          </CommandGroup>
+          
+          <CommandSeparator />
+          
+          <CommandGroup heading="Acciones Rapidas">
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/calendar") }}>
+              <Calendar className="mr-2 h-4 w-4 text-[#ffb93d]" />
+              <span>Ir a Calendario</span>
+            </CommandItem>
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/behavior") }}>
+              <AlertTriangle className="mr-2 h-4 w-4 text-[#ffb4ab]" />
+              <span>Emitir Sancion</span>
+            </CommandItem>
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/grades") }}>
+              <Zap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+              <span>Cargar Calificaciones</span>
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
 
       {/* MOBILE NAVIGATION DRAWER (Sheet) */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -331,6 +417,20 @@ export function AppShell({ children }: AppShellProps) {
               {activeContext.description}
             </p>
           )}
+        </div>
+
+        {/* Search Button */}
+        <div className="px-4 pb-2">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-colors text-left group"
+          >
+            <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+            <span className="flex-1 text-sm text-muted-foreground group-hover:text-foreground">Buscar...</span>
+            <kbd className="hidden lg:inline-flex h-5 select-none items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <span className="text-xs">⌘</span>K
+            </kbd>
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-galactic px-4 py-4">

@@ -11,7 +11,9 @@ import {
   GraduationCap,
   Loader2,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  FileStack,
+  Download
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -107,6 +109,11 @@ export default function StudentsPage() {
   const [targetDivision, setTargetDivision] = useState<string>("");
   const [isTransferring, setIsTransferring] = useState(false);
 
+  // Boletin generator dialog state
+  const [isBoletinDialogOpen, setIsBoletinDialogOpen] = useState(false);
+  const [boletinCourse, setBoletinCourse] = useState<string>("");
+  const [isGeneratingBoletin, setIsGeneratingBoletin] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "PRECEPTOR";
@@ -127,6 +134,31 @@ export default function StudentsPage() {
 
   // Check permissions
   const canTransfer = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
+  const isAdmin = currentRole === "ADMIN";
+
+  // Generate boletines
+  const handleGenerateBoletines = useCallback(async () => {
+    if (!boletinCourse) return;
+    
+    setIsGeneratingBoletin(true);
+    
+    // Simulate PDF generation
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    setIsGeneratingBoletin(false);
+    setIsBoletinDialogOpen(false);
+    setBoletinCourse("");
+    
+    const selectedDiv = MOCK_DIVISIONS.find((d) => d.id === boletinCourse);
+    
+    toast.success(
+      `Boletines generados exitosamente`,
+      {
+        description: `Se generaron ${selectedDiv?.studentCount || 0} boletines para ${selectedDiv?.name}`,
+        duration: 5000,
+      }
+    );
+  }, [boletinCourse]);
 
   // Open transfer dialog
   const handleOpenTransfer = (student: Student) => {
@@ -199,7 +231,16 @@ export default function StudentsPage() {
             Administracion de matricula y asignacion de divisiones
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <Button
+              onClick={() => setIsBoletinDialogOpen(true)}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              <FileStack className="size-4 mr-2" />
+              Emitir Boletines Oficiales
+            </Button>
+          )}
           <Badge variant="outline" className="bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]">
             <GraduationCap className="size-3.5 mr-1.5" />
             Vista: {currentRole}
@@ -447,6 +488,108 @@ export default function StudentsPage() {
                 <>
                   <Check className="size-4 mr-2" />
                   Confirmar Traspaso
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Boletin Generator Dialog */}
+      <Dialog open={isBoletinDialogOpen} onOpenChange={setIsBoletinDialogOpen}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <FileStack className="size-5 text-[#d0bcff]" />
+              Emitir Boletines Oficiales
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Genera boletines oficiales para un curso completo
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4">
+            {/* Course Selection */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 uppercase tracking-wider">
+                Seleccionar Curso y Division
+              </label>
+              <Select value={boletinCourse} onValueChange={setBoletinCourse}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue placeholder="Seleccionar curso..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {MOCK_DIVISIONS.map((div) => (
+                    <SelectItem key={div.id} value={div.id}>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>{div.name}</span>
+                        <span className="text-xs text-white/40">{div.studentCount} alumnos</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Info Panel */}
+            <div className="p-4 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20 space-y-3">
+              <div className="flex items-start gap-3">
+                <FileText className="size-5 text-[#d0bcff] mt-0.5 shrink-0" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-[#e4e1ea]">
+                    Contenido del Boletin
+                  </p>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    El sistema compilara exclusivamente las <strong className="text-[#d0bcff]">Notas Preliminares (TEA/TEP/TED)</strong> y 
+                    las <strong className="text-[#d0bcff]">Calificaciones Numericas Finales</strong> de los periodos cerrados, 
+                    excluyendo notas parciales de la cursada.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Selected Course Summary */}
+            {boletinCourse && (
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-[#e4e1ea]">
+                      {MOCK_DIVISIONS.find((d) => d.id === boletinCourse)?.name}
+                    </p>
+                    <p className="text-xs text-white/40">
+                      Nivel Secundario
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="bg-[#4de082]/10 border-[#4de082]/20 text-[#4de082]">
+                    {MOCK_DIVISIONS.find((d) => d.id === boletinCourse)?.studentCount} boletines
+                  </Badge>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsBoletinDialogOpen(false)}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleGenerateBoletines}
+              disabled={!boletinCourse || isGeneratingBoletin}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              {isGeneratingBoletin ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Generando PDFs...
+                </>
+              ) : (
+                <>
+                  <Download className="size-4 mr-2" />
+                  Generar y Exportar Lote (PDF)
                 </>
               )}
             </Button>
