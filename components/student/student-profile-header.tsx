@@ -8,6 +8,7 @@ import {
   Shield,
   Clock,
   MapPin,
+  Download,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +20,10 @@ import { getStatusLabel, getStatusColor } from "@/lib/types/student";
 interface StudentProfileHeaderProps {
   profile: StudentProfile;
   onExportPDF?: () => void;
+  onExportHistorial?: () => void;
 }
 
-export function StudentProfileHeader({ profile, onExportPDF }: StudentProfileHeaderProps) {
+export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial }: StudentProfileHeaderProps) {
   const initials = `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase();
   const age = new Date().getFullYear() - profile.birthDate.getFullYear();
   
@@ -78,15 +80,25 @@ export function StudentProfileHeader({ profile, onExportPDF }: StudentProfileHea
                 </div>
               </div>
 
-              {/* Export Button */}
-              <Button
-                variant="outline"
-                onClick={onExportPDF}
-                className="shrink-0 gap-2 transition-theme"
-              >
-                <FileText className="size-4" />
-                Exportar Legajo PDF
-              </Button>
+              {/* Export Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={onExportHistorial}
+                  className="gap-2 transition-theme bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff] hover:bg-[#d0bcff]/20"
+                >
+                  <Download className="size-4" />
+                  Exportar Analitico / Historial Completo
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={onExportPDF}
+                  className="gap-2 transition-theme"
+                >
+                  <FileText className="size-4" />
+                  Exportar Legajo PDF
+                </Button>
+              </div>
             </div>
 
             {/* Metadata Grid */}
