@@ -157,23 +157,65 @@ export default function StudentsPage() {
   const canTransfer = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
   const isAdmin = currentRole === "ADMIN";
 
-  // Generate boletines
+  // Generate boletines with real PDF download
   const handleGenerateBoletines = useCallback(async () => {
     if (!boletinCourse) return;
     
     setIsGeneratingBoletin(true);
     
-    // Simulate PDF generation
+    // Simulate PDF compilation (2 seconds)
     await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    const selectedDiv = MOCK_DIVISIONS.find((d) => d.id === boletinCourse);
+    
+    // Generate fake PDF content
+    const pdfContent = `%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+4 0 obj << /Length 300 >> stream
+BT
+/F1 24 Tf
+50 700 Td
+(BOLETINES OFICIALES - SEQUENCY) Tj
+0 -50 Td
+/F1 14 Tf
+(Curso: ${selectedDiv?.name || "N/A"}) Tj
+0 -25 Td
+(Total Alumnos: ${selectedDiv?.studentCount || 0}) Tj
+0 -25 Td
+(Periodo: 1er Trimestre 2026) Tj
+0 -25 Td
+(Incluye: Notas TEA/TEP/TED y Calificaciones Finales) Tj
+0 -50 Td
+(Documento generado automaticamente por Sequency.) Tj
+ET
+endstream endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+xref
+0 6
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+600
+%%EOF`;
+    
+    // Create Blob and trigger native browser download
+    const blob = new Blob([pdfContent], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Boletines_Oficiales_${selectedDiv?.name?.replace(/\s+/g, "_") || "Lote"}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     
     setIsGeneratingBoletin(false);
     setIsBoletinDialogOpen(false);
     setBoletinCourse("");
     
-    const selectedDiv = MOCK_DIVISIONS.find((d) => d.id === boletinCourse);
-    
     toast.success(
-      `Boletines generados exitosamente`,
+      "Descarga completada",
       {
         description: `Se generaron ${selectedDiv?.studentCount || 0} boletines para ${selectedDiv?.name}`,
         duration: 5000,
@@ -772,7 +814,7 @@ export default function StudentsPage() {
               {isGeneratingBoletin ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />
-                  Generando PDFs...
+                  Compilando datos historicos...
                 </>
               ) : (
                 <>

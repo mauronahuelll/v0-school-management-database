@@ -13,6 +13,8 @@ import {
   Filter,
   Eye,
   EyeOff,
+  Lock,
+  AlertTriangle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,10 +32,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { GradeCell } from "./grade-cell";
 import { PublicationBanner } from "./publication-banner";
 import { ThemeToggleCompact } from "@/components/theme-toggle";
+import { toast } from "sonner";
 import type {
   CourseGradeInfo,
   StudentGradeRow,
@@ -79,6 +93,8 @@ export function GradesGrid({
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [filterType, setFilterType] = useState<FilterType>("all");
+  const [isPeriodLocked, setIsPeriodLocked] = useState(false);
+  const [isLockDialogOpen, setIsLockDialogOpen] = useState(false);
 
   const { subject, assessments, students, periodName, courseName, divisionName } =
     courseInfo;
@@ -86,7 +102,20 @@ export function GradesGrid({
 
   // Determine if user can edit grades based on role
   // DOCENTE and PRECEPTOR can edit, others cannot
-  const canEditGrades = !isReadOnly && (userRole === "DOCENTE" || userRole === "PRECEPTOR" || userRole === "ADMIN");
+  const canEditGrades = !isReadOnly && !isPeriodLocked && (userRole === "DOCENTE" || userRole === "PRECEPTOR" || userRole === "ADMIN");
+
+  // Handle period lock
+  const handleLockPeriod = useCallback(() => {
+    setIsPeriodLocked(true);
+    setIsLockDialogOpen(false);
+    toast.success(
+      "Periodo bloqueado exitosamente",
+      {
+        description: "Los promedios y valoraciones han sido congelados. La grilla se reiniciara para el proximo periodo.",
+        duration: 5000,
+      }
+    );
+  }, []);
 
   // Filter and sort students
   const filteredStudents = useMemo(() => {
@@ -220,7 +249,58 @@ export function GradesGrid({
               />
             </div>
 
-            <ThemeToggleCompact />
+            {/* Lock Period Button */}
+            <div className="flex items-center gap-3">
+              {userRole === "ADMIN" && !isPeriodLocked && (
+                <AlertDialog open={isLockDialogOpen} onOpenChange={setIsLockDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+                    >
+                      <Lock className="size-4" />
+                      <span className="hidden lg:inline">Bloquear y Cerrar Periodo Activo</span>
+                      <span className="lg:hidden">Cerrar Periodo</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-[#131319] border-white/10">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+                        <AlertTriangle className="size-5 text-amber-400" />
+                        Confirmar Cierre de Periodo
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-white/60 leading-relaxed">
+                        Esta accion <strong className="text-amber-400">congelara los promedios numericos actuales</strong> y 
+                        las <strong className="text-amber-400">valoraciones (TEA/TEP/TED)</strong> para transferirlos al Boletin Oficial. 
+                        La grilla se reiniciara para el proximo periodo. 
+                        <span className="block mt-2 text-red-400">Esta accion no se puede deshacer.</span>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                      <AlertDialogCancel className="border-white/10 text-white/70 hover:bg-white/5">
+                        Cancelar
+                      </AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleLockPeriod}
+                        className="bg-amber-500 text-black hover:bg-amber-400"
+                      >
+                        <Lock className="size-4 mr-2" />
+                        Confirmar Bloqueo
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              
+              {isPeriodLocked && (
+                <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30 text-amber-400 gap-1.5">
+                  <Lock className="size-3" />
+                  Periodo Bloqueado
+                </Badge>
+              )}
+              
+              <ThemeToggleCompact />
+            </div>
           </div>
         </div>
       </header>
@@ -287,7 +367,22 @@ export function GradesGrid({
         </div>
 
         {/* Grades Table */}
-        <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm transition-theme">
+        <div className={cn(
+          "bg-card rounded-xl border border-border overflow-hidden shadow-sm transition-theme relative",
+          isPeriodLocked && "opacity-60 pointer-events-none"
+        )}>
+          {/* Period Locked Overlay */}
+          {isPeriodLocked && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+              <div className="flex items-center gap-3 px-6 py-4 rounded-xl bg-amber-500/20 border border-amber-500/30">
+                <Lock className="size-6 text-amber-400" />
+                <div>
+                  <p className="font-semibold text-amber-200">Periodo Cerrado</p>
+                  <p className="text-xs text-amber-200/70">Calificaciones congeladas para boletin</p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
