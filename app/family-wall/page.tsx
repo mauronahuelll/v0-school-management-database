@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/context/auth-context"
 import { Bell, Calendar, Image, MessageSquare, ShieldAlert, Heart, Share2, Paperclip } from "lucide-react"
+import { toast } from "sonner"
 
 const PUBLICACIONES_MOCK = [
   {
@@ -43,16 +44,29 @@ const PUBLICACIONES_MOCK = [
 ]
 
 export default function FamilyWallPage() {
-  const { role } = useAuth()
+  const { activeContext } = useAuth()
   const [mounted, setMounted] = useState(false)
+  const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({})
+
+  const currentRole = activeContext?.role || null
+
+  // FAMILIA can only view and like - cannot comment or publish
+  const canComment = currentRole !== "FAMILIA"
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  const handleLike = (postId: number) => {
+    setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }))
+    if (!likedPosts[postId]) {
+      toast.success("Marcaste como favorito")
+    }
+  }
+
   if (!mounted) return null
 
-  if (role !== "FAMILIA" && role !== "ADMIN") {
+  if (currentRole !== "FAMILIA" && currentRole !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 py-20">
         <div className="w-16 h-16 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
@@ -142,12 +156,24 @@ export default function FamilyWallPage() {
             {/* Post Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-white/5">
               <div className="flex items-center gap-4 text-muted-foreground text-xs">
-                <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                  <Heart className="w-4 h-4" /> {post.likes}
+                {/* Like button - Available to ALL */}
+                <button 
+                  onClick={() => handleLike(post.id)}
+                  className={`flex items-center gap-1.5 transition-colors ${
+                    likedPosts[post.id] ? "text-destructive" : "hover:text-primary"
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${likedPosts[post.id] ? "fill-current" : ""}`} /> 
+                  {post.likes + (likedPosts[post.id] ? 1 : 0)}
                 </button>
-                <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                  <MessageSquare className="w-4 h-4" /> {post.comments}
-                </button>
+                
+                {/* Comment button - Hidden for FAMILIA */}
+                {canComment && (
+                  <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                    <MessageSquare className="w-4 h-4" /> {post.comments}
+                  </button>
+                )}
+                
                 <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
                   <Share2 className="w-4 h-4" /> Compartir
                 </button>
