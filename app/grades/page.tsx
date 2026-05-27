@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -224,6 +225,7 @@ export default function GradesPage() {
   // VALORACION PRELIMINAR STATE (TEA/TEP/TED Mid-term)
   const [isValoracionSheetOpen, setIsValoracionSheetOpen] = useState(false);
   const [valoracionData, setValoracionData] = useState<Record<string, "TEA" | "TEP" | "TED" | null>>({});
+  const [valoracionJustificaciones, setValoracionJustificaciones] = useState<Record<string, string>>({});
   const [isSubmittingValoracion, setIsSubmittingValoracion] = useState(false);
   const [isExportingValoracion, setIsExportingValoracion] = useState(false);
   
@@ -569,6 +571,20 @@ export default function GradesPage() {
 
   // Handle valoracion preliminar submit
   const handleSubmitValoracion = useCallback(async () => {
+    // Validate that TEP/TED have justifications
+    const missingJustifications = Object.entries(valoracionData).filter(([studentId, val]) => {
+      if (val === "TEP" || val === "TED") {
+        const justif = valoracionJustificaciones[studentId];
+        return !justif || justif.trim().length === 0;
+      }
+      return false;
+    });
+
+    if (missingJustifications.length > 0) {
+      toast.error("Faltan justificaciones pedagogicas para alumnos con TEP/TED");
+      return;
+    }
+
     setIsSubmittingValoracion(true);
     
     // Simulate API call
@@ -577,10 +593,13 @@ export default function GradesPage() {
     setIsSubmittingValoracion(false);
     setIsValoracionSheetOpen(false);
     
-    toast.success("Valoraciones preliminares registradas. Los boletines parciales ya estan disponibles para las familias.", {
+    const tepCount = Object.values(valoracionData).filter(v => v === "TEP").length;
+    const tedCount = Object.values(valoracionData).filter(v => v === "TED").length;
+    
+    toast.success(`Valoraciones registradas. ${tepCount + tedCount > 0 ? `${tepCount + tedCount} justificacion(es) pedagogica(s) adjuntadas.` : ""} Boletines parciales disponibles.`, {
       duration: 5000,
     });
-  }, []);
+  }, [valoracionData, valoracionJustificaciones]);
 
   // Export valoracion to CSV
   const handleExportValoracion = useCallback(async () => {
@@ -1292,9 +1311,11 @@ export default function GradesPage() {
                 <tbody className="divide-y divide-white/5">
                   {students.map((student) => {
                     const currentValoracion = valoracionData[student.studentId] || null;
+                    const needsJustification = currentValoracion === "TEP" || currentValoracion === "TED";
+                    const currentJustification = valoracionJustificaciones[student.studentId] || "";
                     
                     return (
-                      <tr key={student.studentId} className="hover:bg-white/[0.02] transition-colors">
+                      <tr key={student.studentId} className="hover:bg-white/[0.02] transition-colors align-top">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="size-8 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
@@ -1324,25 +1345,34 @@ export default function GradesPage() {
                             <span className="text-sm text-white/40">-</span>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-center">
-                          <Select
-                            value={currentValoracion || ""}
-                            onValueChange={(val) => {
-                              setValoracionData(prev => ({
-                                ...prev,
-                                [student.studentId]: val as "TEA" | "TEP" | "TED"
-                              }));
-                            }}
-                          >
-                            <SelectTrigger className={cn(
-                              "w-24 h-9 text-xs bg-white/[0.02] border-white/10 mx-auto",
-                              currentValoracion === "TEA" && "text-[#4de082] border-[#4de082]/30 bg-[#4de082]/10",
-                              currentValoracion === "TEP" && "text-[#d0bcff] border-[#d0bcff]/30 bg-[#d0bcff]/10",
-                              currentValoracion === "TED" && "text-[#ffb4ab] border-[#ffb4ab]/30 bg-[#ffb4ab]/10",
-                            )}>
-                              <SelectValue placeholder="Seleccionar" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-[#131319] border-white/10">
+                        <td className="px-3 py-3">
+                          <div className="flex flex-col items-center gap-2">
+                            <Select
+                              value={currentValoracion || ""}
+                              onValueChange={(val) => {
+                                setValoracionData(prev => ({
+                                  ...prev,
+                                  [student.studentId]: val as "TEA" | "TEP" | "TED"
+                                }));
+                                // Clear justification if changed to TEA
+                                if (val === "TEA") {
+                                  setValoracionJustificaciones(prev => {
+                                    const updated = { ...prev };
+                                    delete updated[student.studentId];
+                                    return updated;
+                                  });
+                                }
+                              }}
+                            >
+                              <SelectTrigger className={cn(
+                                "w-24 h-9 text-xs bg-white/[0.02] border-white/10",
+                                currentValoracion === "TEA" && "text-[#4de082] border-[#4de082]/30 bg-[#4de082]/10",
+                                currentValoracion === "TEP" && "text-[#d0bcff] border-[#d0bcff]/30 bg-[#d0bcff]/10",
+                                currentValoracion === "TED" && "text-[#ffb4ab] border-[#ffb4ab]/30 bg-[#ffb4ab]/10",
+                              )}>
+                                <SelectValue placeholder="Seleccionar" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#131319] border-white/10">
                               <SelectItem value="TEA" className="text-[#4de082]">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold">TEA</span>
@@ -1362,7 +1392,28 @@ export default function GradesPage() {
                                 </div>
                               </SelectItem>
                             </SelectContent>
-                          </Select>
+                            </Select>
+                            
+                            {/* Conditional Textarea for TEP/TED justification */}
+                            {needsJustification && (
+                              <Textarea
+                                value={currentJustification}
+                                onChange={(e) => {
+                                  setValoracionJustificaciones(prev => ({
+                                    ...prev,
+                                    [student.studentId]: e.target.value
+                                  }));
+                                }}
+                                placeholder="Justificacion pedagogica breve requerida para valoraciones en proceso/discontinuas..."
+                                className={cn(
+                                  "w-full min-h-[60px] text-xs bg-white/[0.02] border-white/10 resize-none",
+                                  currentValoracion === "TEP" && "border-[#d0bcff]/30 focus:border-[#d0bcff]/50",
+                                  currentValoracion === "TED" && "border-[#ffb4ab]/30 focus:border-[#ffb4ab]/50",
+                                  !currentJustification.trim() && "border-red-500/30"
+                                )}
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
