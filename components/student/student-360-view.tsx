@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, User, History, FileText, BookOpen, Users, ShieldAlert } from "lucide-react";
 import Link from "next/link";
@@ -14,6 +14,7 @@ import { MedicalContactCard } from "./medical-contact-card";
 import { StudentTrayectoria } from "./student-trayectoria";
 import { StudentFamilyNetwork } from "./student-family-network";
 import type { Student360Data } from "@/lib/types/student";
+import { toast } from "sonner";
 
 interface Student360ViewProps {
   data: Student360Data;
@@ -31,6 +32,14 @@ export function Student360View({
   // Count pending subjects for badge
   const pendingSubjectsCount = 2; // This would come from data in real implementation
   const hasRestrictions = true; // Mock: would come from contacts data
+
+  // Export complete historial handler
+  const handleExportHistorial = useCallback(() => {
+    toast.success(
+      "Legajo consolidado exportado en PDF. Incluye trayectoria desde Nivel Inicial a la fecha.",
+      { duration: 5000 }
+    );
+  }, []);
 
   return (
     <div className="min-h-screen pb-8">
@@ -54,6 +63,7 @@ export function Student360View({
         <StudentProfileHeader 
           profile={data.profile} 
           onExportPDF={onExportPDF}
+          onExportHistorial={handleExportHistorial}
         />
 
         {/* Tabs Navigation */}

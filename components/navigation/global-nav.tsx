@@ -6,41 +6,30 @@ import {
   LayoutDashboard,
   ClipboardList,
   Users,
-  BarChart3,
   Calendar,
   Settings,
   GraduationCap,
-  BookOpen,
   Plus,
-  ShieldCheck,
+  UserCheck,
+  Building2,
   MessageSquare,
   FileText,
-  Megaphone,
-  Upload,
-  Sliders,
-  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, Role } from "@/lib/context/auth-context";
 
 // ============================================
-// NAVIGATION ITEMS BY ROLE
+// NAVIGATION ITEMS BY ROLE (DRY - Consolidated Routes)
 // ============================================
 
 const NAV_ITEMS_ADMIN = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
-  { id: "students", label: "Alumnos", href: "/students", icon: UserCheck },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
-  { id: "communications", label: "Comunicados", href: "/communications", icon: Megaphone },
+  { id: "secretaria", label: "Secretaria", href: "/students", icon: Building2 },
+  { id: "users", label: "Personal", href: "/users", icon: UserCheck },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
-  { id: "import", label: "Importar Matricula", href: "/admin/import", icon: Upload },
-  { id: "config", label: "Config. Institucion", href: "/admin/config", icon: Sliders },
-  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
-  { id: "users", label: "Personal", href: "/users", icon: Users },
-  { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
-  { id: "permissions", label: "Permisos", href: "/permissions", icon: ShieldCheck },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
@@ -48,9 +37,8 @@ const NAV_ITEMS_PRECEPTOR = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
-  { id: "students", label: "Alumnos", href: "/students", icon: UserCheck },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
-  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
+  { id: "secretaria", label: "Secretaria", href: "/students", icon: Building2 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
@@ -58,8 +46,6 @@ const NAV_ITEMS_PRECEPTOR = [
 const NAV_ITEMS_DOCENTE = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
-  { id: "courses", label: "Cursos", href: "/courses", icon: BookOpen },
-  { id: "analytics", label: "Analitica", href: "/analytics", icon: BarChart3 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];

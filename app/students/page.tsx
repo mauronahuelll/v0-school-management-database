@@ -11,7 +11,15 @@ import {
   GraduationCap,
   Loader2,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  FileStack,
+  Download,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Key,
+  Copy,
+  ExternalLink,
+  Lock,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -39,6 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -107,6 +116,25 @@ export default function StudentsPage() {
   const [targetDivision, setTargetDivision] = useState<string>("");
   const [isTransferring, setIsTransferring] = useState(false);
 
+  // Boletin generator dialog state
+  const [isBoletinDialogOpen, setIsBoletinDialogOpen] = useState(false);
+  const [boletinCourse, setBoletinCourse] = useState<string>("");
+  const [isGeneratingBoletin, setIsGeneratingBoletin] = useState(false);
+
+  // Pases state
+  const [activeTab, setActiveTab] = useState("alumnos");
+  const [incomingToken, setIncomingToken] = useState("");
+  const [isValidatingToken, setIsValidatingToken] = useState(false);
+  const [isTokenDialogOpen, setIsTokenDialogOpen] = useState(false);
+  const [generatedToken, setGeneratedToken] = useState<string>("");
+  const [selectedStudentForPase, setSelectedStudentForPase] = useState<Student | null>(null);
+
+  // Mock data for pending pases (students leaving)
+  const [pendingPases] = useState<Student[]>([
+    { id: "p1", firstName: "Carolina", lastName: "Martinez", legajo: "2024-099", currentCourse: "3er Ano", currentDivision: "3a", level: "SECONDARY", status: "REGULAR" },
+    { id: "p2", firstName: "Federico", lastName: "Romero", legajo: "2024-087", currentCourse: "5to Ano", currentDivision: "5b", level: "SECONDARY", status: "REGULAR" },
+  ]);
+
   useEffect(() => {
     setMounted(true);
     const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "PRECEPTOR";
@@ -127,6 +155,67 @@ export default function StudentsPage() {
 
   // Check permissions
   const canTransfer = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
+  const isAdmin = currentRole === "ADMIN";
+
+  // Generate boletines
+  const handleGenerateBoletines = useCallback(async () => {
+    if (!boletinCourse) return;
+    
+    setIsGeneratingBoletin(true);
+    
+    // Simulate PDF generation
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    setIsGeneratingBoletin(false);
+    setIsBoletinDialogOpen(false);
+    setBoletinCourse("");
+    
+    const selectedDiv = MOCK_DIVISIONS.find((d) => d.id === boletinCourse);
+    
+    toast.success(
+      `Boletines generados exitosamente`,
+      {
+        description: `Se generaron ${selectedDiv?.studentCount || 0} boletines para ${selectedDiv?.name}`,
+        duration: 5000,
+      }
+    );
+  }, [boletinCourse]);
+
+  // Validate incoming transfer token
+  const handleValidateToken = useCallback(async () => {
+    if (!incomingToken.trim()) return;
+    
+    setIsValidatingToken(true);
+    
+    // Simulate token validation
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    
+    setIsValidatingToken(false);
+    setIncomingToken("");
+    
+    toast.success(
+      "Legajo digital importado exitosamente",
+      {
+        description: "Se importo el historial completo del alumno desde la escuela de origen.",
+        duration: 5000,
+      }
+    );
+  }, [incomingToken]);
+
+  // Generate outgoing transfer token
+  const handleGeneratePaseToken = useCallback((student: Student) => {
+    // Generate a random token
+    const token = `TR-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    setGeneratedToken(token);
+    setSelectedStudentForPase(student);
+    setIsTokenDialogOpen(true);
+  }, []);
+
+  // Copy token to clipboard
+  const handleCopyToken = useCallback(() => {
+    navigator.clipboard.writeText(generatedToken);
+    toast.success("Token copiado al portapapeles");
+  }, [generatedToken]);
 
   // Open transfer dialog
   const handleOpenTransfer = (student: Student) => {
@@ -193,13 +282,22 @@ export default function StudentsPage() {
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
-            Gestion de Alumnos
+            Secretaria
           </h1>
           <p className="text-sm text-white/40 mt-1">
-            Administracion de matricula y asignacion de divisiones
+            Gestion de matricula, pases y documentacion oficial
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <Button
+              onClick={() => setIsBoletinDialogOpen(true)}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              <FileStack className="size-4 mr-2" />
+              Emitir Boletines Oficiales
+            </Button>
+          )}
           <Badge variant="outline" className="bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]">
             <GraduationCap className="size-3.5 mr-1.5" />
             Vista: {currentRole}
@@ -207,8 +305,31 @@ export default function StudentsPage() {
         </div>
       </header>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full justify-start bg-white/[0.02] border border-white/5 rounded-xl p-1 gap-1">
+          <TabsTrigger
+            value="alumnos"
+            className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] rounded-lg"
+          >
+            <Users className="size-4 mr-2" />
+            Gestion de Alumnos
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger
+              value="pases"
+              className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] rounded-lg"
+            >
+              <ArrowRightLeft className="size-4 mr-2" />
+              Pases Inter-Escolares
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* Alumnos Tab Content */}
+        <TabsContent value="alumnos" className="mt-6 space-y-6">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/40" />
           <Input
@@ -347,6 +468,114 @@ export default function StudentsPage() {
           </div>
         )}
       </div>
+        </TabsContent>
+
+        {/* Pases Inter-Escolares Tab Content */}
+        {isAdmin && (
+          <TabsContent value="pases" className="mt-6 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bandeja de Entrada - Solicitar Pase Entrante */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                    <ArrowDownToLine className="size-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[#e4e1ea]">Solicitar Pase Entrante</h3>
+                    <p className="text-xs text-white/40">Importar legajo desde otra escuela</p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+                  <p className="text-xs text-emerald-200/70 leading-relaxed">
+                    Ingrese el <strong>Token de Traslado</strong> entregado por la familia que viene de 
+                    otra escuela con Sequency para importar el legajo digital completo.
+                  </p>
+                  
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/40" />
+                      <Input
+                        placeholder="Ej: TR-8F92A"
+                        value={incomingToken}
+                        onChange={(e) => setIncomingToken(e.target.value.toUpperCase())}
+                        className="pl-9 bg-white/[0.02] border-white/10 font-mono uppercase"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleValidateToken}
+                      disabled={!incomingToken.trim() || isValidatingToken}
+                      className="bg-emerald-500 text-white hover:bg-emerald-500/90 shrink-0"
+                    >
+                      {isValidatingToken ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Check className="size-4 mr-2" />
+                          Validar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bandeja de Salida - Emitir Pase Saliente */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10">
+                    <ArrowUpFromLine className="size-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[#e4e1ea]">Emitir Pase Saliente</h3>
+                    <p className="text-xs text-white/40">Alumnos en proceso de baja</p>
+                  </div>
+                </div>
+
+                {pendingPases.length > 0 ? (
+                  <div className="space-y-2">
+                    {pendingPases.map((student) => (
+                      <div 
+                        key={student.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="size-9 ring-2 ring-amber-500/20">
+                            <AvatarFallback className="bg-amber-500/10 text-amber-400 font-semibold text-xs">
+                              {student.firstName[0]}{student.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium text-[#e4e1ea]">
+                              {student.lastName}, {student.firstName}
+                            </p>
+                            <p className="text-xs text-white/40">
+                              {student.currentCourse} - Legajo: {student.legajo}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => handleGeneratePaseToken(student)}
+                          size="sm"
+                          className="bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20"
+                        >
+                          <ExternalLink className="size-3.5 mr-1.5" />
+                          Generar Pase
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Users className="size-10 text-white/20 mb-3" />
+                    <p className="text-sm text-white/40">No hay alumnos pendientes de pase</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
 
       {/* Transfer Dialog */}
       <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
@@ -449,6 +678,177 @@ export default function StudentsPage() {
                   Confirmar Traspaso
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Boletin Generator Dialog */}
+      <Dialog open={isBoletinDialogOpen} onOpenChange={setIsBoletinDialogOpen}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <FileStack className="size-5 text-[#d0bcff]" />
+              Emitir Boletines Oficiales
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Genera boletines oficiales para un curso completo
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4">
+            {/* Course Selection */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 uppercase tracking-wider">
+                Seleccionar Curso y Division
+              </label>
+              <Select value={boletinCourse} onValueChange={setBoletinCourse}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue placeholder="Seleccionar curso..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {MOCK_DIVISIONS.map((div) => (
+                    <SelectItem key={div.id} value={div.id}>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>{div.name}</span>
+                        <span className="text-xs text-white/40">{div.studentCount} alumnos</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Info Panel */}
+            <div className="p-4 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20 space-y-3">
+              <div className="flex items-start gap-3">
+                <FileText className="size-5 text-[#d0bcff] mt-0.5 shrink-0" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-[#e4e1ea]">
+                    Contenido del Boletin
+                  </p>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    El sistema compilara exclusivamente las <strong className="text-[#d0bcff]">Notas Preliminares (TEA/TEP/TED)</strong> y 
+                    las <strong className="text-[#d0bcff]">Calificaciones Numericas Finales</strong> de los periodos cerrados, 
+                    excluyendo notas parciales de la cursada.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Selected Course Summary */}
+            {boletinCourse && (
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-[#e4e1ea]">
+                      {MOCK_DIVISIONS.find((d) => d.id === boletinCourse)?.name}
+                    </p>
+                    <p className="text-xs text-white/40">
+                      Nivel Secundario
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="bg-[#4de082]/10 border-[#4de082]/20 text-[#4de082]">
+                    {MOCK_DIVISIONS.find((d) => d.id === boletinCourse)?.studentCount} boletines
+                  </Badge>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsBoletinDialogOpen(false)}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleGenerateBoletines}
+              disabled={!boletinCourse || isGeneratingBoletin}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              {isGeneratingBoletin ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Generando PDFs...
+                </>
+              ) : (
+                <>
+                  <Download className="size-4 mr-2" />
+                  Generar y Exportar Lote (PDF)
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Token Generated Dialog */}
+      <Dialog open={isTokenDialogOpen} onOpenChange={setIsTokenDialogOpen}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <Key className="size-5 text-amber-400" />
+              Token de Traslado Generado
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Pase para {selectedStudentForPase?.firstName} {selectedStudentForPase?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4">
+            {/* Token Display */}
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+              <p className="text-xs text-amber-200/70 mb-2">Token de Traslado</p>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-3xl font-mono font-bold text-amber-400 tracking-wider">
+                  {generatedToken}
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleCopyToken}
+                  className="size-8 hover:bg-amber-500/20"
+                >
+                  <Copy className="size-4 text-amber-400" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="size-5 text-amber-400 mt-0.5 shrink-0" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-[#e4e1ea]">
+                    Instrucciones para la familia
+                  </p>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Entregue este token a la familia para que la escuela de destino reclame 
+                    el legajo digital en su base de datos. <strong className="text-amber-400">Los datos 
+                    quedaran bloqueados aqui</strong> una vez que el traslado sea completado.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lock warning */}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <Lock className="size-4 text-red-400 shrink-0" />
+              <p className="text-xs text-red-200/70">
+                El legajo sera de solo lectura tras el traspaso exitoso.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setIsTokenDialogOpen(false)}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 w-full"
+            >
+              Entendido
             </Button>
           </DialogFooter>
         </DialogContent>
