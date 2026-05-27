@@ -67,12 +67,6 @@ const MOCK_SUBJECTS = [
   { id: "efi-1", name: "Educacion Fisica", shortName: "EFI", defaultScale: "CONCEPTUAL" },
 ];
 
-const MOCK_PERIODS = [
-  { id: "T1", name: "Primer Trimestre" },
-  { id: "T2", name: "Segundo Trimestre" },
-  { id: "T3", name: "Tercer Trimestre" },
-];
-
 // Initial assessments - now dynamic
 const INITIAL_ASSESSMENTS_NUMERIC: AssessmentConfig[] = [
   { id: "eval-1", name: "Parcial 1", type: "EXAM", weight: 1, maxValue: 10 },
@@ -208,12 +202,13 @@ export default function GradesPage() {
   const [activeTab, setActiveTab] = useState("regular");
   
   // Get school settings from context
-  const { settings } = useSchoolSettings();
+  const { settings, getAvailablePeriods } = useSchoolSettings();
   const schoolGradingType = settings.gradingScale.type;
+  const availablePeriods = getAvailablePeriods();
   
   // Selection states
   const [selectedSubjectId, setSelectedSubjectId] = useState(MOCK_SUBJECTS[0].id);
-  const [selectedPeriodId, setSelectedPeriodId] = useState(MOCK_PERIODS[0].id);
+  const [selectedPeriodId, setSelectedPeriodId] = useState(settings.currentPeriod);
   
   // DYNAMIC COLUMNS STATE
   const [numericAssessments, setNumericAssessments] = useState<AssessmentConfig[]>(INITIAL_ASSESSMENTS_NUMERIC);
@@ -470,7 +465,7 @@ export default function GradesPage() {
     return { pending, cleared, multipleAttempts, total: pendingTopics.length };
   }, [pendingTopics]);
 
-  const selectedPeriod = MOCK_PERIODS.find((p) => p.id === selectedPeriodId)!;
+  const selectedPeriod = availablePeriods.find((p) => p.id === selectedPeriodId) || availablePeriods[0];
 
   // Handle grade update with real-time average recalculation AND pending topics derivation
   const handleGradeUpdate = useCallback(
@@ -669,18 +664,18 @@ export default function GradesPage() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId} disabled={isTrimesterClosed}>
-            <SelectTrigger className="w-[180px] bg-white/[0.02] border-white/10 text-[#e4e1ea]">
-              <SelectValue placeholder="Seleccionar periodo" />
-            </SelectTrigger>
-            <SelectContent className="bg-[#131319] border-white/10">
-              {MOCK_PERIODS.map((period) => (
-                <SelectItem key={period.id} value={period.id} className="text-[#e4e1ea]">
-                  {period.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId} disabled={isTrimesterClosed}>
+              <SelectTrigger className="w-[180px] bg-white/[0.02] border-white/10 text-[#e4e1ea]">
+                <SelectValue placeholder="Seleccionar periodo" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#131319] border-white/10">
+                {availablePeriods.map((period) => (
+                  <SelectItem key={period.id} value={period.id} className="text-[#e4e1ea]">
+                    {period.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
           <Link 
             href="/admin/config"
