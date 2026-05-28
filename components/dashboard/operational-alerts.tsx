@@ -1,15 +1,13 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
-  Users,
-  FileText,
-  GraduationCap,
   ChevronRight,
   CheckCircle2,
-  Clock,
+  PanelRightClose,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/context/auth-context";
 
@@ -29,6 +27,7 @@ interface OperationalAlert {
 interface OperationalAlertsProps {
   role: UserRole | null;
   className?: string;
+  onCollapse?: () => void;
 }
 
 // ============================================
@@ -114,7 +113,7 @@ const SEVERITY_CONFIG = {
 // MAIN COMPONENT
 // ============================================
 
-export function OperationalAlerts({ role, className }: OperationalAlertsProps) {
+export function OperationalAlerts({ role, className, onCollapse }: OperationalAlertsProps) {
   // FAMILIA doesn't see this panel at all
   if (role === "FAMILIA") {
     return null;
@@ -131,7 +130,11 @@ export function OperationalAlerts({ role, className }: OperationalAlertsProps) {
   const hasAlerts = alerts.length > 0;
 
   return (
-    <aside
+    <motion.aside
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.3 }}
       className={cn(
         "h-fit rounded-2xl overflow-hidden",
         "bg-white/[0.02] border border-white/5 backdrop-blur-md",
@@ -140,16 +143,29 @@ export function OperationalAlerts({ role, className }: OperationalAlertsProps) {
     >
       {/* Header */}
       <div className="px-5 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-            <AlertTriangle className="size-4 text-amber-400" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="size-4 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#e4e1ea]">Centro de Alertas</h3>
+              <p className="text-[10px] text-white/40 uppercase tracking-wider">
+                Operativas del dia
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-[#e4e1ea]">Centro de Alertas</h3>
-            <p className="text-[10px] text-white/40 uppercase tracking-wider">
-              Operativas del dia
-            </p>
-          </div>
+          {onCollapse && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCollapse}
+              className="size-8 text-white/40 hover:text-white/70 hover:bg-white/5"
+              title="Minimizar panel"
+            >
+              <PanelRightClose className="size-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -211,8 +227,19 @@ export function OperationalAlerts({ role, className }: OperationalAlertsProps) {
           </div>
         </div>
       )}
-    </aside>
+    </motion.aside>
   );
+}
+
+// ============================================
+// GET ALERTS COUNT (Export for external use)
+// ============================================
+
+export function getAlertsCount(role: UserRole | null): number {
+  if (role === "FAMILIA") return 0;
+  if (role === "ADMIN") return ADMIN_ALERTS.length;
+  if (role === "DOCENTE" || role === "PRECEPTOR") return DOCENTE_PRECEPTOR_ALERTS.length;
+  return 0;
 }
 
 // ============================================

@@ -7,15 +7,21 @@ import { toast, Toaster } from "sonner";
 import { 
   Users, 
   UserCheck, 
-  Save, 
   Loader2,
   Search,
   Building2,
-  Clock,
   AlertCircle,
+  UserMinus,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  TrendingUp,
+  History,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -24,6 +30,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import type {
   StudentAttendance,
@@ -154,28 +173,45 @@ interface StaffMember {
   lastName: string;
   role: "DOCENTE" | "PRECEPTOR" | "AUXILIAR";
   department: string;
-  attendance: "PRESENT" | "ABSENT" | null;
-  absenceReason: string | null;
+  absences: StaffAbsence[];
+}
+
+interface StaffAbsence {
+  id: string;
+  date: string;
+  reason: string;
+  reasonLabel: string;
+  observations?: string;
 }
 
 const MOCK_STAFF: StaffMember[] = [
-  { id: "staff-1", firstName: "Maria", lastName: "Rodriguez", role: "DOCENTE", department: "Matematica", attendance: null, absenceReason: null },
-  { id: "staff-2", firstName: "Juan", lastName: "Perez", role: "DOCENTE", department: "Lengua", attendance: null, absenceReason: null },
-  { id: "staff-3", firstName: "Laura", lastName: "Gomez", role: "PRECEPTOR", department: "Turno Manana", attendance: null, absenceReason: null },
-  { id: "staff-4", firstName: "Carlos", lastName: "Martinez", role: "DOCENTE", department: "Historia", attendance: null, absenceReason: null },
-  { id: "staff-5", firstName: "Ana", lastName: "Fernandez", role: "DOCENTE", department: "Ingles", attendance: null, absenceReason: null },
-  { id: "staff-6", firstName: "Roberto", lastName: "Silva", role: "AUXILIAR", department: "Mantenimiento", attendance: null, absenceReason: null },
-  { id: "staff-7", firstName: "Patricia", lastName: "Lopez", role: "DOCENTE", department: "Ciencias Naturales", attendance: null, absenceReason: null },
-  { id: "staff-8", firstName: "Diego", lastName: "Torres", role: "PRECEPTOR", department: "Turno Tarde", attendance: null, absenceReason: null },
+  { id: "staff-1", firstName: "Maria", lastName: "Rodriguez", role: "DOCENTE", department: "Matematica", absences: [
+    { id: "abs-1", date: "2026-05-15", reason: "MEDICAL", reasonLabel: "Licencia Medica", observations: "Certificado medico presentado" },
+    { id: "abs-2", date: "2026-05-08", reason: "STRIKE", reasonLabel: "Paro", observations: "" },
+  ]},
+  { id: "staff-2", firstName: "Juan", lastName: "Perez", role: "DOCENTE", department: "Lengua", absences: [] },
+  { id: "staff-3", firstName: "Laura", lastName: "Gomez", role: "PRECEPTOR", department: "Turno Manana", absences: [
+    { id: "abs-3", date: "2026-05-20", reason: "PERSONAL", reasonLabel: "Permiso Especial", observations: "Tramite personal" },
+  ]},
+  { id: "staff-4", firstName: "Carlos", lastName: "Martinez", role: "DOCENTE", department: "Historia", absences: [] },
+  { id: "staff-5", firstName: "Ana", lastName: "Fernandez", role: "DOCENTE", department: "Ingles", absences: [
+    { id: "abs-4", date: "2026-05-22", reason: "FEMALE_DAY", reasonLabel: "Dia Femenino", observations: "" },
+    { id: "abs-5", date: "2026-04-18", reason: "MEDICAL", reasonLabel: "Licencia Medica", observations: "" },
+    { id: "abs-6", date: "2026-03-10", reason: "UNJUSTIFIED", reasonLabel: "Injustificado", observations: "" },
+  ]},
+  { id: "staff-6", firstName: "Roberto", lastName: "Silva", role: "AUXILIAR", department: "Mantenimiento", absences: [] },
+  { id: "staff-7", firstName: "Patricia", lastName: "Lopez", role: "DOCENTE", department: "Ciencias Naturales", absences: [
+    { id: "abs-7", date: "2026-05-05", reason: "STRIKE", reasonLabel: "Paro", observations: "" },
+  ]},
+  { id: "staff-8", firstName: "Diego", lastName: "Torres", role: "PRECEPTOR", department: "Turno Tarde", absences: [] },
 ];
 
 const ABSENCE_REASONS = [
   { value: "MEDICAL", label: "Licencia Medica" },
-  { value: "PERSONAL", label: "Asuntos Personales" },
+  { value: "FEMALE_DAY", label: "Dia Femenino" },
+  { value: "STRIKE", label: "Paro" },
   { value: "UNJUSTIFIED", label: "Injustificado" },
-  { value: "STRIKE", label: "Paro/Medida de Fuerza" },
-  { value: "TRAINING", label: "Capacitacion" },
-  { value: "EXAM_LEAVE", label: "Licencia por Examen" },
+  { value: "PERSONAL", label: "Permiso Especial" },
 ];
 
 const ROLE_LABELS = {
@@ -210,84 +246,134 @@ async function handleDeactivateLicense(studentId: string): Promise<void> {
 }
 
 // ============================================
-// STAFF ATTENDANCE COMPONENT
+// STAFF ATTENDANCE COMPONENT - Management by Exception
 // ============================================
 
 function StaffAttendancePanel() {
   const [staff, setStaff] = useState<StaffMember[]>(MOCK_STAFF);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  
+  // Absence dialog state
+  const [isAbsenceDialogOpen, setIsAbsenceDialogOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [absenceDate, setAbsenceDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [absenceReason, setAbsenceReason] = useState("");
+  const [absenceObservations, setAbsenceObservations] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredStaff = staff.filter((s) =>
     `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAttendanceChange = (staffId: string, status: "PRESENT" | "ABSENT") => {
-    setStaff((prev) =>
-      prev.map((s) =>
-        s.id === staffId
-          ? { ...s, attendance: status, absenceReason: status === "PRESENT" ? null : s.absenceReason }
-          : s
-      )
-    );
+  const toggleRow = (staffId: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(staffId)) {
+        next.delete(staffId);
+      } else {
+        next.add(staffId);
+      }
+      return next;
+    });
   };
 
-  const handleReasonChange = (staffId: string, reason: string) => {
-    setStaff((prev) =>
-      prev.map((s) => (s.id === staffId ? { ...s, absenceReason: reason } : s))
-    );
+  const openAbsenceDialog = (member: StaffMember) => {
+    setSelectedStaff(member);
+    setAbsenceDate(new Date().toISOString().split('T')[0]);
+    setAbsenceReason("");
+    setAbsenceObservations("");
+    setIsAbsenceDialogOpen(true);
   };
 
-  const handleSaveStaffAttendance = async () => {
-    const unmarked = staff.filter((s) => s.attendance === null);
-    if (unmarked.length > 0) {
-      toast.error(`Faltan ${unmarked.length} miembros del personal sin marcar`);
-      return;
-    }
-
-    const absentWithoutReason = staff.filter(
-      (s) => s.attendance === "ABSENT" && !s.absenceReason
-    );
-    if (absentWithoutReason.length > 0) {
-      toast.error("Debe indicar el motivo de ausencia para todo el personal ausente");
-      return;
-    }
-
-    setIsSaving(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setIsSaving(false);
-    toast.success("Parte de personal registrado. Se recalcularon las listas de asistencia automaticamente.");
+  const handleConfirmAbsence = async () => {
+    if (!selectedStaff || !absenceReason) return;
+    
+    setIsSubmitting(true);
+    await new Promise(r => setTimeout(r, 1000));
+    
+    const reasonLabel = ABSENCE_REASONS.find(r => r.value === absenceReason)?.label || absenceReason;
+    
+    const newAbsence: StaffAbsence = {
+      id: `abs-${Date.now()}`,
+      date: absenceDate,
+      reason: absenceReason,
+      reasonLabel,
+      observations: absenceObservations,
+    };
+    
+    setStaff(prev => prev.map(s => 
+      s.id === selectedStaff.id 
+        ? { ...s, absences: [newAbsence, ...s.absences] }
+        : s
+    ));
+    
+    setIsSubmitting(false);
+    setIsAbsenceDialogOpen(false);
+    toast.success(`Inasistencia registrada para ${selectedStaff.firstName} ${selectedStaff.lastName}`);
   };
 
-  const presentCount = staff.filter((s) => s.attendance === "PRESENT").length;
-  const absentCount = staff.filter((s) => s.attendance === "ABSENT").length;
-  const unmarkedCount = staff.filter((s) => s.attendance === null).length;
+  // Calculate stats
+  const totalStaff = staff.length;
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const totalAbsencesThisMonth = staff.reduce((acc, s) => {
+    return acc + s.absences.filter(a => {
+      const d = new Date(a.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
+  }, 0);
+
+  // Calculate presenteeism (assume 20 working days per month, simplified)
+  const calculatePresenteeism = (absences: StaffAbsence[]) => {
+    const yearAbsences = absences.filter(a => new Date(a.date).getFullYear() === currentYear).length;
+    const workingDaysYTD = (currentMonth + 1) * 20; // Simplified: 20 days per month
+    const presentDays = workingDaysYTD - yearAbsences;
+    return Math.max(0, Math.round((presentDays / workingDaysYTD) * 100));
+  };
+
+  const getMonthAbsences = (absences: StaffAbsence[]) => {
+    return absences.filter(a => {
+      const d = new Date(a.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
+  };
 
   return (
     <div className="space-y-6">
-      {/* Stats Bar */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats Bar - Management by Exception */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="p-4 rounded-xl bg-[#4de082]/10 border border-[#4de082]/20">
           <div className="flex items-center gap-2 text-[#4de082]">
             <UserCheck className="size-4" />
-            <span className="text-2xl font-bold">{presentCount}</span>
+            <span className="text-2xl font-bold">{totalStaff}</span>
           </div>
-          <p className="text-xs text-white/50 mt-1">Presentes</p>
-        </div>
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-          <div className="flex items-center gap-2 text-red-400">
-            <AlertCircle className="size-4" />
-            <span className="text-2xl font-bold">{absentCount}</span>
-          </div>
-          <p className="text-xs text-white/50 mt-1">Ausentes</p>
+          <p className="text-xs text-white/50 mt-1">Personal Activo (Presentes por defecto)</p>
         </div>
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
           <div className="flex items-center gap-2 text-amber-400">
-            <Clock className="size-4" />
-            <span className="text-2xl font-bold">{unmarkedCount}</span>
+            <AlertCircle className="size-4" />
+            <span className="text-2xl font-bold">{totalAbsencesThisMonth}</span>
           </div>
-          <p className="text-xs text-white/50 mt-1">Sin Marcar</p>
+          <p className="text-xs text-white/50 mt-1">Inasistencias este mes</p>
         </div>
+        <div className="hidden md:block p-4 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20">
+          <div className="flex items-center gap-2 text-[#d0bcff]">
+            <TrendingUp className="size-4" />
+            <span className="text-2xl font-bold">Excepcion</span>
+          </div>
+          <p className="text-xs text-white/50 mt-1">Modelo de Gestion</p>
+        </div>
+      </div>
+
+      {/* Info Banner */}
+      <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3">
+        <FileText className="size-4 text-blue-400 mt-0.5 shrink-0" />
+        <p className="text-xs text-blue-200/80 leading-relaxed">
+          <strong>Gestion por Excepcion:</strong> El sistema asume que todos los docentes estan presentes 
+          basandose en los dias habiles del calendario. Solo registre las ausencias cuando ocurran.
+        </p>
       </div>
 
       {/* Search */}
@@ -301,115 +387,253 @@ function StaffAttendancePanel() {
         />
       </div>
 
-      {/* Staff Table */}
+      {/* Staff Table with Expandable Rows */}
       <div className="rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-md overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/5 bg-white/[0.01]">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider w-10"></th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Personal</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Rol</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Area</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-white/60 uppercase tracking-wider">Asistencia</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Motivo Ausencia</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider hidden md:table-cell">Area</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-white/60 uppercase tracking-wider">Ausencias Mes</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-white/60 uppercase tracking-wider">Accion</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {filteredStaff.map((member) => (
-              <tr key={member.id} className="hover:bg-white/[0.02] transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="size-9 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
-                      {member.firstName[0]}{member.lastName[0]}
-                    </div>
-                    <span className="font-medium text-[#e4e1ea]">
-                      {member.lastName}, {member.firstName}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={cn(
-                    "px-2 py-1 rounded text-xs font-medium border",
-                    ROLE_COLORS[member.role]
-                  )}>
-                    {ROLE_LABELS[member.role]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-white/60">
-                  {member.department}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => handleAttendanceChange(member.id, "PRESENT")}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        member.attendance === "PRESENT"
-                          ? "bg-[#4de082] text-[#0a1f0d]"
-                          : "bg-white/5 text-white/40 hover:bg-white/10"
-                      )}
-                    >
-                      Presente
-                    </button>
-                    <button
-                      onClick={() => handleAttendanceChange(member.id, "ABSENT")}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                        member.attendance === "ABSENT"
-                          ? "bg-red-500 text-white"
-                          : "bg-white/5 text-white/40 hover:bg-white/10"
-                      )}
-                    >
-                      Ausente
-                    </button>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {member.attendance === "ABSENT" ? (
-                    <Select
-                      value={member.absenceReason || ""}
-                      onValueChange={(val) => handleReasonChange(member.id, val)}
-                    >
-                      <SelectTrigger className="w-48 h-8 text-xs bg-white/[0.02] border-white/10">
-                        <SelectValue placeholder="Seleccionar motivo" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a1a2e] border-white/10">
-                        {ABSENCE_REASONS.map((reason) => (
-                          <SelectItem key={reason.value} value={reason.value}>
-                            {reason.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className="text-white/30 text-xs">-</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {filteredStaff.map((member) => {
+              const isExpanded = expandedRows.has(member.id);
+              const monthAbsences = getMonthAbsences(member.absences);
+              const presenteeism = calculatePresenteeism(member.absences);
+              
+              return (
+                <Collapsible key={member.id} open={isExpanded} onOpenChange={() => toggleRow(member.id)} asChild>
+                  <>
+                    <tr className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3">
+                        <CollapsibleTrigger asChild>
+                          <button className="p-1 rounded hover:bg-white/10 transition-colors">
+                            {isExpanded ? (
+                              <ChevronUp className="size-4 text-white/40" />
+                            ) : (
+                              <ChevronDown className="size-4 text-white/40" />
+                            )}
+                          </button>
+                        </CollapsibleTrigger>
+                      </td>
+                      <td className="px-4 py-3">
+                        <CollapsibleTrigger asChild>
+                          <button className="flex items-center gap-3 text-left hover:text-[#d0bcff] transition-colors">
+                            <div className="size-9 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </div>
+                            <span className="font-medium text-[#e4e1ea]">
+                              {member.lastName}, {member.firstName}
+                            </span>
+                          </button>
+                        </CollapsibleTrigger>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn(
+                          "px-2 py-1 rounded text-xs font-medium border",
+                          ROLE_COLORS[member.role]
+                        )}>
+                          {ROLE_LABELS[member.role]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-white/60 hidden md:table-cell">
+                        {member.department}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={cn(
+                          "px-2 py-1 rounded-lg text-xs font-bold",
+                          monthAbsences === 0 
+                            ? "bg-[#4de082]/10 text-[#4de082]" 
+                            : monthAbsences >= 3 
+                              ? "bg-red-500/10 text-red-400"
+                              : "bg-amber-500/10 text-amber-400"
+                        )}>
+                          {monthAbsences}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Button
+                          onClick={() => openAbsenceDialog(member)}
+                          size="sm"
+                          className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 text-xs"
+                        >
+                          <UserMinus className="size-3.5 mr-1.5" />
+                          Registrar Ausencia
+                        </Button>
+                      </td>
+                    </tr>
+                    
+                    {/* Expanded Content - Individual History */}
+                    <CollapsibleContent asChild>
+                      <tr>
+                        <td colSpan={6} className="bg-white/[0.01] border-t border-white/5">
+                          <div className="p-4 space-y-4">
+                            {/* Stats Row */}
+                            <div className="flex flex-wrap gap-4">
+                              <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 min-w-[140px]">
+                                <p className="text-[10px] uppercase tracking-wider text-amber-400/70 mb-1">Ausencias este mes</p>
+                                <p className="text-lg font-bold text-amber-400">{monthAbsences}</p>
+                              </div>
+                              <div className="p-3 rounded-lg bg-[#4de082]/5 border border-[#4de082]/20 min-w-[140px]">
+                                <p className="text-[10px] uppercase tracking-wider text-[#4de082]/70 mb-1">Presentismo Anual</p>
+                                <p className="text-lg font-bold text-[#4de082]">{presenteeism}%</p>
+                              </div>
+                              <div className="p-3 rounded-lg bg-[#d0bcff]/5 border border-[#d0bcff]/20 min-w-[140px]">
+                                <p className="text-[10px] uppercase tracking-wider text-[#d0bcff]/70 mb-1">Total Ausencias Anio</p>
+                                <p className="text-lg font-bold text-[#d0bcff]">
+                                  {member.absences.filter(a => new Date(a.date).getFullYear() === currentYear).length}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Absence History */}
+                            <div>
+                              <h4 className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <History className="size-3.5" />
+                                Historial de Inasistencias
+                              </h4>
+                              {member.absences.length > 0 ? (
+                                <div className="space-y-2">
+                                  {member.absences.slice(0, 5).map(absence => (
+                                    <div 
+                                      key={absence.id}
+                                      className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/5"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="p-1.5 rounded bg-red-500/10">
+                                          <Calendar className="size-3.5 text-red-400" />
+                                        </div>
+                                        <div>
+                                          <p className="text-sm font-medium text-[#e4e1ea]">
+                                            {new Date(absence.date).toLocaleDateString('es-AR', { 
+                                              day: 'numeric', 
+                                              month: 'short', 
+                                              year: 'numeric' 
+                                            })}
+                                          </p>
+                                          <p className="text-xs text-white/50">{absence.reasonLabel}</p>
+                                        </div>
+                                      </div>
+                                      {absence.observations && (
+                                        <span className="text-xs text-white/40 max-w-[200px] truncate">
+                                          {absence.observations}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {member.absences.length > 5 && (
+                                    <p className="text-xs text-white/40 text-center py-2">
+                                      +{member.absences.length - 5} registros mas...
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-white/40 py-4 text-center">
+                                  Sin inasistencias registradas este anio
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </CollapsibleContent>
+                  </>
+                </Collapsible>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button
-          onClick={handleSaveStaffAttendance}
-          disabled={isSaving}
-          className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 font-semibold px-6"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="size-4 mr-2 animate-spin" />
-              Guardando...
-            </>
-          ) : (
-            <>
-              <Save className="size-4 mr-2" />
-              Guardar Parte de Personal
-            </>
-          )}
-        </Button>
-      </div>
+      {/* Absence Registration Dialog */}
+      <Dialog open={isAbsenceDialogOpen} onOpenChange={setIsAbsenceDialogOpen}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <UserMinus className="size-5 text-red-400" />
+              Registrar Inasistencia
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              {selectedStaff && `${selectedStaff.firstName} ${selectedStaff.lastName} - ${selectedStaff.department}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Date */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 uppercase tracking-wider">Fecha</label>
+              <Input
+                type="date"
+                value={absenceDate}
+                onChange={(e) => setAbsenceDate(e.target.value)}
+                className="bg-white/[0.02] border-white/10"
+              />
+            </div>
+
+            {/* Reason */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 uppercase tracking-wider">Motivo</label>
+              <Select value={absenceReason} onValueChange={setAbsenceReason}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue placeholder="Seleccionar motivo..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {ABSENCE_REASONS.map((reason) => (
+                    <SelectItem key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Observations */}
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 uppercase tracking-wider">
+                Observaciones <span className="text-white/30">(opcional)</span>
+              </label>
+              <Textarea
+                value={absenceObservations}
+                onChange={(e) => setAbsenceObservations(e.target.value)}
+                placeholder="Notas adicionales..."
+                className="bg-white/[0.02] border-white/10 min-h-[80px] resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsAbsenceDialogOpen(false)}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmAbsence}
+              disabled={!absenceReason || isSubmitting}
+              className="bg-red-500 text-white hover:bg-red-500/90"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Registrando...
+                </>
+              ) : (
+                <>
+                  <UserMinus className="size-4 mr-2" />
+                  Confirmar Inasistencia
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
