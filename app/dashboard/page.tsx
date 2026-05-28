@@ -9,6 +9,7 @@ import {
   Bell, FileText, Award, RefreshCw
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { OperationalAlerts } from "@/components/dashboard/operational-alerts"
 
 // Datos aislados por escuela (multi-tenant)
 const DATA_POR_ESCUELA: Record<string, {
@@ -81,9 +82,13 @@ const CURSOS_PRECEPTOR = [
 ]
 
 export default function DashboardPage() {
-  const { role, schoolId, schoolName, userName } = useAuth()
+  const { activeContext } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [today, setToday] = useState("")
+
+  const role = activeContext?.role || null
+  const schoolId = activeContext?.schoolId || "inst-1"
+  const schoolName = activeContext?.schoolName || "Instituto"
 
   useEffect(() => {
     setMounted(true)
@@ -106,6 +111,9 @@ export default function DashboardPage() {
   }
 
   const escuelaActiva = DATA_POR_ESCUELA[schoolId || "inst-1"] || DATA_POR_ESCUELA["inst-1"]
+
+  // Determine if we should show the alerts panel
+  const showAlertsPanel = role !== "FAMILIA"
 
   return (
     <div className="space-y-6">
@@ -143,6 +151,11 @@ export default function DashboardPage() {
           </Button>
         </div>
       </motion.header>
+
+      {/* Main Grid: Content + Alerts Panel */}
+      <div className={`grid gap-6 ${showAlertsPanel ? "lg:grid-cols-[1fr_320px]" : "grid-cols-1"}`}>
+        {/* Main Content Area */}
+        <div className="space-y-6">
 
       {/* VISTA: ADMIN */}
       {role === "ADMIN" && (
@@ -413,6 +426,13 @@ export default function DashboardPage() {
           </div>
         </motion.div>
       )}
+        </div>
+
+        {/* Operational Alerts Panel - Right sidebar (hidden for FAMILIA) */}
+        {showAlertsPanel && (
+          <OperationalAlerts role={role} className="sticky top-6" />
+        )}
+      </div>
     </div>
   )
 }

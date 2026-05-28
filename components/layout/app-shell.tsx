@@ -273,7 +273,7 @@ export function AppShell({ children }: AppShellProps) {
         </SheetContent>
       </Sheet>
 
-      {/* GLOBAL SEARCH COMMAND DIALOG */}
+      {/* GLOBAL SEARCH COMMAND DIALOG - Role-based filtering */}
       <CommandDialog 
         open={searchOpen} 
         onOpenChange={setSearchOpen}
@@ -284,54 +284,94 @@ export function AppShell({ children }: AppShellProps) {
         <CommandList className="bg-background">
           <CommandEmpty>No se encontraron resultados.</CommandEmpty>
           
-          <CommandGroup heading="Alumnos">
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
-              <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-              <span>Sofia Alvarez</span>
-              <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
-            </CommandItem>
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
-              <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-              <span>Mateo Benitez</span>
-              <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
-            </CommandItem>
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
-              <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-              <span>Valentina Castro</span>
-              <span className="ml-auto text-xs text-muted-foreground">4to Ano B</span>
-            </CommandItem>
-          </CommandGroup>
+          {/* Alumnos - Only visible for ADMIN, DOCENTE, PRECEPTOR */}
+          {role !== "FAMILIA" && (
+            <>
+              <CommandGroup heading="Alumnos">
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
+                  <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+                  <span>Sofia Alvarez</span>
+                  <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
+                </CommandItem>
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
+                  <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+                  <span>Mateo Benitez</span>
+                  <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
+                </CommandItem>
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
+                  <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+                  <span>Valentina Castro</span>
+                  <span className="ml-auto text-xs text-muted-foreground">4to Ano B</span>
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
           
-          <CommandSeparator />
+          {/* Personal - Only visible for ADMIN */}
+          {role === "ADMIN" && (
+            <>
+              <CommandGroup heading="Personal">
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
+                  <Users className="mr-2 h-4 w-4 text-[#4de082]" />
+                  <span>Prof. Maria Gonzalez</span>
+                  <span className="ml-auto text-xs text-muted-foreground">Docente</span>
+                </CommandItem>
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
+                  <Users className="mr-2 h-4 w-4 text-[#4de082]" />
+                  <span>Lic. Juan Rodriguez</span>
+                  <span className="ml-auto text-xs text-muted-foreground">Preceptor</span>
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
           
-          <CommandGroup heading="Personal">
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
-              <Users className="mr-2 h-4 w-4 text-[#4de082]" />
-              <span>Prof. Maria Gonzalez</span>
-              <span className="ml-auto text-xs text-muted-foreground">Docente</span>
-            </CommandItem>
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
-              <Users className="mr-2 h-4 w-4 text-[#4de082]" />
-              <span>Lic. Juan Rodriguez</span>
-              <span className="ml-auto text-xs text-muted-foreground">Preceptor</span>
-            </CommandItem>
-          </CommandGroup>
-          
-          <CommandSeparator />
-          
+          {/* Acciones Rapidas - Filtered by role */}
           <CommandGroup heading="Acciones Rapidas">
+            {/* Calendario - Available to ALL roles */}
             <CommandItem onSelect={() => { setSearchOpen(false); router.push("/calendar") }}>
               <Calendar className="mr-2 h-4 w-4 text-[#ffb93d]" />
               <span>Ir a Calendario</span>
             </CommandItem>
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/behavior") }}>
-              <AlertTriangle className="mr-2 h-4 w-4 text-[#ffb4ab]" />
-              <span>Emitir Sancion</span>
+            
+            {/* Comunidad - Available to ALL roles */}
+            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/community") }}>
+              <Users className="mr-2 h-4 w-4 text-[#4de082]" />
+              <span>Comunidad</span>
             </CommandItem>
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/grades") }}>
-              <Zap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-              <span>Cargar Calificaciones</span>
-            </CommandItem>
+            
+            {/* Legajo del Hijo - Only for FAMILIA */}
+            {role === "FAMILIA" && (
+              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/family-wall") }}>
+                <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+                <span>Muro Familiar</span>
+              </CommandItem>
+            )}
+            
+            {/* Emitir Sancion - Only for ADMIN and PRECEPTOR */}
+            {(role === "ADMIN" || role === "PRECEPTOR") && (
+              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/behavior") }}>
+                <AlertTriangle className="mr-2 h-4 w-4 text-[#ffb4ab]" />
+                <span>Emitir Sancion</span>
+              </CommandItem>
+            )}
+            
+            {/* Cargar Calificaciones - For ADMIN, DOCENTE, PRECEPTOR */}
+            {role !== "FAMILIA" && (
+              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/grades") }}>
+                <Zap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+                <span>Cargar Calificaciones</span>
+              </CommandItem>
+            )}
+            
+            {/* Ajustes - Only for ADMIN */}
+            {role === "ADMIN" && (
+              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/settings") }}>
+                <Home className="mr-2 h-4 w-4 text-[#ffb93d]" />
+                <span>Ajustes</span>
+              </CommandItem>
+            )}
           </CommandGroup>
         </CommandList>
       </CommandDialog>
