@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatDateToLocalISO } from "@/lib/utils/date-utils";
 import {
   Dialog,
   DialogContent,
@@ -302,7 +303,7 @@ export default function CalendarPage() {
       toast.error("Complete todos los campos requeridos");
       return;
     }
-    const dateKey = selectedDate.toISOString().split("T")[0];
+    const dateKey = formatDateToLocalISO(selectedDate);
     const newEvent: CustomEvent = {
       id: `ce-${Date.now()}`,
       date: dateKey,
@@ -327,7 +328,7 @@ export default function CalendarPage() {
       toast.error("Complete todos los campos requeridos");
       return;
     }
-    const dateKey = selectedDate.toISOString().split("T")[0];
+    const dateKey = formatDateToLocalISO(selectedDate);
     const newEvent: TeacherEvent = {
       id: `te-${Date.now()}`,
       teacherId: currentTeacherId,
@@ -643,19 +644,19 @@ export default function CalendarPage() {
                 className="rounded-md border-none scale-110 font-sans"
                 modifiers={{
                   accreditation: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return isInAccreditationPeriod(dateStr);
                   },
                   receso: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return isInReceso(dateStr);
                   },
                   feriado: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
                   },
                   customEvent: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return customEvents.some(e => e.date === dateStr);
                   },
                 }}
@@ -729,15 +730,15 @@ export default function CalendarPage() {
               className="border-none"
               modifiers={{
                 accreditation: (date) => {
-                  const dateStr = date.toISOString().split("T")[0];
+                  const dateStr = formatDateToLocalISO(date);
                   return isInAccreditationPeriod(dateStr);
                 },
                 receso: (date) => {
-                  const dateStr = date.toISOString().split("T")[0];
+                  const dateStr = formatDateToLocalISO(date);
                   return isInReceso(dateStr);
                 },
                 feriado: (date) => {
-                  const dateStr = date.toISOString().split("T")[0];
+                  const dateStr = formatDateToLocalISO(date);
                   return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
                 },
               }}

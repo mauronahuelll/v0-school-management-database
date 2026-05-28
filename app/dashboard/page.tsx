@@ -2,13 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/context/auth-context"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { 
   LayoutDashboard, Users, Clock, ShieldAlert, 
   BookOpen, GraduationCap, Calendar, TrendingUp,
-  Bell, FileText, Award, RefreshCw, PanelRight
+  Bell, FileText, Award, RefreshCw
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { OperationalAlerts, getAlertsCount } from "@/components/dashboard/operational-alerts"
 
 // Datos aislados por escuela (multi-tenant)
@@ -85,14 +92,15 @@ export default function DashboardPage() {
   const { activeContext } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [today, setToday] = useState("")
-  const [isAlertsCollapsed, setIsAlertsCollapsed] = useState(true)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
 
   const role = activeContext?.role || null
   const schoolId = activeContext?.schoolId || "inst-1"
   const schoolName = activeContext?.schoolName || "Instituto"
   
-  // Get alerts count for the floating button badge
+  // Get alerts count for the badge
   const alertsCount = getAlertsCount(role)
+  const showAlertsButton = role !== "FAMILIA"
 
   useEffect(() => {
     setMounted(true)
@@ -115,10 +123,6 @@ export default function DashboardPage() {
   }
 
   const escuelaActiva = DATA_POR_ESCUELA[schoolId || "inst-1"] || DATA_POR_ESCUELA["inst-1"]
-
-  // Determine if we should show the alerts panel
-  const showAlertsPanel = role !== "FAMILIA"
-  const isAlertsPanelVisible = showAlertsPanel && !isAlertsCollapsed
 
   return (
     <div className="space-y-6">
@@ -150,25 +154,38 @@ export default function DashboardPage() {
           <span className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-xs font-mono text-primary font-bold">
             {role}
           </span>
-          {showAlertsPanel && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsAlertsCollapsed(!isAlertsCollapsed)}
-              className={`gap-2 text-xs transition-colors ${
-                !isAlertsCollapsed 
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20" 
-                  : ""
-              }`}
-            >
-              <PanelRight className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Panel de Control</span>
-              {alertsCount > 0 && isAlertsCollapsed && (
-                <span className="ml-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-[10px] font-bold text-white">
-                  {alertsCount}
-                </span>
-              )}
-            </Button>
+          {showAlertsButton && (
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+              <SheetTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 text-xs relative"
+                >
+                  <Bell className="w-4 h-4" />
+                  <span className="hidden sm:inline">Alertas</span>
+                  {alertsCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      {alertsCount}
+                    </span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent 
+                side="right" 
+                className="w-[380px] sm:w-[420px] bg-[#131319] border-white/10 p-0 overflow-hidden"
+              >
+                <SheetHeader className="px-6 py-4 border-b border-white/5">
+                  <SheetTitle className="text-[#e4e1ea] flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-amber-400" />
+                    Centro de Alertas Operativas
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="overflow-y-auto h-[calc(100vh-80px)]">
+                  <OperationalAlerts role={role} className="border-0 rounded-none" />
+                </div>
+              </SheetContent>
+            </Sheet>
           )}
           <Button variant="outline" size="sm" className="gap-2 text-xs">
             <RefreshCw className="w-3.5 h-3.5" />
@@ -177,10 +194,8 @@ export default function DashboardPage() {
         </div>
       </motion.header>
 
-      {/* Main Grid: Content + Alerts Panel */}
-      <div className={`grid gap-6 transition-all duration-300 ${isAlertsPanelVisible ? "lg:grid-cols-[1fr_320px]" : "grid-cols-1"}`}>
-        {/* Main Content Area */}
-        <div className="space-y-6">
+      {/* Main Content Area - Full Width */}
+      <div className="w-full space-y-6">
 
       {/* VISTA: ADMIN */}
       {role === "ADMIN" && (
@@ -451,18 +466,6 @@ export default function DashboardPage() {
           </div>
         </motion.div>
       )}
-        </div>
-
-        {/* Operational Alerts Panel - Right sidebar (hidden for FAMILIA) */}
-        <AnimatePresence mode="wait">
-          {isAlertsPanelVisible && (
-            <OperationalAlerts 
-              role={role} 
-              className="sticky top-6" 
-              onCollapse={() => setIsAlertsCollapsed(true)}
-            />
-          )}
-        </AnimatePresence>
       </div>
     </div>
   )

@@ -46,6 +46,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getTodayLocalISO } from "@/lib/utils/date-utils";
 
 // ============================================
 // TYPES
@@ -235,7 +236,7 @@ export default function StaffManagementPage() {
       status: "PENDING",
       assignedCourses: selectedCourses,
       assignedSubjects: selectedSubjects,
-      invitedAt: new Date().toISOString().split("T")[0],
+      invitedAt: getTodayLocalISO(),
     };
     
     setStaff((prev) => [...prev, newMember]);

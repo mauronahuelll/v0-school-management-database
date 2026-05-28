@@ -21,6 +21,7 @@ import type {
 } from "@/lib/types/attendance";
 import { roundToDecimals, getAbsenceValue, getTardyValue } from "@/lib/types/attendance";
 import { cn } from "@/lib/utils";
+import { getTodayLocalISO } from "@/lib/utils/date-utils";
 
 interface AttendancePageProps {
   initialStudents: StudentAttendance[];
@@ -199,7 +200,7 @@ export function AttendancePage({
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const dateString = new Date().toISOString().split("T")[0];
+      const dateString = getTodayLocalISO();
       
       const submission: AttendanceSubmission = {
         schoolId,
