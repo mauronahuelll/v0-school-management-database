@@ -1,13 +1,24 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   AlertTriangle,
   ChevronRight,
   CheckCircle2,
   PanelRightClose,
+  Users,
+  FileText,
+  GraduationCap,
+  HeartHandshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/context/auth-context";
 
@@ -15,13 +26,21 @@ import type { UserRole } from "@/lib/context/auth-context";
 // TYPES
 // ============================================
 
-interface OperationalAlert {
+interface AlertTask {
   id: string;
-  severity: "critical" | "warning" | "info" | "success";
-  title: string;
-  description: string;
-  count?: number;
+  text: string;
   href?: string;
+}
+
+interface AlertCategory {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  color: string;
+  borderColor: string;
+  badgeColor: string;
+  tasks: AlertTask[];
+  allowedRoles: UserRole[];
 }
 
 interface OperationalAlertsProps {
@@ -31,83 +50,66 @@ interface OperationalAlertsProps {
 }
 
 // ============================================
-// MOCK ALERTS BY ROLE
+// CATEGORIZED ALERTS DATA
 // ============================================
 
-const ADMIN_ALERTS: OperationalAlert[] = [
+const ALERT_CATEGORIES: AlertCategory[] = [
   {
-    id: "1",
-    severity: "critical",
-    title: "Docentes ausentes",
-    description: "3 docentes ausentes en el turno actual.",
-    count: 3,
-    href: "/users",
+    id: "rrhh",
+    title: "RRHH & Personal",
+    icon: <Users className="size-4" />,
+    color: "text-red-400",
+    borderColor: "border-l-red-500",
+    badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
+    tasks: [
+      { id: "rrhh-1", text: "3 docentes ausentes en el turno actual", href: "/users" },
+      { id: "rrhh-2", text: "1 preceptor sin parte de asistencia cargado", href: "/attendance" },
+      { id: "rrhh-3", text: "Vencimiento de licencia medica - Prof. Rodriguez", href: "/users" },
+    ],
+    allowedRoles: ["ADMIN"],
   },
   {
-    id: "2",
-    severity: "warning",
-    title: "Tramites pendientes",
-    description: "12 documentos familiares pendientes de revision.",
-    count: 12,
-    href: "/students",
+    id: "tramites",
+    title: "Tramites Administrativos",
+    icon: <FileText className="size-4" />,
+    color: "text-amber-400",
+    borderColor: "border-l-amber-500",
+    badgeColor: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    tasks: [
+      { id: "tram-1", text: "12 documentos familiares pendientes de revision", href: "/students" },
+      { id: "tram-2", text: "5 constancias de alumno regular solicitadas", href: "/students" },
+      { id: "tram-3", text: "2 pedidos de certificado de estudios", href: "/students" },
+    ],
+    allowedRoles: ["ADMIN"],
   },
   {
-    id: "3",
-    severity: "info",
-    title: "Alerta de desercion",
-    description: "2 alumnos con 3 inasistencias consecutivas.",
-    count: 2,
-    href: "/attendance",
+    id: "academica",
+    title: "Gestion Academica",
+    icon: <GraduationCap className="size-4" />,
+    color: "text-blue-400",
+    borderColor: "border-l-blue-500",
+    badgeColor: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    tasks: [
+      { id: "acad-1", text: "Valoraciones preliminares pendientes en 4to Ano A", href: "/grades" },
+      { id: "acad-2", text: "Cierre de trimestre en 12 dias habiles", href: "/calendar" },
+      { id: "acad-3", text: "3 materias sin calificaciones cargadas", href: "/grades" },
+    ],
+    allowedRoles: ["ADMIN", "DOCENTE", "PRECEPTOR"],
+  },
+  {
+    id: "convivencia",
+    title: "Convivencia & Gabinete",
+    icon: <HeartHandshake className="size-4" />,
+    color: "text-[#d0bcff]",
+    borderColor: "border-l-[#d0bcff]",
+    badgeColor: "bg-[#d0bcff]/20 text-[#d0bcff] border-[#d0bcff]/30",
+    tasks: [
+      { id: "conv-1", text: "2 alumnos con 3 inasistencias consecutivas (alerta desercion)", href: "/attendance" },
+      { id: "conv-2", text: "1 caso derivado a gabinete pendiente de seguimiento", href: "/behavior" },
+    ],
+    allowedRoles: ["ADMIN", "PRECEPTOR"],
   },
 ];
-
-const DOCENTE_PRECEPTOR_ALERTS: OperationalAlert[] = [
-  {
-    id: "1",
-    severity: "warning",
-    title: "Valoraciones pendientes",
-    description: "Faltan cargar valoraciones preliminares en 4to Ano.",
-    href: "/grades",
-  },
-  {
-    id: "2",
-    severity: "info",
-    title: "Cierre de periodo",
-    description: "12 dias para el cierre del trimestre.",
-    href: "/grades",
-  },
-];
-
-// ============================================
-// SEVERITY CONFIG
-// ============================================
-
-const SEVERITY_CONFIG = {
-  critical: {
-    border: "border-l-red-500",
-    bg: "bg-red-500/5",
-    icon: "text-red-400",
-    badge: "bg-red-500/20 text-red-400",
-  },
-  warning: {
-    border: "border-l-amber-500",
-    bg: "bg-amber-500/5",
-    icon: "text-amber-400",
-    badge: "bg-amber-500/20 text-amber-400",
-  },
-  info: {
-    border: "border-l-[#d0bcff]",
-    bg: "bg-[#d0bcff]/5",
-    icon: "text-[#d0bcff]",
-    badge: "bg-[#d0bcff]/20 text-[#d0bcff]",
-  },
-  success: {
-    border: "border-l-emerald-500",
-    bg: "bg-emerald-500/5",
-    icon: "text-emerald-400",
-    badge: "bg-emerald-500/20 text-emerald-400",
-  },
-};
 
 // ============================================
 // MAIN COMPONENT
@@ -119,15 +121,14 @@ export function OperationalAlerts({ role, className, onCollapse }: OperationalAl
     return null;
   }
 
-  // Get alerts based on role
-  const alerts =
-    role === "ADMIN"
-      ? ADMIN_ALERTS
-      : role === "DOCENTE" || role === "PRECEPTOR"
-      ? DOCENTE_PRECEPTOR_ALERTS
-      : [];
+  // Filter categories based on role
+  const visibleCategories = ALERT_CATEGORIES.filter(
+    (cat) => role && cat.allowedRoles.includes(role)
+  );
 
-  const hasAlerts = alerts.length > 0;
+  // Calculate total alerts
+  const totalAlerts = visibleCategories.reduce((acc, cat) => acc + cat.tasks.length, 0);
+  const hasAlerts = totalAlerts > 0;
 
   return (
     <motion.aside
@@ -149,9 +150,9 @@ export function OperationalAlerts({ role, className, onCollapse }: OperationalAl
               <AlertTriangle className="size-4 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#e4e1ea]">Centro de Alertas</h3>
+              <h3 className="text-sm font-bold text-[#e4e1ea]">Tareas Pendientes</h3>
               <p className="text-[10px] text-white/40 uppercase tracking-wider">
-                Operativas del dia
+                Gestor operativo
               </p>
             </div>
           </div>
@@ -169,48 +170,57 @@ export function OperationalAlerts({ role, className, onCollapse }: OperationalAl
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 space-y-3">
+      {/* Content - Accordion Categories */}
+      <div className="p-3">
         {hasAlerts ? (
-          alerts.map((alert, index) => (
-            <motion.a
-              key={alert.id}
-              href={alert.href || "#"}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className={cn(
-                "block p-3 rounded-xl border-l-[3px] transition-all cursor-pointer group",
-                "hover:bg-white/[0.05]",
-                SEVERITY_CONFIG[alert.severity].border,
-                SEVERITY_CONFIG[alert.severity].bg
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-semibold text-[#e4e1ea]">
-                      {alert.title}
+          <Accordion type="single" collapsible className="space-y-2">
+            {visibleCategories.map((category) => (
+              <AccordionItem
+                key={category.id}
+                value={category.id}
+                className={cn(
+                  "border-l-[3px] rounded-xl overflow-hidden",
+                  "bg-white/[0.01] border border-white/5",
+                  category.borderColor
+                )}
+              >
+                <AccordionTrigger className="px-3 py-2.5 hover:bg-white/[0.03] hover:no-underline [&[data-state=open]]:bg-white/[0.02]">
+                  <div className="flex items-center gap-2.5 w-full">
+                    <span className={category.color}>{category.icon}</span>
+                    <span className="text-xs font-semibold text-[#e4e1ea] flex-1 text-left">
+                      {category.title}
                     </span>
-                    {alert.count !== undefined && (
-                      <span
-                        className={cn(
-                          "px-1.5 py-0.5 rounded text-[10px] font-bold",
-                          SEVERITY_CONFIG[alert.severity].badge
-                        )}
-                      >
-                        {alert.count}
-                      </span>
-                    )}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] font-bold px-1.5 py-0 h-5 min-w-[24px] justify-center",
+                        category.badgeColor
+                      )}
+                    >
+                      {category.tasks.length}
+                    </Badge>
                   </div>
-                  <p className="text-[11px] text-white/50 leading-relaxed">
-                    {alert.description}
-                  </p>
-                </div>
-                <ChevronRight className="size-4 text-white/20 group-hover:text-white/40 group-hover:translate-x-0.5 transition-all shrink-0 mt-0.5" />
-              </div>
-            </motion.a>
-          ))
+                </AccordionTrigger>
+                <AccordionContent className="px-3 pb-3 pt-1">
+                  <div className="space-y-1.5">
+                    {category.tasks.map((task) => (
+                      <a
+                        key={task.id}
+                        href={task.href || "#"}
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
+                      >
+                        <span className={cn("size-1.5 rounded-full shrink-0", category.color.replace("text-", "bg-"))} />
+                        <span className="text-[11px] text-white/60 group-hover:text-white/80 flex-1 leading-relaxed">
+                          {task.text}
+                        </span>
+                        <ChevronRight className="size-3 text-white/20 group-hover:text-white/40 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         ) : (
           <EmptyState />
         )}
@@ -221,9 +231,9 @@ export function OperationalAlerts({ role, className, onCollapse }: OperationalAl
         <div className="px-5 py-3 border-t border-white/5 bg-white/[0.01]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-white/40 uppercase tracking-wider">
-              Total alertas activas
+              Total tareas pendientes
             </span>
-            <span className="text-xs font-bold text-amber-400">{alerts.length}</span>
+            <span className="text-xs font-bold text-amber-400">{totalAlerts}</span>
           </div>
         </div>
       )}
@@ -237,9 +247,12 @@ export function OperationalAlerts({ role, className, onCollapse }: OperationalAl
 
 export function getAlertsCount(role: UserRole | null): number {
   if (role === "FAMILIA") return 0;
-  if (role === "ADMIN") return ADMIN_ALERTS.length;
-  if (role === "DOCENTE" || role === "PRECEPTOR") return DOCENTE_PRECEPTOR_ALERTS.length;
-  return 0;
+  
+  const visibleCategories = ALERT_CATEGORIES.filter(
+    (cat) => role && cat.allowedRoles.includes(role)
+  );
+  
+  return visibleCategories.reduce((acc, cat) => acc + cat.tasks.length, 0);
 }
 
 // ============================================
