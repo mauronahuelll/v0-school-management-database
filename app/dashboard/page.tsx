@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { 
   LayoutDashboard, Users, Clock, ShieldAlert, 
   BookOpen, GraduationCap, Calendar, TrendingUp,
-  Bell, FileText, Award, RefreshCw
+  Bell, FileText, Award, RefreshCw, PanelRight
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperationalAlerts, getAlertsCount } from "@/components/dashboard/operational-alerts"
@@ -85,7 +85,7 @@ export default function DashboardPage() {
   const { activeContext } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [today, setToday] = useState("")
-  const [isAlertsCollapsed, setIsAlertsCollapsed] = useState(false)
+  const [isAlertsCollapsed, setIsAlertsCollapsed] = useState(true)
 
   const role = activeContext?.role || null
   const schoolId = activeContext?.schoolId || "inst-1"
@@ -150,6 +150,26 @@ export default function DashboardPage() {
           <span className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-xs font-mono text-primary font-bold">
             {role}
           </span>
+          {showAlertsPanel && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsAlertsCollapsed(!isAlertsCollapsed)}
+              className={`gap-2 text-xs transition-colors ${
+                !isAlertsCollapsed 
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20" 
+                  : ""
+              }`}
+            >
+              <PanelRight className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Panel de Control</span>
+              {alertsCount > 0 && isAlertsCollapsed && (
+                <span className="ml-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {alertsCount}
+                </span>
+              )}
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="gap-2 text-xs">
             <RefreshCw className="w-3.5 h-3.5" />
             Actualizar
@@ -444,30 +464,6 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
       </div>
-
-      {/* Floating Alerts Button - Shows when panel is collapsed */}
-      <AnimatePresence>
-        {showAlertsPanel && isAlertsCollapsed && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8, x: 20 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.8, x: 20 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => setIsAlertsCollapsed(false)}
-            className="fixed right-6 top-1/2 -translate-y-1/2 z-50 p-3 rounded-xl bg-[#131319] border border-white/10 shadow-xl hover:bg-white/[0.05] hover:border-amber-500/30 transition-all duration-200 group"
-            title="Abrir Centro de Alertas"
-          >
-            <div className="relative">
-              <Bell className="size-5 text-amber-400 group-hover:scale-110 transition-transform" />
-              {alertsCount > 0 && (
-                <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-[10px] font-bold text-white">
-                  {alertsCount}
-                </span>
-              )}
-            </div>
-          </motion.button>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
