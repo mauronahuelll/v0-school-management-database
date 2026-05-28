@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/context/auth-context"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { 
   LayoutDashboard, Users, Clock, ShieldAlert, 
   BookOpen, GraduationCap, Calendar, TrendingUp,
   Bell, FileText, Award, RefreshCw
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { OperationalAlerts } from "@/components/dashboard/operational-alerts"
+import { OperationalAlerts, getAlertsCount } from "@/components/dashboard/operational-alerts"
 
 // Datos aislados por escuela (multi-tenant)
 const DATA_POR_ESCUELA: Record<string, {
@@ -85,10 +85,14 @@ export default function DashboardPage() {
   const { activeContext } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [today, setToday] = useState("")
+  const [isAlertsCollapsed, setIsAlertsCollapsed] = useState(false)
 
   const role = activeContext?.role || null
   const schoolId = activeContext?.schoolId || "inst-1"
   const schoolName = activeContext?.schoolName || "Instituto"
+  
+  // Get alerts count for the floating button badge
+  const alertsCount = getAlertsCount(role)
 
   useEffect(() => {
     setMounted(true)
@@ -114,6 +118,7 @@ export default function DashboardPage() {
 
   // Determine if we should show the alerts panel
   const showAlertsPanel = role !== "FAMILIA"
+  const isAlertsPanelVisible = showAlertsPanel && !isAlertsCollapsed
 
   return (
     <div className="space-y-6">
@@ -153,7 +158,7 @@ export default function DashboardPage() {
       </motion.header>
 
       {/* Main Grid: Content + Alerts Panel */}
-      <div className={`grid gap-6 ${showAlertsPanel ? "lg:grid-cols-[1fr_320px]" : "grid-cols-1"}`}>
+      <div className={`grid gap-6 transition-all duration-300 ${isAlertsPanelVisible ? "lg:grid-cols-[1fr_320px]" : "grid-cols-1"}`}>
         {/* Main Content Area */}
         <div className="space-y-6">
 
@@ -429,10 +434,40 @@ export default function DashboardPage() {
         </div>
 
         {/* Operational Alerts Panel - Right sidebar (hidden for FAMILIA) */}
-        {showAlertsPanel && (
-          <OperationalAlerts role={role} className="sticky top-6" />
-        )}
+        <AnimatePresence mode="wait">
+          {isAlertsPanelVisible && (
+            <OperationalAlerts 
+              role={role} 
+              className="sticky top-6" 
+              onCollapse={() => setIsAlertsCollapsed(true)}
+            />
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Floating Alerts Button - Shows when panel is collapsed */}
+      <AnimatePresence>
+        {showAlertsPanel && isAlertsCollapsed && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, x: 20 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.8, x: 20 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setIsAlertsCollapsed(false)}
+            className="fixed right-6 top-1/2 -translate-y-1/2 z-50 p-3 rounded-xl bg-[#131319] border border-white/10 shadow-xl hover:bg-white/[0.05] hover:border-amber-500/30 transition-all duration-200 group"
+            title="Abrir Centro de Alertas"
+          >
+            <div className="relative">
+              <Bell className="size-5 text-amber-400 group-hover:scale-110 transition-transform" />
+              {alertsCount > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {alertsCount}
+                </span>
+              )}
+            </div>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
