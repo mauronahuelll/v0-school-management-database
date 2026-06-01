@@ -11,11 +11,15 @@ import {
   UserCheck,
   AlertTriangle,
   Plus,
-  X,
   Check,
   Edit2,
   PhoneCall,
   UserMinus,
+  UserPlus,
+  Loader2,
+  Send,
+  Key,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,8 +40,19 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+// User role type
+type UserRole = "ADMIN" | "SECRETARIA" | "DOCENTE" | "PRECEPTOR" | "FAMILIA";
 
 // Types
 interface FamilyContact {
@@ -46,6 +61,9 @@ interface FamilyContact {
   relationship: string;
   phone: string;
   email?: string;
+  dni?: string;
+  hasAccount: boolean;
+  isPrimaryTutor: boolean;
   roles: ("TUTOR_LEGAL" | "AUTORIZADO_RETIRO" | "EMERGENCIA" | "RESTRINGIDO")[];
   restrictionDetails?: string;
   restrictionDate?: string;
@@ -53,7 +71,9 @@ interface FamilyContact {
 }
 
 interface StudentFamilyNetworkProps {
+  studentId: string;
   studentName: string;
+  userRole?: UserRole;
   canEdit?: boolean;
 }
 
@@ -65,6 +85,9 @@ const MOCK_CONTACTS: FamilyContact[] = [
     relationship: "Madre",
     phone: "+54 11 4567-8901",
     email: "maria.rodriguez@email.com",
+    dni: "28.456.789",
+    hasAccount: true,
+    isPrimaryTutor: true,
     roles: ["TUTOR_LEGAL", "AUTORIZADO_RETIRO", "EMERGENCIA"],
   },
   {
@@ -73,8 +96,11 @@ const MOCK_CONTACTS: FamilyContact[] = [
     relationship: "Padre",
     phone: "+54 11 5678-9012",
     email: "carlos.martinez@email.com",
+    dni: "27.123.456",
+    hasAccount: false,
+    isPrimaryTutor: false,
     roles: ["RESTRINGIDO"],
-    restrictionDetails: "Restriccion perimetral por Juzgado de Familia N°5 - Expediente 2024-1234",
+    restrictionDetails: "Restriccion perimetral por Juzgado de Familia N5 - Expediente 2024-1234",
     restrictionDate: "15/03/2024",
   },
   {
@@ -82,6 +108,8 @@ const MOCK_CONTACTS: FamilyContact[] = [
     fullName: "Rosa Beatriz Gomez",
     relationship: "Abuela Materna",
     phone: "+54 11 6789-0123",
+    hasAccount: false,
+    isPrimaryTutor: false,
     roles: ["AUTORIZADO_RETIRO", "EMERGENCIA"],
   },
   {
@@ -90,6 +118,8 @@ const MOCK_CONTACTS: FamilyContact[] = [
     relationship: "Tio",
     phone: "+54 11 7890-1234",
     email: "jp.rodriguez@email.com",
+    hasAccount: false,
+    isPrimaryTutor: false,
     roles: ["EMERGENCIA"],
   },
 ];
@@ -117,10 +147,25 @@ const ROLE_CONFIG = {
   },
 };
 
-export function StudentFamilyNetwork({ studentName, canEdit = false }: StudentFamilyNetworkProps) {
+export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCENTE", canEdit = false }: StudentFamilyNetworkProps) {
   const [contacts, setContacts] = useState<FamilyContact[]>(MOCK_CONTACTS);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<FamilyContact | null>(null);
+  
+  // Account creation dialog state
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [accountFormData, setAccountFormData] = useState({
+    firstName: "",
+    lastName: "",
+    dni: "",
+    relationship: "",
+    email: "",
+    isPrimaryTutor: false,
+  });
+  
+  // Check if user can create accounts (ADMIN or SECRETARIA)
+  const canCreateAccounts = userRole === "ADMIN" || userRole === "SECRETARIA";
   
   // Form state
   const [formData, setFormData] = useState({
@@ -193,6 +238,8 @@ export function StudentFamilyNetwork({ studentName, canEdit = false }: StudentFa
         relationship: formData.relationship,
         phone: formData.phone,
         email: formData.email || undefined,
+        hasAccount: false,
+        isPrimaryTutor: false,
         roles,
         restrictionDetails: formData.isRestringido ? formData.restrictionDetails : undefined,
         restrictionDate: formData.isRestringido ? new Date().toLocaleDateString("es-AR") : undefined,
@@ -202,6 +249,51 @@ export function StudentFamilyNetwork({ studentName, canEdit = false }: StudentFa
     }
     
     setIsSheetOpen(false);
+  };
+
+  // Handle account creation
+  const handleCreateFamilyAccount = async () => {
+    if (!accountFormData.firstName || !accountFormData.lastName || !accountFormData.dni || !accountFormData.relationship || !accountFormData.email) {
+      toast.error("Completa todos los campos requeridos");
+      return;
+    }
+
+    setIsCreatingAccount(true);
+    
+    // Simulate API call / webhook
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Create new contact with account
+    const newContact: FamilyContact = {
+      id: `family-${Date.now()}`,
+      fullName: `${accountFormData.firstName} ${accountFormData.lastName}`,
+      relationship: accountFormData.relationship,
+      phone: "",
+      email: accountFormData.email,
+      dni: accountFormData.dni,
+      hasAccount: true,
+      isPrimaryTutor: accountFormData.isPrimaryTutor,
+      roles: accountFormData.isPrimaryTutor ? ["TUTOR_LEGAL", "AUTORIZADO_RETIRO"] : ["AUTORIZADO_RETIRO"],
+    };
+    
+    setContacts(prev => [...prev, newContact]);
+    setIsCreatingAccount(false);
+    setIsAccountDialogOpen(false);
+    
+    // Reset form
+    setAccountFormData({
+      firstName: "",
+      lastName: "",
+      dni: "",
+      relationship: "",
+      email: "",
+      isPrimaryTutor: false,
+    });
+    
+    toast.success("Cuenta familiar creada. Se ha enviado el enlace de vinculacion al estudiante.", {
+      description: `Credenciales enviadas a ${accountFormData.email}`,
+      duration: 5000,
+    });
   };
 
   // Separate restricted contacts
@@ -218,19 +310,34 @@ export function StudentFamilyNetwork({ studentName, canEdit = false }: StudentFa
             Red Familiar y Contactos
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestión de tutores, autorizados y restricciones de {studentName}
+            Gestion de tutores, autorizados y restricciones de {studentName}
           </p>
         </div>
         
-        {canEdit && (
-          <Button 
-            onClick={() => handleOpenSheet()}
-            className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Añadir Contacto
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Account Creation Button - Only for ADMIN/SECRETARIA */}
+          {canCreateAccounts && (
+            <Button 
+              onClick={() => setIsAccountDialogOpen(true)}
+              className="bg-[#4de082] text-[#0a1f0d] hover:bg-[#4de082]/90 gap-2"
+            >
+              <UserPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Vincular Nuevo Tutor / Familiar</span>
+              <span className="sm:hidden">Vincular</span>
+            </Button>
+          )}
+          
+          {canEdit && (
+            <Button 
+              onClick={() => handleOpenSheet()}
+              variant="outline"
+              className="border-white/10"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Anadir Contacto
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Alert for restrictions */}
@@ -506,12 +613,174 @@ export function StudentFamilyNetwork({ studentName, canEdit = false }: StudentFa
                 className="flex-1 bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
               >
                 <Check className="h-4 w-4 mr-2" />
-                {editingContact ? "Guardar Cambios" : "Añadir Contacto"}
+                {editingContact ? "Guardar Cambios" : "Anadir Contacto"}
               </Button>
             </div>
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Family Account Creation Dialog */}
+      <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-[#131319] border-white/10 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5">
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <Key className="size-5 text-[#4de082]" />
+              Generar Cuenta Familiar
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Crea una cuenta vinculada al legajo del estudiante {studentName}. El tutor recibira credenciales por correo.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="px-6 py-5 space-y-5 max-h-[60vh] overflow-y-auto">
+            {/* Datos Filiatorios */}
+            <div className="space-y-4">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Datos Filiatorios
+              </Label>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm text-[#e4e1ea]">Nombre</Label>
+                  <Input
+                    value={accountFormData.firstName}
+                    onChange={(e) => setAccountFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="Nombre"
+                    className="bg-white/[0.02] border-white/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-[#e4e1ea]">Apellido</Label>
+                  <Input
+                    value={accountFormData.lastName}
+                    onChange={(e) => setAccountFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="Apellido"
+                    className="bg-white/[0.02] border-white/10"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm text-[#e4e1ea] flex items-center gap-2">
+                  <CreditCard className="size-4 text-white/40" />
+                  DNI / Documento
+                </Label>
+                <Input
+                  value={accountFormData.dni}
+                  onChange={(e) => setAccountFormData(prev => ({ ...prev, dni: e.target.value }))}
+                  placeholder="Ej: 28.456.789"
+                  className="bg-white/[0.02] border-white/10"
+                />
+              </div>
+            </div>
+            
+            {/* Parentesco */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Parentesco
+              </Label>
+              <Select 
+                value={accountFormData.relationship}
+                onValueChange={(v) => setAccountFormData(prev => ({ ...prev, relationship: v }))}
+              >
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue placeholder="Seleccionar parentesco" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  <SelectItem value="Madre">Madre</SelectItem>
+                  <SelectItem value="Padre">Padre</SelectItem>
+                  <SelectItem value="Tutor Legal">Tutor Legal</SelectItem>
+                  <SelectItem value="Otro">Otro Familiar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Credenciales */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Credenciales de Acceso
+              </Label>
+              <div className="space-y-2">
+                <Label className="text-sm text-[#e4e1ea] flex items-center gap-2">
+                  <Mail className="size-4 text-white/40" />
+                  Correo Electronico
+                </Label>
+                <Input
+                  type="email"
+                  value={accountFormData.email}
+                  onChange={(e) => setAccountFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="tutor@email.com"
+                  className="bg-white/[0.02] border-white/10"
+                />
+                <p className="text-[10px] text-white/40">
+                  Se enviara un enlace de activacion seguro a este correo.
+                </p>
+              </div>
+            </div>
+            
+            {/* Tutor Principal Switch */}
+            <div className={cn(
+              "p-4 rounded-xl border-2 transition-all",
+              accountFormData.isPrimaryTutor 
+                ? "bg-[#4de082]/10 border-[#4de082]/50" 
+                : "bg-white/[0.02] border-white/10"
+            )}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className={cn(
+                    "size-5",
+                    accountFormData.isPrimaryTutor ? "text-[#4de082]" : "text-white/40"
+                  )} />
+                  <div>
+                    <p className={cn(
+                      "text-sm font-medium",
+                      accountFormData.isPrimaryTutor ? "text-[#4de082]" : "text-[#e4e1ea]"
+                    )}>
+                      Tutor Principal / Responsable Legal
+                    </p>
+                    <p className="text-[10px] text-white/40 mt-0.5">
+                      Tendra acceso completo a notas, comunicados y autorizaciones
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={accountFormData.isPrimaryTutor}
+                  onCheckedChange={(v) => setAccountFormData(prev => ({ ...prev, isPrimaryTutor: v }))}
+                  className="data-[state=checked]:bg-[#4de082]"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsAccountDialogOpen(false)}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateFamilyAccount}
+              disabled={isCreatingAccount || !accountFormData.firstName || !accountFormData.lastName || !accountFormData.dni || !accountFormData.relationship || !accountFormData.email}
+              className="bg-[#4de082] text-[#0a1f0d] hover:bg-[#4de082]/90 gap-2"
+            >
+              {isCreatingAccount ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  Generar Acceso y Notificar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -532,11 +801,29 @@ function ContactCard({
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+          <div className={cn(
+            "size-10 rounded-full flex items-center justify-center text-sm font-bold",
+            contact.hasAccount 
+              ? "bg-[#4de082]/10 text-[#4de082] ring-2 ring-[#4de082]/30" 
+              : "bg-primary/10 text-primary"
+          )}>
             {contact.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">{contact.fullName}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">{contact.fullName}</p>
+              {contact.hasAccount && (
+                <Badge variant="outline" className="text-[9px] bg-[#4de082]/10 text-[#4de082] border-[#4de082]/30">
+                  <Key className="h-2.5 w-2.5 mr-1" />
+                  Cuenta Activa
+                </Badge>
+              )}
+              {contact.isPrimaryTutor && (
+                <Badge variant="outline" className="text-[9px] bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/30">
+                  Principal
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">{contact.relationship}</p>
           </div>
         </div>
@@ -572,14 +859,22 @@ function ContactCard({
 
       {/* Contact Info */}
       <div className="space-y-1.5 text-xs">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Phone className="h-3 w-3" />
-          <span>{contact.phone}</span>
-        </div>
+        {contact.phone && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Phone className="h-3 w-3" />
+            <span>{contact.phone}</span>
+          </div>
+        )}
         {contact.email && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Mail className="h-3 w-3" />
             <span>{contact.email}</span>
+          </div>
+        )}
+        {contact.dni && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CreditCard className="h-3 w-3" />
+            <span>DNI: {contact.dni}</span>
           </div>
         )}
       </div>
