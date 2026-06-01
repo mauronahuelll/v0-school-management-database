@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Users, 
   UserPlus, 
@@ -16,7 +16,8 @@ import {
   Clock,
   BookOpen,
   GraduationCap,
-  X
+  Send,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -45,8 +46,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { getTodayLocalISO } from "@/lib/utils/date-utils";
+import { cn } from "@/lib/utils";
 
 // ============================================
 // TYPES
@@ -151,6 +153,42 @@ const AVAILABLE_SUBJECTS = [
   { id: "art", name: "Arte" },
 ];
 
+const EDUCATION_LEVELS = [
+  { id: "inicial", name: "Nivel Inicial", description: "Jardin y Preescolar" },
+  { id: "primario", name: "Nivel Primario", description: "1ro a 6to grado" },
+  { id: "secundario", name: "Nivel Secundario", description: "1ro a 6to ano" },
+];
+
+const ROLE_CARDS = [
+  { 
+    value: "DOCENTE" as StaffRole, 
+    label: "Docente", 
+    description: "Acceso a calificaciones, asistencia y planificacion",
+    icon: GraduationCap,
+    color: "border-[#d0bcff]/30 bg-[#d0bcff]/5 hover:border-[#d0bcff]/50 hover:bg-[#d0bcff]/10",
+    selectedColor: "border-[#d0bcff] bg-[#d0bcff]/20",
+    iconColor: "text-[#d0bcff]",
+  },
+  { 
+    value: "PRECEPTOR" as StaffRole, 
+    label: "Preceptor/a", 
+    description: "Gestion de asistencia y seguimiento de alumnos",
+    icon: BookOpen,
+    color: "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50 hover:bg-blue-500/10",
+    selectedColor: "border-blue-500 bg-blue-500/20",
+    iconColor: "text-blue-400",
+  },
+  { 
+    value: "ADMINISTRATIVO" as StaffRole, 
+    label: "Administrativo", 
+    description: "Acceso a reportes y gestion documental",
+    icon: Briefcase,
+    color: "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50 hover:bg-amber-500/10",
+    selectedColor: "border-amber-500 bg-amber-500/20",
+    iconColor: "text-amber-400",
+  },
+];
+
 // ============================================
 // HELPERS
 // ============================================
@@ -193,13 +231,23 @@ export default function StaffManagementPage() {
   const [filterRole, setFilterRole] = useState<StaffRole | "ALL">("ALL");
   const [filterStatus, setFilterStatus] = useState<StaffStatus | "ALL">("ALL");
   
-  // Invite modal state
+  // Invite modal state - Batch Onboarding
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmails, setInviteEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<StaffRole>("DOCENTE");
-  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [inviteLevel, setInviteLevel] = useState("");
   const [isInviting, setIsInviting] = useState(false);
+
+  // Parse emails from textarea
+  const parsedEmails = useMemo(() => {
+    if (!inviteEmails.trim()) return [];
+    return inviteEmails
+      .split(/[,\n]+/)
+      .map(email => email.trim().toLowerCase())
+      .filter(email => email.length > 0 && email.includes("@"));
+  }, [inviteEmails]);
+
+  const emailCount = parsedEmails.length;
 
   useEffect(() => {
     setMounted(true);
@@ -215,44 +263,48 @@ export default function StaffManagementPage() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Handle invite
-  const handleInvite = useCallback(async () => {
-    if (!inviteEmail.trim()) {
-      toast.error("Ingresa un correo electronico valido");
+  // Handle batch invite
+  const handleBatchInvite = useCallback(async () => {
+    if (parsedEmails.length === 0) {
+      toast.error("Ingresa al menos un correo electronico valido");
+      return;
+    }
+
+    if ((inviteRole === "DOCENTE" || inviteRole === "PRECEPTOR") && !inviteLevel) {
+      toast.error("Selecciona un nivel educativo para este rol");
       return;
     }
 
     setIsInviting(true);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Simulate API call with batch processing
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     
-    // Add new staff member
-    const newMember: StaffMember = {
-      id: `new-${Date.now()}`,
-      name: inviteEmail.split("@")[0],
-      email: inviteEmail,
+    // Add new staff members
+    const newMembers: StaffMember[] = parsedEmails.map((email, index) => ({
+      id: `batch-${Date.now()}-${index}`,
+      name: email.split("@")[0].replace(/[._]/g, " "),
+      email,
       role: inviteRole,
       status: "PENDING",
-      assignedCourses: selectedCourses,
-      assignedSubjects: selectedSubjects,
+      assignedCourses: [],
+      assignedSubjects: [],
       invitedAt: getTodayLocalISO(),
-    };
+    }));
     
-    setStaff((prev) => [...prev, newMember]);
+    setStaff((prev) => [...prev, ...newMembers]);
     setIsInviting(false);
     setIsInviteModalOpen(false);
     
     // Reset form
-    setInviteEmail("");
+    setInviteEmails("");
     setInviteRole("DOCENTE");
-    setSelectedCourses([]);
-    setSelectedSubjects([]);
+    setInviteLevel("");
     
-    toast.success("Enlace de alta y token enviados al correo del usuario", {
-      description: `Invitacion enviada a ${inviteEmail}`,
+    toast.success("Invitaciones cifradas enviadas correctamente a los correos indicados", {
+      description: `Se enviaron ${parsedEmails.length} invitacion(es) con rol ${getRoleLabel(inviteRole)}`,
     });
-  }, [inviteEmail, inviteRole, selectedCourses, selectedSubjects]);
+  }, [parsedEmails, inviteRole, inviteLevel]);
 
   // Handle revoke access
   const handleRevokeAccess = useCallback((memberId: string, memberName: string) => {
@@ -264,23 +316,13 @@ export default function StaffManagementPage() {
     toast.success(`Acceso revocado para ${memberName}`);
   }, []);
 
-  // Handle toggle course selection
-  const toggleCourse = (courseName: string) => {
-    setSelectedCourses((prev) =>
-      prev.includes(courseName)
-        ? prev.filter((c) => c !== courseName)
-        : [...prev, courseName]
-    );
-  };
-
-  // Handle toggle subject selection
-  const toggleSubject = (subjectName: string) => {
-    setSelectedSubjects((prev) =>
-      prev.includes(subjectName)
-        ? prev.filter((s) => s !== subjectName)
-        : [...prev, subjectName]
-    );
-  };
+  // Reset modal state when closing
+  const handleCloseModal = useCallback(() => {
+    setIsInviteModalOpen(false);
+    setInviteEmails("");
+    setInviteRole("DOCENTE");
+    setInviteLevel("");
+  }, []);
 
   if (!mounted) return null;
 
@@ -502,117 +544,144 @@ export default function StaffManagementPage() {
         </div>
       </div>
 
-      {/* Invite Modal */}
-      <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-card border-white/10">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      {/* Batch Invite Modal */}
+      <Dialog open={isInviteModalOpen} onOpenChange={handleCloseModal}>
+        <DialogContent className="sm:max-w-[560px] bg-[#131319] border-white/10 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5">
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
               <UserPlus className="size-5 text-[#d0bcff]" />
-              Invitar Nuevo Miembro
+              Aprovisionamiento por Lotes
             </DialogTitle>
-            <DialogDescription>
-              Envia una invitacion por correo electronico para dar acceso al sistema.
+            <DialogDescription className="text-white/50">
+              Invita multiples miembros del personal de forma masiva y segura.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo Electronico Institucional</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="usuario@escuela.edu.ar"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="bg-white/[0.02] border-white/10"
-              />
-            </div>
-            
-            {/* Role */}
-            <div className="space-y-2">
-              <Label>Rol a Asignar</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as StaffRole)}>
-                <SelectTrigger className="bg-white/[0.02] border-white/10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-white/10">
-                  <SelectItem value="DOCENTE">Docente</SelectItem>
-                  <SelectItem value="PRECEPTOR">Preceptor/a</SelectItem>
-                  <SelectItem value="ADMINISTRATIVO">Administrativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Course Assignment */}
-            <div className="space-y-2">
-              <Label>Asignacion de Cursos</Label>
-              <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-white/[0.02] border border-white/5 max-h-[120px] overflow-y-auto">
-                {AVAILABLE_COURSES.map((course) => (
-                  <div key={course.id} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`course-${course.id}`}
-                      checked={selectedCourses.includes(course.name)}
-                      onCheckedChange={() => toggleCourse(course.name)}
-                    />
-                    <label 
-                      htmlFor={`course-${course.id}`}
-                      className="text-xs text-foreground cursor-pointer"
+          <div className="px-6 py-5 space-y-6 max-h-[60vh] overflow-y-auto">
+            {/* Step 1: Role Selection */}
+            <div className="space-y-3">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Paso 1: Seleccionar Jerarquia
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {ROLE_CARDS.map((role) => {
+                  const Icon = role.icon;
+                  const isSelected = inviteRole === role.value;
+                  return (
+                    <button
+                      key={role.value}
+                      type="button"
+                      onClick={() => {
+                        setInviteRole(role.value);
+                        if (role.value === "ADMINISTRATIVO") {
+                          setInviteLevel("");
+                        }
+                      }}
+                      className={cn(
+                        "p-4 rounded-xl border-2 text-left transition-all duration-200",
+                        isSelected ? role.selectedColor : role.color
+                      )}
                     >
-                      {course.name}
-                    </label>
-                  </div>
-                ))}
+                      <Icon className={cn("size-6 mb-2", role.iconColor)} />
+                      <p className="text-sm font-semibold text-[#e4e1ea]">{role.label}</p>
+                      <p className="text-[10px] text-white/40 mt-1 leading-relaxed">
+                        {role.description}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            
-            {/* Subject Assignment (only for DOCENTE) */}
-            {inviteRole === "DOCENTE" && (
-              <div className="space-y-2">
-                <Label>Asignacion de Materias</Label>
-                <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-white/[0.02] border border-white/5 max-h-[120px] overflow-y-auto">
-                  {AVAILABLE_SUBJECTS.map((subject) => (
-                    <div key={subject.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`subject-${subject.id}`}
-                        checked={selectedSubjects.includes(subject.name)}
-                        onCheckedChange={() => toggleSubject(subject.name)}
-                      />
-                      <label 
-                        htmlFor={`subject-${subject.id}`}
-                        className="text-xs text-foreground cursor-pointer"
+
+            {/* Step 2: Email Input (Drive Style) */}
+            <div className="space-y-3">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Paso 2: Ingresar Correos (Separados por coma o salto de linea)
+              </Label>
+              <Textarea
+                placeholder="juan.perez@escuela.edu.ar, maria.gomez@escuela.edu.ar&#10;carlos.lopez@escuela.edu.ar"
+                value={inviteEmails}
+                onChange={(e) => setInviteEmails(e.target.value)}
+                className="min-h-[100px] bg-white/[0.02] border-white/10 text-sm resize-none font-mono"
+              />
+              {/* Dynamic Helper */}
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors",
+                emailCount > 0 
+                  ? "bg-[#4de082]/10 border border-[#4de082]/20 text-[#4de082]" 
+                  : "bg-white/[0.02] border border-white/5 text-white/40"
+              )}>
+                <Mail className="size-4" />
+                {emailCount > 0 ? (
+                  <span>
+                    Se enviaran <strong>{emailCount}</strong> invitacion(es) segura(s) con el rol <strong>{getRoleLabel(inviteRole)}</strong>.
+                  </span>
+                ) : (
+                  <span>Ingresa correos electronicos para continuar</span>
+                )}
+              </div>
+            </div>
+
+            {/* Step 3: Level Selection (Conditional) */}
+            {(inviteRole === "DOCENTE" || inviteRole === "PRECEPTOR") && (
+              <div className="space-y-3">
+                <Label className="text-xs uppercase tracking-wider text-white/50">
+                  Paso 3: Nivel Educativo de Acceso
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {EDUCATION_LEVELS.map((level) => {
+                    const isSelected = inviteLevel === level.id;
+                    return (
+                      <button
+                        key={level.id}
+                        type="button"
+                        onClick={() => setInviteLevel(level.id)}
+                        className={cn(
+                          "p-3 rounded-lg border text-left transition-all duration-200",
+                          isSelected 
+                            ? "border-[#d0bcff] bg-[#d0bcff]/10" 
+                            : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                        )}
                       >
-                        {subject.name}
-                      </label>
-                    </div>
-                  ))}
+                        <p className={cn(
+                          "text-sm font-medium",
+                          isSelected ? "text-[#d0bcff]" : "text-[#e4e1ea]"
+                        )}>
+                          {level.name}
+                        </p>
+                        <p className="text-[10px] text-white/40 mt-0.5">
+                          {level.description}
+                        </p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
             <Button 
               variant="outline" 
-              onClick={() => setIsInviteModalOpen(false)}
-              className="border-white/10"
+              onClick={handleCloseModal}
+              className="border-white/10 text-white/70 hover:bg-white/5"
             >
               Cancelar
             </Button>
             <Button 
-              onClick={handleInvite}
-              disabled={isInviting || !inviteEmail.trim()}
+              onClick={handleBatchInvite}
+              disabled={isInviting || emailCount === 0 || ((inviteRole === "DOCENTE" || inviteRole === "PRECEPTOR") && !inviteLevel)}
               className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
             >
               {isInviting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Enviando...
+                  Procesando lote...
                 </>
               ) : (
                 <>
-                  <Mail className="size-4" />
-                  Enviar Invitacion
+                  <Send className="size-4" />
+                  Enviar {emailCount > 0 ? `${emailCount} ` : ""}Invitacion(es)
                 </>
               )}
             </Button>
