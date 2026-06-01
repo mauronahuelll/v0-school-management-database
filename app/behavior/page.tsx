@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast, Toaster } from "sonner";
 import { cn } from "@/lib/utils";
+import { getTodayLocalISO } from "@/lib/utils/date-utils";
 
 // ============================================
 // TYPES
@@ -223,7 +224,7 @@ function AdminView() {
       id: `br-${Date.now()}`,
       studentId: selectedStudent.id,
       studentName: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
-      date: new Date().toISOString().split("T")[0],
+        date: getTodayLocalISO(),
       category: formData.category,
       description: formData.description,
       severity: parseInt(formData.severity) as 1 | 2 | 3 | 4 | 5,

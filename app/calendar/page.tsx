@@ -29,6 +29,30 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatDateToLocalISO } from "@/lib/utils/date-utils";
+
+// ============================================
+// COMPLIANCE: Document Export Format Logic
+// ============================================
+
+type ExportFormat = "DOCX" | "PDF";
+
+/**
+ * Determines the export format based on user role.
+ * ADMIN: Editable DOCX format
+ * All other roles: Immutable PDF format
+ */
+function getExportFormat(role: Role | null): ExportFormat {
+  return role === "ADMIN" ? "DOCX" : "PDF";
+}
+
+/**
+ * Returns export button label based on role
+ */
+function getCalendarExportLabel(role: Role | null): string {
+  const format = getExportFormat(role);
+  return format === "DOCX" ? "Exportar (DOCX)" : "Descargar (PDF)";
+}
 import {
   Dialog,
   DialogContent,
@@ -302,7 +326,7 @@ export default function CalendarPage() {
       toast.error("Complete todos los campos requeridos");
       return;
     }
-    const dateKey = selectedDate.toISOString().split("T")[0];
+    const dateKey = formatDateToLocalISO(selectedDate);
     const newEvent: CustomEvent = {
       id: `ce-${Date.now()}`,
       date: dateKey,
@@ -327,7 +351,7 @@ export default function CalendarPage() {
       toast.error("Complete todos los campos requeridos");
       return;
     }
-    const dateKey = selectedDate.toISOString().split("T")[0];
+    const dateKey = formatDateToLocalISO(selectedDate);
     const newEvent: TeacherEvent = {
       id: `te-${Date.now()}`,
       teacherId: currentTeacherId,
@@ -350,8 +374,78 @@ export default function CalendarPage() {
   }, []);
 
   const handleExportCalendar = useCallback(() => {
-    toast.success("Sincronizando con Google Calendar / Descargando PDF del ciclo lectivo...");
-  }, []);
+    const format = getExportFormat(currentRole);
+    
+    if (format === "DOCX") {
+      toast.loading("Generando archivo editable en formato Word...", { id: "calendar-export" });
+      
+      // Simulate DOCX generation
+      setTimeout(() => {
+        const docxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>CALENDARIO INSTITUCIONAL 2026 - SEQUENCY</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Regimen: ${periodSystem}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Formato: Editable (Uso administrativo)</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+        
+        const blob = new Blob([docxContent], { 
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "Calendario_Institucional_2026.docx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast.dismiss("calendar-export");
+        toast.success("Calendario exportado en formato Word editable");
+      }, 1500);
+    } else {
+      toast.loading("Compilando calendario PDF cerrado e inmutable...", { id: "calendar-export" });
+      
+      // Simulate PDF generation
+      setTimeout(() => {
+        const pdfContent = `%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj
+4 0 obj << /Length 200 >> stream
+BT
+/F1 18 Tf
+50 700 Td
+(CALENDARIO INSTITUCIONAL 2026) Tj
+0 -30 Td
+/F1 12 Tf
+(Documento oficial - Solo lectura) Tj
+ET
+endstream endobj
+xref
+0 5
+trailer << /Size 5 /Root 1 0 R >>
+startxref
+400
+%%EOF`;
+        
+        const blob = new Blob([pdfContent], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "Calendario_Institucional_2026.pdf";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast.dismiss("calendar-export");
+        toast.success("Calendario descargado en formato PDF oficial");
+      }, 1500);
+    }
+  }, [currentRole, periodSystem]);
 
   // ========================================
   // Render Guard
@@ -643,19 +737,19 @@ export default function CalendarPage() {
                 className="rounded-md border-none scale-110 font-sans"
                 modifiers={{
                   accreditation: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return isInAccreditationPeriod(dateStr);
                   },
                   receso: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return isInReceso(dateStr);
                   },
                   feriado: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
                   },
                   customEvent: (date) => {
-                    const dateStr = date.toISOString().split("T")[0];
+                    const dateStr = formatDateToLocalISO(date);
                     return customEvents.some(e => e.date === dateStr);
                   },
                 }}
@@ -729,15 +823,15 @@ export default function CalendarPage() {
               className="border-none"
               modifiers={{
                 accreditation: (date) => {
-                  const dateStr = date.toISOString().split("T")[0];
+                  const dateStr = formatDateToLocalISO(date);
                   return isInAccreditationPeriod(dateStr);
                 },
                 receso: (date) => {
-                  const dateStr = date.toISOString().split("T")[0];
+                  const dateStr = formatDateToLocalISO(date);
                   return isInReceso(dateStr);
                 },
                 feriado: (date) => {
-                  const dateStr = date.toISOString().split("T")[0];
+                  const dateStr = formatDateToLocalISO(date);
                   return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
                 },
               }}
@@ -786,15 +880,20 @@ export default function CalendarPage() {
               )}
               {currentRole === "FAMILIA" && (
                 <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="border-white/10 text-xs h-8" 
-                  onClick={handleExportCalendar}
-                >
-                  <Download className="w-3.5 h-3.5 mr-1" /> Exportar
-                </Button>
-              )}
-            </div>
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "text-xs h-8",
+                  isAdmin 
+                    ? "border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10" 
+                    : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                )}
+                onClick={handleExportCalendar}
+              >
+                <Download className="w-3.5 h-3.5 mr-1" /> {getCalendarExportLabel(currentRole)}
+              </Button>
+            )}
+          </div>
             
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {/* Hitos Institucionales */}

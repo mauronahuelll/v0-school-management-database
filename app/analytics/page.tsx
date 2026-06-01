@@ -13,6 +13,7 @@ import {
   Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDateToLocalISO } from "@/lib/utils/date-utils";
 import {
   Tooltip,
   TooltipContent,
@@ -51,7 +52,7 @@ function generateHeatmapData(): HeatmapDay[] {
     
     const dayOfWeek = date.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = formatDateToLocalISO(date);
     const holiday = holidays.find(h => h.date === dateStr);
     const isHoliday = !!holiday;
     

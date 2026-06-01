@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/context/auth-context";
 import { AttendancePage } from "@/components/attendance";
 import { toast, Toaster } from "sonner";
@@ -38,12 +38,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { 
+  getTodayLocalISO, 
+  parseLocalDateString, 
+  formatDateForDisplay,
+  isInCurrentMonth,
+  isInCurrentYear,
+  getCurrentMonthYear,
+} from "@/lib/utils/date-utils";
 import type {
   StudentAttendance,
   CourseInfo,
@@ -257,7 +260,7 @@ function StaffAttendancePanel() {
   // Absence dialog state
   const [isAbsenceDialogOpen, setIsAbsenceDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
-  const [absenceDate, setAbsenceDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [absenceDate, setAbsenceDate] = useState(() => getTodayLocalISO());
   const [absenceReason, setAbsenceReason] = useState("");
   const [absenceObservations, setAbsenceObservations] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -280,7 +283,7 @@ function StaffAttendancePanel() {
 
   const openAbsenceDialog = (member: StaffMember) => {
     setSelectedStaff(member);
-    setAbsenceDate(new Date().toISOString().split('T')[0]);
+    setAbsenceDate(getTodayLocalISO());
     setAbsenceReason("");
     setAbsenceObservations("");
     setIsAbsenceDialogOpen(true);
@@ -313,31 +316,24 @@ function StaffAttendancePanel() {
     toast.success(`Inasistencia registrada para ${selectedStaff.firstName} ${selectedStaff.lastName}`);
   };
 
-  // Calculate stats
+  // Calculate stats using timezone-safe utilities
   const totalStaff = staff.length;
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const { month: currentMonth, year: currentYear } = getCurrentMonthYear();
   
   const totalAbsencesThisMonth = staff.reduce((acc, s) => {
-    return acc + s.absences.filter(a => {
-      const d = new Date(a.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).length;
+    return acc + s.absences.filter(a => isInCurrentMonth(a.date)).length;
   }, 0);
 
   // Calculate presenteeism (assume 20 working days per month, simplified)
   const calculatePresenteeism = (absences: StaffAbsence[]) => {
-    const yearAbsences = absences.filter(a => new Date(a.date).getFullYear() === currentYear).length;
+    const yearAbsences = absences.filter(a => isInCurrentYear(a.date)).length;
     const workingDaysYTD = (currentMonth + 1) * 20; // Simplified: 20 days per month
     const presentDays = workingDaysYTD - yearAbsences;
     return Math.max(0, Math.round((presentDays / workingDaysYTD) * 100));
   };
 
   const getMonthAbsences = (absences: StaffAbsence[]) => {
-    return absences.filter(a => {
-      const d = new Date(a.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).length;
+    return absences.filter(a => isInCurrentMonth(a.date)).length;
   };
 
   return (
@@ -407,23 +403,27 @@ function StaffAttendancePanel() {
               const presenteeism = calculatePresenteeism(member.absences);
               
               return (
-                <Collapsible key={member.id} open={isExpanded} onOpenChange={() => toggleRow(member.id)} asChild>
-                  <>
+                <React.Fragment key={member.id}>
                     <tr className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3">
-                        <CollapsibleTrigger asChild>
-                          <button className="p-1 rounded hover:bg-white/10 transition-colors">
+                        <button 
+                          type="button"
+                          onClick={() => toggleRow(member.id)}
+                          className="p-1 rounded hover:bg-white/10 transition-colors"
+                        >
                             {isExpanded ? (
                               <ChevronUp className="size-4 text-white/40" />
                             ) : (
                               <ChevronDown className="size-4 text-white/40" />
                             )}
                           </button>
-                        </CollapsibleTrigger>
                       </td>
                       <td className="px-4 py-3">
-                        <CollapsibleTrigger asChild>
-                          <button className="flex items-center gap-3 text-left hover:text-[#d0bcff] transition-colors">
+                        <button 
+                          type="button"
+                          onClick={() => toggleRow(member.id)}
+                          className="flex items-center gap-3 text-left hover:text-[#d0bcff] transition-colors"
+                        >
                             <div className="size-9 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff]">
                               {member.firstName[0]}{member.lastName[0]}
                             </div>
@@ -431,7 +431,6 @@ function StaffAttendancePanel() {
                               {member.lastName}, {member.firstName}
                             </span>
                           </button>
-                        </CollapsibleTrigger>
                       </td>
                       <td className="px-4 py-3">
                         <span className={cn(
@@ -469,7 +468,7 @@ function StaffAttendancePanel() {
                     </tr>
                     
                     {/* Expanded Content - Individual History */}
-                    <CollapsibleContent asChild>
+                    {isExpanded && (
                       <tr>
                         <td colSpan={6} className="bg-white/[0.01] border-t border-white/5">
                           <div className="p-4 space-y-4">
@@ -484,11 +483,11 @@ function StaffAttendancePanel() {
                                 <p className="text-lg font-bold text-[#4de082]">{presenteeism}%</p>
                               </div>
                               <div className="p-3 rounded-lg bg-[#d0bcff]/5 border border-[#d0bcff]/20 min-w-[140px]">
-                                <p className="text-[10px] uppercase tracking-wider text-[#d0bcff]/70 mb-1">Total Ausencias Anio</p>
-                                <p className="text-lg font-bold text-[#d0bcff]">
-                                  {member.absences.filter(a => new Date(a.date).getFullYear() === currentYear).length}
-                                </p>
-                              </div>
+                                              <p className="text-[10px] uppercase tracking-wider text-[#d0bcff]/70 mb-1">Total Ausencias Anio</p>
+                                              <p className="text-lg font-bold text-[#d0bcff]">
+                                                {member.absences.filter(a => isInCurrentYear(a.date)).length}
+                                              </p>
+                                            </div>
                             </div>
                             
                             {/* Absence History */}
@@ -510,11 +509,7 @@ function StaffAttendancePanel() {
                                         </div>
                                         <div>
                                           <p className="text-sm font-medium text-[#e4e1ea]">
-                                            {new Date(absence.date).toLocaleDateString('es-AR', { 
-                                              day: 'numeric', 
-                                              month: 'short', 
-                                              year: 'numeric' 
-                                            })}
+                                            {formatDateForDisplay(absence.date)}
                                           </p>
                                           <p className="text-xs text-white/50">{absence.reasonLabel}</p>
                                         </div>
@@ -541,9 +536,8 @@ function StaffAttendancePanel() {
                           </div>
                         </td>
                       </tr>
-                    </CollapsibleContent>
-                  </>
-                </Collapsible>
+                    )}
+                </React.Fragment>
               );
             })}
           </tbody>

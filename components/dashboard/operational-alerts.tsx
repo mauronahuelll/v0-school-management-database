@@ -46,7 +46,6 @@ interface AlertCategory {
 interface OperationalAlertsProps {
   role: UserRole | null;
   className?: string;
-  onCollapse?: () => void;
 }
 
 // ============================================
@@ -115,7 +114,7 @@ const ALERT_CATEGORIES: AlertCategory[] = [
 // MAIN COMPONENT
 // ============================================
 
-export function OperationalAlerts({ role, className, onCollapse }: OperationalAlertsProps) {
+export function OperationalAlerts({ role, className }: OperationalAlertsProps) {
   // FAMILIA doesn't see this panel at all
   if (role === "FAMILIA") {
     return null;
@@ -153,22 +152,11 @@ export function OperationalAlerts({ role, className, onCollapse }: OperationalAl
               <h3 className="text-sm font-bold text-[#e4e1ea]">Tareas Pendientes</h3>
               <p className="text-[10px] text-white/40 uppercase tracking-wider">
                 Gestor operativo
-              </p>
-            </div>
+          </p>
           </div>
-          {onCollapse && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onCollapse}
-              className="size-8 text-white/40 hover:text-white/70 hover:bg-white/5"
-              title="Minimizar panel"
-            >
-              <PanelRightClose className="size-4" />
-            </Button>
-          )}
-        </div>
-      </div>
+          </div>
+          </div>
+          </div>
 
       {/* Content - Accordion Categories */}
       <div className="p-3">
@@ -204,17 +192,23 @@ export function OperationalAlerts({ role, className, onCollapse }: OperationalAl
                 <AccordionContent className="px-3 pb-3 pt-1">
                   <div className="space-y-1.5">
                     {category.tasks.map((task) => (
-                      <a
+                      <button
                         key={task.id}
-                        href={task.href || "#"}
-                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (task.href && task.href !== "#") {
+                            window.location.href = task.href;
+                          }
+                        }}
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group w-full text-left"
                       >
                         <span className={cn("size-1.5 rounded-full shrink-0", category.color.replace("text-", "bg-"))} />
                         <span className="text-[11px] text-white/60 group-hover:text-white/80 flex-1 leading-relaxed">
                           {task.text}
                         </span>
                         <ChevronRight className="size-3 text-white/20 group-hover:text-white/40 group-hover:translate-x-0.5 transition-all shrink-0" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </AccordionContent>

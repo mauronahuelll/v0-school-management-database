@@ -54,6 +54,40 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/context/auth-context";
 
 // ============================================
+// COMPLIANCE: Document Export Format Logic
+// ============================================
+
+type ExportFormat = "DOCX" | "PDF";
+
+/**
+ * Determines the export format based on user role.
+ * ADMIN: Editable DOCX format
+ * All other roles: Immutable PDF format
+ */
+function getExportFormat(role: string | null): ExportFormat {
+  return role === "ADMIN" ? "DOCX" : "PDF";
+}
+
+/**
+ * Returns export button label based on role and document type
+ */
+function getExportButtonLabel(role: string | null, documentType: string): string {
+  const format = getExportFormat(role);
+  return format === "DOCX" 
+    ? `Exportar ${documentType} (DOCX)` 
+    : `Descargar ${documentType} (PDF)`;
+}
+
+/**
+ * Returns toast message for export process based on format
+ */
+function getExportToastMessage(format: ExportFormat): string {
+  return format === "DOCX"
+    ? "Generando archivo editable en formato Word..."
+    : "Compilando documento PDF cerrado e inmutable...";
+}
+
+// ============================================
 // MOCK DATA
 // ============================================
 
@@ -156,24 +190,61 @@ export default function StudentsPage() {
   // Check permissions
   const canTransfer = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
   const isAdmin = currentRole === "ADMIN";
+  const exportFormat = getExportFormat(currentRole);
 
-  // Generate boletines with real PDF download
+  // Generate boletines with compliance-aware format (DOCX for ADMIN, PDF for others)
   const handleGenerateBoletines = useCallback(async () => {
     if (!boletinCourse) return;
     
     setIsGeneratingBoletin(true);
-    
-    // Simulate PDF compilation (2 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
     const selectedDiv = MOCK_DIVISIONS.find((d) => d.id === boletinCourse);
     
-    // Generate fake PDF content
-    const pdfContent = `%PDF-1.4
+    // Show format-specific loading toast
+    toast.loading(getExportToastMessage(exportFormat), { id: "boletin-export" });
+    
+    // Simulate document compilation (2 seconds)
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    if (exportFormat === "DOCX") {
+      // Generate DOCX content (simplified mock)
+      const docxContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>BOLETINES OFICIALES - SEQUENCY</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Curso: ${selectedDiv?.name || "N/A"}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Total Alumnos: ${selectedDiv?.studentCount || 0}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Periodo: 1er Trimestre 2026</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Formato: Editable (Uso exclusivo administrativo)</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+      
+      const blob = new Blob([docxContent], { 
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Boletines_Oficiales_${selectedDiv?.name?.replace(/\s+/g, "_") || "Lote"}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.dismiss("boletin-export");
+      toast.success(
+        "Documento Word generado",
+        {
+          description: `Se exportaron ${selectedDiv?.studentCount || 0} boletines editables para ${selectedDiv?.name}`,
+          duration: 5000,
+        }
+      );
+    } else {
+      // Generate PDF content (immutable)
+      const pdfContent = `%PDF-1.4
 1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
 3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
-4 0 obj << /Length 300 >> stream
+4 0 obj << /Length 350 >> stream
 BT
 /F1 24 Tf
 50 700 Td
@@ -187,8 +258,9 @@ BT
 (Periodo: 1er Trimestre 2026) Tj
 0 -25 Td
 (Incluye: Notas TEA/TEP/TED y Calificaciones Finales) Tj
-0 -50 Td
-(Documento generado automaticamente por Sequency.) Tj
+0 -40 Td
+/F1 10 Tf
+(Documento oficial - Formato cerrado e inmutable) Tj
 ET
 endstream endobj
 5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
@@ -196,32 +268,33 @@ xref
 0 6
 trailer << /Size 6 /Root 1 0 R >>
 startxref
-600
+650
 %%EOF`;
-    
-    // Create Blob and trigger native browser download
-    const blob = new Blob([pdfContent], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Boletines_Oficiales_${selectedDiv?.name?.replace(/\s+/g, "_") || "Lote"}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      
+      const blob = new Blob([pdfContent], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Boletines_Oficiales_${selectedDiv?.name?.replace(/\s+/g, "_") || "Lote"}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.dismiss("boletin-export");
+      toast.success(
+        "PDF generado correctamente",
+        {
+          description: `Se descargaron ${selectedDiv?.studentCount || 0} boletines oficiales para ${selectedDiv?.name}`,
+          duration: 5000,
+        }
+      );
+    }
     
     setIsGeneratingBoletin(false);
     setIsBoletinDialogOpen(false);
     setBoletinCourse("");
-    
-    toast.success(
-      "Descarga completada",
-      {
-        description: `Se generaron ${selectedDiv?.studentCount || 0} boletines para ${selectedDiv?.name}`,
-        duration: 5000,
-      }
-    );
-  }, [boletinCourse]);
+  }, [boletinCourse, exportFormat]);
 
   // Validate incoming transfer token
   const handleValidateToken = useCallback(async () => {
@@ -331,15 +404,23 @@ startxref
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {isAdmin && (
-            <Button
-              onClick={() => setIsBoletinDialogOpen(true)}
-              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
-            >
-              <FileStack className="size-4 mr-2" />
-              Emitir Boletines Oficiales
-            </Button>
-          )}
+          {/* Dynamic Export Button - Shows format based on role */}
+          <Button
+            onClick={() => setIsBoletinDialogOpen(true)}
+            className={cn(
+              "gap-2",
+              isAdmin 
+                ? "bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90" 
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            )}
+          >
+            {isAdmin ? (
+              <FileText className="size-4" />
+            ) : (
+              <Lock className="size-4" />
+            )}
+            {getExportButtonLabel(currentRole, "Boletines")}
+          </Button>
           <Badge variant="outline" className="bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]">
             <GraduationCap className="size-3.5 mr-1.5" />
             Vista: {currentRole}
@@ -730,15 +811,47 @@ startxref
         <DialogContent className="bg-[#131319] border-white/10 max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
-              <FileStack className="size-5 text-[#d0bcff]" />
-              Emitir Boletines Oficiales
+              {isAdmin ? (
+                <FileText className="size-5 text-[#d0bcff]" />
+              ) : (
+                <Lock className="size-5 text-blue-400" />
+              )}
+              {isAdmin ? "Exportar Boletines (Editable)" : "Descargar Boletines (Solo Lectura)"}
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              Genera boletines oficiales para un curso completo
+              {isAdmin 
+                ? "Genera boletines en formato Word editable para revision administrativa."
+                : "Descarga boletines oficiales en formato PDF cerrado e inmutable."
+              }
             </DialogDescription>
           </DialogHeader>
-
+          
           <div className="space-y-5 py-4">
+            {/* Format Info Badge */}
+            <div className={cn(
+              "flex items-center gap-3 p-3 rounded-xl border",
+              isAdmin 
+                ? "bg-[#d0bcff]/10 border-[#d0bcff]/20" 
+                : "bg-blue-500/10 border-blue-500/20"
+            )}>
+              {isAdmin ? (
+                <FileText className="size-5 text-[#d0bcff]" />
+              ) : (
+                <Lock className="size-5 text-blue-400" />
+              )}
+              <div>
+                <p className={cn("text-sm font-medium", isAdmin ? "text-[#d0bcff]" : "text-blue-400")}>
+                  Formato: {exportFormat}
+                </p>
+                <p className="text-[10px] text-white/40">
+                  {isAdmin 
+                    ? "Documento editable - Uso exclusivo administrativo" 
+                    : "Documento oficial cerrado - No modificable"
+                  }
+                </p>
+              </div>
+            </div>
+
             {/* Course Selection */}
             <div className="space-y-2">
               <label className="text-xs text-white/50 uppercase tracking-wider">
@@ -809,17 +922,21 @@ startxref
             <Button
               onClick={handleGenerateBoletines}
               disabled={!boletinCourse || isGeneratingBoletin}
-              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+              className={cn(
+                isAdmin 
+                  ? "bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90" 
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              )}
             >
               {isGeneratingBoletin ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />
-                  Compilando datos historicos...
+                  {isAdmin ? "Generando Word..." : "Compilando PDF..."}
                 </>
               ) : (
                 <>
                   <Download className="size-4 mr-2" />
-                  Generar y Exportar Lote (PDF)
+                  {isAdmin ? "Exportar Lote (DOCX)" : "Descargar Lote (PDF)"}
                 </>
               )}
             </Button>
