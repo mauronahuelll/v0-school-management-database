@@ -231,23 +231,24 @@ export default function StaffManagementPage() {
   const [filterRole, setFilterRole] = useState<StaffRole | "ALL">("ALL");
   const [filterStatus, setFilterStatus] = useState<StaffStatus | "ALL">("ALL");
   
-  // Invite modal state - Batch Onboarding
+  // Invite modal state - Identity-based Onboarding (Legal Compliance)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [inviteEmails, setInviteEmails] = useState("");
-  const [inviteRole, setInviteRole] = useState<StaffRole>("DOCENTE");
-  const [inviteLevel, setInviteLevel] = useState("");
+  const [inviteData, setInviteData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    role: "DOCENTE" as StaffRole,
+    level: "",
+  });
   const [isInviting, setIsInviting] = useState(false);
 
-  // Parse emails from textarea
-  const parsedEmails = useMemo(() => {
-    if (!inviteEmails.trim()) return [];
-    return inviteEmails
-      .split(/[,\n]+/)
-      .map(email => email.trim().toLowerCase())
-      .filter(email => email.length > 0 && email.includes("@"));
-  }, [inviteEmails]);
-
-  const emailCount = parsedEmails.length;
+  // Validation check
+  const isFormValid = useMemo(() => {
+    const hasIdentity = inviteData.firstName.trim() && inviteData.lastName.trim();
+    const hasEmail = inviteData.email.trim() && inviteData.email.includes("@");
+    const hasLevel = inviteData.role === "ADMINISTRATIVO" || inviteData.level !== "";
+    return hasIdentity && hasEmail && hasLevel;
+  }, [inviteData]);
 
   useEffect(() => {
     setMounted(true);
@@ -263,48 +264,50 @@ export default function StaffManagementPage() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Handle batch invite
-  const handleBatchInvite = useCallback(async () => {
-    if (parsedEmails.length === 0) {
-      toast.error("Ingresa al menos un correo electronico valido");
-      return;
-    }
-
-    if ((inviteRole === "DOCENTE" || inviteRole === "PRECEPTOR") && !inviteLevel) {
-      toast.error("Selecciona un nivel educativo para este rol");
+  // Handle invite with explicit identity (Legal Compliance)
+  const handleInvite = useCallback(async () => {
+    if (!isFormValid) {
+      toast.error("Completa todos los campos requeridos de identidad");
       return;
     }
 
     setIsInviting(true);
     
-    // Simulate API call with batch processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1800));
     
-    // Add new staff members
-    const newMembers: StaffMember[] = parsedEmails.map((email, index) => ({
-      id: `batch-${Date.now()}-${index}`,
-      name: email.split("@")[0].replace(/[._]/g, " "),
-      email,
-      role: inviteRole,
+    // Build full name in legal format (Apellido, Nombre)
+    const fullName = `${inviteData.lastName}, ${inviteData.firstName}`;
+    
+    // Add new staff member with explicit identity
+    const newMember: StaffMember = {
+      id: `staff-${Date.now()}`,
+      name: fullName,
+      email: inviteData.email.toLowerCase().trim(),
+      role: inviteData.role,
       status: "PENDING",
       assignedCourses: [],
       assignedSubjects: [],
       invitedAt: getTodayLocalISO(),
-    }));
+    };
     
-    setStaff((prev) => [...prev, ...newMembers]);
+    setStaff((prev) => [...prev, newMember]);
     setIsInviting(false);
     setIsInviteModalOpen(false);
     
     // Reset form
-    setInviteEmails("");
-    setInviteRole("DOCENTE");
-    setInviteLevel("");
-    
-    toast.success("Invitaciones cifradas enviadas correctamente a los correos indicados", {
-      description: `Se enviaron ${parsedEmails.length} invitacion(es) con rol ${getRoleLabel(inviteRole)}`,
+    setInviteData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      role: "DOCENTE",
+      level: "",
     });
-  }, [parsedEmails, inviteRole, inviteLevel]);
+    
+    toast.success("Alta de personal registrada exitosamente", {
+      description: `Credenciales enviadas a ${inviteData.email} para ${fullName}`,
+    });
+  }, [inviteData, isFormValid]);
 
   // Handle revoke access
   const handleRevokeAccess = useCallback((memberId: string, memberName: string) => {
@@ -319,9 +322,13 @@ export default function StaffManagementPage() {
   // Reset modal state when closing
   const handleCloseModal = useCallback(() => {
     setIsInviteModalOpen(false);
-    setInviteEmails("");
-    setInviteRole("DOCENTE");
-    setInviteLevel("");
+    setInviteData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      role: "DOCENTE",
+      level: "",
+    });
   }, []);
 
   if (!mounted) return null;
@@ -544,47 +551,93 @@ export default function StaffManagementPage() {
         </div>
       </div>
 
-      {/* Batch Invite Modal */}
+      {/* Staff Identity Registration Modal (Legal Compliance) */}
       <Dialog open={isInviteModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-[560px] bg-[#131319] border-white/10 p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[520px] bg-[#131319] border-white/10 p-0 overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5">
             <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
               <UserPlus className="size-5 text-[#d0bcff]" />
-              Aprovisionamiento por Lotes
+              Alta de Personal
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              Invita multiples miembros del personal de forma masiva y segura.
+              Registra la identidad legal del nuevo miembro. El sistema generara credenciales seguras.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="px-6 py-5 space-y-6 max-h-[60vh] overflow-y-auto">
-            {/* Step 1: Role Selection */}
+          <div className="px-6 py-5 space-y-5 max-h-[60vh] overflow-y-auto">
+            {/* Identity Section */}
+            <div className="space-y-4">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Datos de Identidad Legal
+              </Label>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm text-[#e4e1ea]">Nombre Legal</Label>
+                  <Input
+                    value={inviteData.firstName}
+                    onChange={(e) => setInviteData(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="Ej: Maria Eugenia"
+                    className="bg-white/[0.02] border-white/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-[#e4e1ea]">Apellido</Label>
+                  <Input
+                    value={inviteData.lastName}
+                    onChange={(e) => setInviteData(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="Ej: Rodriguez"
+                    className="bg-white/[0.02] border-white/10"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm text-[#e4e1ea] flex items-center gap-2">
+                  <Mail className="size-4 text-white/40" />
+                  Correo Electronico (Institucional o Personal)
+                </Label>
+                <Input
+                  type="email"
+                  value={inviteData.email}
+                  onChange={(e) => setInviteData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="usuario@escuela.edu.ar"
+                  className="bg-white/[0.02] border-white/10"
+                />
+                <p className="text-[10px] text-white/40">
+                  Se enviaran las credenciales de acceso a este correo.
+                </p>
+              </div>
+            </div>
+
+            {/* Role Selection */}
             <div className="space-y-3">
               <Label className="text-xs uppercase tracking-wider text-white/50">
-                Paso 1: Seleccionar Jerarquia
+                Rol y Jerarquia
               </Label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {ROLE_CARDS.map((role) => {
                   const Icon = role.icon;
-                  const isSelected = inviteRole === role.value;
+                  const isSelected = inviteData.role === role.value;
                   return (
                     <button
                       key={role.value}
                       type="button"
                       onClick={() => {
-                        setInviteRole(role.value);
-                        if (role.value === "ADMINISTRATIVO") {
-                          setInviteLevel("");
-                        }
+                        setInviteData(prev => ({ 
+                          ...prev, 
+                          role: role.value,
+                          level: role.value === "ADMINISTRATIVO" ? "" : prev.level
+                        }));
                       }}
                       className={cn(
-                        "p-4 rounded-xl border-2 text-left transition-all duration-200",
+                        "p-3 rounded-xl border-2 text-left transition-all duration-200",
                         isSelected ? role.selectedColor : role.color
                       )}
                     >
-                      <Icon className={cn("size-6 mb-2", role.iconColor)} />
+                      <Icon className={cn("size-5 mb-1.5", role.iconColor)} />
                       <p className="text-sm font-semibold text-[#e4e1ea]">{role.label}</p>
-                      <p className="text-[10px] text-white/40 mt-1 leading-relaxed">
+                      <p className="text-[9px] text-white/40 mt-0.5 leading-relaxed line-clamp-2">
                         {role.description}
                       </p>
                     </button>
@@ -593,49 +646,20 @@ export default function StaffManagementPage() {
               </div>
             </div>
 
-            {/* Step 2: Email Input (Drive Style) */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wider text-white/50">
-                Paso 2: Ingresar Correos (Separados por coma o salto de linea)
-              </Label>
-              <Textarea
-                placeholder="juan.perez@escuela.edu.ar, maria.gomez@escuela.edu.ar&#10;carlos.lopez@escuela.edu.ar"
-                value={inviteEmails}
-                onChange={(e) => setInviteEmails(e.target.value)}
-                className="min-h-[100px] bg-white/[0.02] border-white/10 text-sm resize-none font-mono"
-              />
-              {/* Dynamic Helper */}
-              <div className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors",
-                emailCount > 0 
-                  ? "bg-[#4de082]/10 border border-[#4de082]/20 text-[#4de082]" 
-                  : "bg-white/[0.02] border border-white/5 text-white/40"
-              )}>
-                <Mail className="size-4" />
-                {emailCount > 0 ? (
-                  <span>
-                    Se enviaran <strong>{emailCount}</strong> invitacion(es) segura(s) con el rol <strong>{getRoleLabel(inviteRole)}</strong>.
-                  </span>
-                ) : (
-                  <span>Ingresa correos electronicos para continuar</span>
-                )}
-              </div>
-            </div>
-
-            {/* Step 3: Level Selection (Conditional) */}
-            {(inviteRole === "DOCENTE" || inviteRole === "PRECEPTOR") && (
+            {/* Level Selection (Conditional) */}
+            {(inviteData.role === "DOCENTE" || inviteData.role === "PRECEPTOR") && (
               <div className="space-y-3">
                 <Label className="text-xs uppercase tracking-wider text-white/50">
-                  Paso 3: Nivel Educativo de Acceso
+                  Nivel Educativo de Acceso
                 </Label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {EDUCATION_LEVELS.map((level) => {
-                    const isSelected = inviteLevel === level.id;
+                    const isSelected = inviteData.level === level.id;
                     return (
                       <button
                         key={level.id}
                         type="button"
-                        onClick={() => setInviteLevel(level.id)}
+                        onClick={() => setInviteData(prev => ({ ...prev, level: level.id }))}
                         className={cn(
                           "p-3 rounded-lg border text-left transition-all duration-200",
                           isSelected 
@@ -658,6 +682,26 @@ export default function StaffManagementPage() {
                 </div>
               </div>
             )}
+            
+            {/* Preview Card */}
+            {(inviteData.firstName || inviteData.lastName) && (
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <p className="text-[10px] uppercase tracking-wider text-white/40 mb-2">Vista Previa del Registro</p>
+                <div className="flex items-center gap-3">
+                  <div className="size-10 rounded-full bg-gradient-to-br from-[#d0bcff]/30 to-[#d0bcff]/10 flex items-center justify-center text-sm font-bold text-[#d0bcff] border border-[#d0bcff]/20">
+                    {inviteData.lastName.charAt(0).toUpperCase() || "?"}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#e4e1ea]">
+                      {inviteData.lastName ? `${inviteData.lastName}, ${inviteData.firstName}` : inviteData.firstName || "Sin nombre"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {getRoleLabel(inviteData.role)} {inviteData.level && `• ${EDUCATION_LEVELS.find(l => l.id === inviteData.level)?.name}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
@@ -669,19 +713,19 @@ export default function StaffManagementPage() {
               Cancelar
             </Button>
             <Button 
-              onClick={handleBatchInvite}
-              disabled={isInviting || emailCount === 0 || ((inviteRole === "DOCENTE" || inviteRole === "PRECEPTOR") && !inviteLevel)}
+              onClick={handleInvite}
+              disabled={isInviting || !isFormValid}
               className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
             >
               {isInviting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Procesando lote...
+                  Registrando...
                 </>
               ) : (
                 <>
                   <Send className="size-4" />
-                  Enviar {emailCount > 0 ? `${emailCount} ` : ""}Invitacion(es)
+                  Registrar y Notificar
                 </>
               )}
             </Button>
