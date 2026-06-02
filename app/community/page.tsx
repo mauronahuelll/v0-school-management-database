@@ -372,11 +372,12 @@ export default function CommunityPage() {
   const currentRole = activeContext?.role || null;
   
   // ============================================
-  // SECURITY POLICIES
+  // SECURITY POLICIES (Strict Evaluation)
   // ============================================
   // PostCreator: ONLY renders for ADMIN, DOCENTE, PRECEPTOR
   // FAMILIA: Read-only mode (can only view and like)
-  const canCreateContent = currentRole === "ADMIN" || currentRole === "DOCENTE" || currentRole === "PRECEPTOR";
+  const ROLES_WITH_POST_ACCESS = ["ADMIN", "DOCENTE", "PRECEPTOR"] as const;
+  const canCreateContent = currentRole !== null && ROLES_WITH_POST_ACCESS.includes(currentRole as typeof ROLES_WITH_POST_ACCESS[number]);
   const canInteract = currentRole !== null; // All authenticated users can like
 
   useEffect(() => {
@@ -418,29 +419,16 @@ export default function CommunityPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
-            Muro de Comunidad Escolar
-          </h1>
-          <p className="text-sm text-white/40 mt-1">
-            {canCreateContent 
-              ? "Publica comunicados y novedades para la comunidad" 
-              : "Ultimas actualizaciones de la institucion"
-            }
-          </p>
-        </div>
-        
-        {/* Create Post Button - Only for ADMIN, DOCENTE, PRECEPTOR */}
-        {canCreateContent && !showComposer && (
-          <Button
-            onClick={() => setShowComposer(true)}
-            className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
-          >
-            <PlusCircle className="size-4" />
-            Nueva Publicacion
-          </Button>
-        )}
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
+          Muro de Comunidad Escolar
+        </h1>
+        <p className="text-sm text-white/40 mt-1">
+          {canCreateContent 
+            ? "Publica comunicados y novedades para la comunidad" 
+            : "Ultimas actualizaciones de la institucion"
+          }
+        </p>
       </header>
 
       {/* Read-Only Notice for FAMILIA */}
@@ -453,12 +441,36 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* Post Creator - Restricted to Staff */}
-      {canCreateContent && showComposer && (
-        <PostCreator 
-          onPublish={handlePublish} 
-          onCancel={() => setShowComposer(false)} 
-        />
+      {/* Post Creator - OBLIGATORY for Staff (ADMIN, DOCENTE, PRECEPTOR) */}
+      {canCreateContent && (
+        showComposer ? (
+          <PostCreator 
+            onPublish={handlePublish} 
+            onCancel={() => setShowComposer(false)} 
+          />
+        ) : (
+          <div 
+            onClick={() => setShowComposer(true)}
+            className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 cursor-pointer hover:border-[#d0bcff]/30 hover:bg-[#d0bcff]/5 transition-all duration-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-full bg-[#d0bcff]/10 flex items-center justify-center border border-[#d0bcff]/20">
+                <User className="size-5 text-[#d0bcff]" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-white/40">Escribe algo para la comunidad educativa...</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="size-9 text-white/30 hover:text-[#d0bcff]">
+                  <ImageIcon className="size-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="size-9 text-white/30 hover:text-blue-400">
+                  <FileText className="size-5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
       )}
 
       {/* Posts Feed */}

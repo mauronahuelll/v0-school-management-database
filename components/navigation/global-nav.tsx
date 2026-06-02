@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   LayoutDashboard,
   ClipboardList,
+  ClipboardCheck,
   Users,
   Calendar,
   Settings,
@@ -18,6 +19,9 @@ import {
   Send,
   AlertTriangle,
   Loader2,
+  LineChart,
+  BookOpen,
+  Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, Role } from "@/lib/context/auth-context";
@@ -42,33 +46,37 @@ import {
 import { toast } from "sonner";
 
 // ============================================
-// NAVIGATION ITEMS BY ROLE (DRY - Consolidated Routes)
+// NAVIGATION ITEMS BY ROLE (Polymorphic Labels)
 // ============================================
 
+// ADMIN sees management-focused labels
 const NAV_ITEMS_ADMIN = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
-  { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
-  { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
+  { id: "attendance", label: "Control RRHH", href: "/attendance", icon: Users },
+  { id: "grades", label: "Monitoreo Academico", href: "/grades", icon: LineChart },
+  { id: "behavior", label: "Gestion de Convivencia", href: "/behavior", icon: Scale },
   { id: "secretaria", label: "Secretaria", href: "/students", icon: Building2 },
   { id: "users", label: "Personal", href: "/users", icon: UserCheck },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
+// PRECEPTOR sees operational labels
 const NAV_ITEMS_PRECEPTOR = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "attendance", label: "Asistencia", href: "/attendance", icon: ClipboardList },
-  { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
+  { id: "attendance", label: "Parte Diario", href: "/attendance", icon: ClipboardCheck },
+  { id: "grades", label: "Calificaciones", href: "/grades", icon: BookOpen },
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
   { id: "secretaria", label: "Secretaria", href: "/students", icon: Building2 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
+// DOCENTE sees teaching-focused labels
 const NAV_ITEMS_DOCENTE = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "grades", label: "Calificaciones", href: "/grades", icon: GraduationCap },
+  { id: "attendance", label: "Parte Diario", href: "/attendance", icon: ClipboardCheck },
+  { id: "grades", label: "Calificaciones", href: "/grades", icon: BookOpen },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
