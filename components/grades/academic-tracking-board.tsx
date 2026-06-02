@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -420,9 +420,8 @@ export function AcademicTrackingBoard() {
                 const isCritical = course.attendancePercent < 80 || course.tedPercent >= 25;
                 
                 return (
-                  <>
+                  <Fragment key={course.id}>
                     <TableRow 
-                      key={course.id}
                       className={cn(
                         "border-white/5 transition-colors",
                         isCritical ? "bg-red-500/5" : "hover:bg-white/[0.02]"
@@ -551,7 +550,7 @@ export function AcademicTrackingBoard() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
