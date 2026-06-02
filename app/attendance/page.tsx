@@ -22,7 +22,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -249,8 +248,86 @@ async function handleDeactivateLicense(studentId: string): Promise<void> {
 }
 
 // ============================================
-// STAFF ATTENDANCE COMPONENT - Management by Exception
+// RRHH ATTENDANCE PANEL - Admin Only (Staff Management)
 // ============================================
+
+function RRHHAttendancePanel() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
+          Control RRHH - Presentismo del Personal
+        </h1>
+        <p className="text-sm text-white/40 mt-1">
+          Gestion de ausencias, justificaciones y calculo de presentismo por docente
+        </p>
+      </header>
+
+      {/* Panel Container */}
+      <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-6 backdrop-blur-md">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20">
+            <Building2 className="size-5 text-[#d0bcff]" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-[#e4e1ea]">Asistencia del Personal</h2>
+            <p className="text-xs text-white/50">
+              Docentes, preceptores y auxiliares - Modelo por excepcion
+            </p>
+          </div>
+        </div>
+        <StaffAttendancePanel />
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// STUDENT DAILY ATTENDANCE - Docente/Preceptor Only
+// ============================================
+
+interface StudentDailyAttendanceProps {
+  students: StudentAttendance[];
+  selectedCourse: CourseInfo;
+  availableCourses: CourseInfo[];
+  onCourseChange: (courseId: string) => void;
+}
+
+function StudentDailyAttendance({ 
+  students, 
+  selectedCourse, 
+  availableCourses, 
+  onCourseChange 
+}: StudentDailyAttendanceProps) {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
+          Parte Diario de Asistencia
+        </h1>
+        <p className="text-sm text-white/40 mt-1">
+          Toma de lista de alumnos por curso
+        </p>
+      </header>
+
+      {/* Student Attendance Component */}
+      <AttendancePage
+        initialStudents={students}
+        course={selectedCourse}
+        availableCourses={availableCourses}
+        schoolId="school-demo-123"
+        periodId="T1"
+        userId="preceptor-1"
+        onSubmit={handleSubmit}
+        onSaveLicense={handleSaveLicense}
+        onDeactivateLicense={handleDeactivateLicense}
+        onCourseChange={onCourseChange}
+      />
+    </div>
+  );
+}
 
 function StaffAttendancePanel() {
   const [staff, setStaff] = useState<StaffMember[]>(MOCK_STAFF);
@@ -633,7 +710,7 @@ function StaffAttendancePanel() {
 }
 
 // ============================================
-// PAGE COMPONENT
+// PAGE COMPONENT - Separation of Concerns (SoC)
 // ============================================
 
 export default function AttendancePageDemo() {
@@ -660,87 +737,31 @@ export default function AttendancePageDemo() {
 
   if (!mounted || !currentRole) return null;
 
-  const isAdmin = currentRole === "ADMIN";
+  // ============================================
+  // ROLE-BASED RENDERING (Separation of Concerns)
+  // ============================================
+  // ADMIN: Sees RRHH Panel (staff attendance management)
+  // DOCENTE/PRECEPTOR: Sees Student Daily Attendance (student roll call)
+  
+  if (currentRole === "ADMIN") {
+    return (
+      <>
+        <RRHHAttendancePanel />
+        <Toaster theme="dark" />
+      </>
+    );
+  }
 
+  // Default view for DOCENTE, PRECEPTOR, and other roles
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
-          Parte Diario de Asistencia
-        </h1>
-        <p className="text-sm text-white/40 mt-1">
-          Control de presentismo y seguimiento de alumnos y personal
-        </p>
-      </header>
-
-      {isAdmin ? (
-        <Tabs defaultValue="alumnos" className="w-full">
-          <TabsList className="w-full md:w-auto bg-white/[0.02] border border-white/5 p-1">
-            <TabsTrigger
-              value="alumnos"
-              className="flex-1 md:flex-none data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff]"
-            >
-              <Users className="size-4 mr-2" />
-              Alumnos
-            </TabsTrigger>
-            <TabsTrigger
-              value="personal"
-              className="flex-1 md:flex-none data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff]"
-            >
-              <Building2 className="size-4 mr-2" />
-              Personal / RRHH
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="alumnos" className="mt-6">
-            <AttendancePage
-              initialStudents={students}
-              course={selectedCourse}
-              availableCourses={AVAILABLE_COURSES}
-              schoolId="school-demo-123"
-              periodId="T1"
-              userId="preceptor-1"
-              onSubmit={handleSubmit}
-              onSaveLicense={handleSaveLicense}
-              onDeactivateLicense={handleDeactivateLicense}
-              onCourseChange={handleCourseChange}
-            />
-          </TabsContent>
-
-          <TabsContent value="personal" className="mt-6">
-            <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-6 backdrop-blur-md">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20">
-                  <Building2 className="size-5 text-[#d0bcff]" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-[#e4e1ea]">Asistencia del Personal</h2>
-                  <p className="text-xs text-white/50">
-                    Gestion de presentismo de docentes, preceptores y auxiliares
-                  </p>
-                </div>
-              </div>
-              <StaffAttendancePanel />
-            </div>
-          </TabsContent>
-        </Tabs>
-      ) : (
-        // Non-admin view: Only students tab
-        <AttendancePage
-          initialStudents={students}
-          course={selectedCourse}
-          availableCourses={AVAILABLE_COURSES}
-          schoolId="school-demo-123"
-          periodId="T1"
-          userId="preceptor-1"
-          onSubmit={handleSubmit}
-          onSaveLicense={handleSaveLicense}
-          onDeactivateLicense={handleDeactivateLicense}
-          onCourseChange={handleCourseChange}
-        />
-      )}
-
+    <>
+      <StudentDailyAttendance
+        students={students}
+        selectedCourse={selectedCourse}
+        availableCourses={AVAILABLE_COURSES}
+        onCourseChange={handleCourseChange}
+      />
       <Toaster theme="dark" />
-    </div>
+    </>
   );
 }
