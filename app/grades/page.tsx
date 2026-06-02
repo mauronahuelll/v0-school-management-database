@@ -2,8 +2,10 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { GradesGrid } from "@/components/grades";
+import { AcademicTrackingBoard } from "@/components/grades/academic-tracking-board";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/context/auth-context";
 import { 
   BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, 
   Plus, Trash2, Pencil, X, Check, Grid3X3, ClipboardSignature, CheckCircle2,
@@ -201,6 +203,9 @@ const createMockStudentRow = (
 export default function GradesPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("regular");
+  
+  // Get auth context for role-based rendering
+  const { role: currentRole } = useAuth();
   
   // Get school settings from context
   const { settings, getAvailablePeriods } = useSchoolSettings();
@@ -649,6 +654,22 @@ export default function GradesPage() {
 
   if (!mounted) return null;
 
+  // ============================================
+  // ROLE-BASED RENDERING (Separation of Concerns)
+  // ============================================
+  // ADMIN: View prevention dashboard (cannot edit grades)
+  // DOCENTE/PRECEPTOR: View and edit grades grid
+  
+  if (currentRole === "ADMIN") {
+    return (
+      <>
+        <AcademicTrackingBoard />
+        <Toaster position="top-right" richColors />
+      </>
+    );
+  }
+
+  // Default view for DOCENTE, PRECEPTOR, and other roles
   return (
     <div className="space-y-6">
       {/* Header */}
