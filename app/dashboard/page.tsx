@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "@/lib/context/auth-context"
 import { motion } from "framer-motion"
 import { 
   LayoutDashboard, Users, Clock, ShieldAlert, 
-  BookOpen, GraduationCap, Calendar, TrendingUp,
-  Bell, FileText, Award, RefreshCw
+  BookOpen, Calendar, TrendingUp,
+  Bell, FileText, RefreshCw, AlertTriangle,
+  CheckCircle2, UserX, ClipboardCheck, Phone,
+  MessageSquare, Inbox, Sparkles, ArrowRight,
+  Stethoscope, FileWarning, GraduationCap
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,47 +20,259 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { OperationalAlerts, getAlertsCount } from "@/components/dashboard/operational-alerts"
+import { cn } from "@/lib/utils"
 
-// Datos aislados por escuela (multi-tenant)
-const DATA_POR_ESCUELA: Record<string, {
-  name: string
-  matricula: number
-  presentesHoy: string
-  alertasConvivencia: number
-  periodo: string
-  promedio: string
-  docentesActivos: number
-}> = {
-  "inst-1": {
-    name: "Instituto Padre Marquez",
-    matricula: 420,
-    presentesHoy: "94.2%",
-    alertasConvivencia: 2,
-    periodo: "1er Trimestre 2026",
-    promedio: "7.42",
-    docentesActivos: 14
-  },
-  "inst-2": {
-    name: "Colegio Secundario San Martin",
-    matricula: 310,
-    presentesHoy: "88.5%",
-    alertasConvivencia: 5,
-    periodo: "1er Cuatrimestre 2026",
-    promedio: "6.89",
-    docentesActivos: 11
-  },
-  "inst-3": {
-    name: "Escuela Tecnica N3",
-    matricula: 580,
-    presentesHoy: "91.3%",
-    alertasConvivencia: 3,
-    periodo: "1er Trimestre 2026",
-    promedio: "7.15",
-    docentesActivos: 22
-  }
+// ============================================
+// TYPES
+// ============================================
+
+interface ActionItem {
+  id: string;
+  type: "URGENTE" | "PENDIENTE" | "INFO";
+  category: string;
+  title: string;
+  description: string;
+  count?: number;
+  action?: string;
+  href?: string;
 }
 
-// Datos del alumno para vista FAMILIA
+interface CriticalMetric {
+  label: string;
+  value: string | number;
+  subtext: string;
+  icon: typeof Users;
+  status: "critical" | "warning" | "ok";
+}
+
+// ============================================
+// MOCK DATA - ADMIN
+// ============================================
+
+const ADMIN_METRICS: CriticalMetric[] = [
+  { 
+    label: "Ausentismo Docente Hoy", 
+    value: "2", 
+    subtext: "de 14 docentes (14.3%)", 
+    icon: UserX, 
+    status: "warning" 
+  },
+  { 
+    label: "Alumnos en Riesgo", 
+    value: "8", 
+    subtext: "Desercion / Academico", 
+    icon: AlertTriangle, 
+    status: "critical" 
+  },
+  { 
+    label: "Compliance RRHH", 
+    value: "71%", 
+    subtext: "DD.JJ. y documentacion al dia", 
+    icon: FileText, 
+    status: "warning" 
+  },
+];
+
+const ADMIN_ACTIONS_DOCUMENTACION: ActionItem[] = [
+  { 
+    id: "1", 
+    type: "URGENTE", 
+    category: "Documentacion", 
+    title: "5 Docentes con Apto Medico vencido", 
+    description: "Requiere accion inmediata para cumplimiento legal",
+    count: 5,
+    action: "Gestionar",
+    href: "/users"
+  },
+  { 
+    id: "2", 
+    type: "PENDIENTE", 
+    category: "Documentacion", 
+    title: "12 Alumnos sin ficha de salud", 
+    description: "Pendiente de entrega por parte de las familias",
+    count: 12,
+    action: "Ver listado",
+    href: "/students"
+  },
+  { 
+    id: "3", 
+    type: "PENDIENTE", 
+    category: "Documentacion", 
+    title: "3 Docentes sin DD.JJ. de Cargos", 
+    description: "Declaracion Jurada anual pendiente",
+    count: 3,
+    action: "Notificar",
+    href: "/users"
+  },
+];
+
+const ADMIN_ACTIONS_CONVIVENCIA: ActionItem[] = [
+  { 
+    id: "4", 
+    type: "URGENTE", 
+    category: "Convivencia", 
+    title: "3 Actas graves sin firma de familia", 
+    description: "Actas de convivencia pendientes de notificacion",
+    count: 3,
+    action: "Gestionar",
+    href: "/behavior"
+  },
+  { 
+    id: "5", 
+    type: "PENDIENTE", 
+    category: "Convivencia", 
+    title: "2 Derivaciones a Gabinete pendientes", 
+    description: "Casos que requieren seguimiento psicopedagogico",
+    count: 2,
+    action: "Ver casos",
+    href: "/behavior"
+  },
+];
+
+// ============================================
+// MOCK DATA - PRECEPTOR
+// ============================================
+
+const PRECEPTOR_METRICS: CriticalMetric[] = [
+  { 
+    label: "Toma de Lista Diaria", 
+    value: "2/4", 
+    subtext: "Cursos completados hoy", 
+    icon: ClipboardCheck, 
+    status: "warning" 
+  },
+  { 
+    label: "Justificaciones Pendientes", 
+    value: "6", 
+    subtext: "Ausencias sin justificar", 
+    icon: FileWarning, 
+    status: "warning" 
+  },
+  { 
+    label: "Comunicaciones sin Acuse", 
+    value: "4", 
+    subtext: "Enviadas hace +48hs", 
+    icon: MessageSquare, 
+    status: "ok" 
+  },
+];
+
+const PRECEPTOR_ACTIONS_LISTA: ActionItem[] = [
+  { 
+    id: "p1", 
+    type: "URGENTE", 
+    category: "Pase de Lista", 
+    title: "4to Ano B - Sin toma de lista", 
+    description: "Curso pendiente de registro de asistencia",
+    action: "Tomar lista",
+    href: "/attendance"
+  },
+  { 
+    id: "p2", 
+    type: "URGENTE", 
+    category: "Pase de Lista", 
+    title: "5to Ano B - Sin toma de lista", 
+    description: "Curso pendiente de registro de asistencia",
+    action: "Tomar lista",
+    href: "/attendance"
+  },
+];
+
+const PRECEPTOR_ACTIONS_AUSENTES: ActionItem[] = [
+  { 
+    id: "p3", 
+    type: "PENDIENTE", 
+    category: "Contactar Familia", 
+    title: "Lautaro Sanchez (4to A) - 3er dia ausente", 
+    description: "Sin justificativo. Requiere contacto con tutor.",
+    action: "Llamar",
+    href: "/students"
+  },
+  { 
+    id: "p4", 
+    type: "PENDIENTE", 
+    category: "Contactar Familia", 
+    title: "Valentina Castro (4to B) - Ausente hoy", 
+    description: "Primera ausencia de la semana",
+    action: "Registrar",
+    href: "/students"
+  },
+  { 
+    id: "p5", 
+    type: "INFO", 
+    category: "Contactar Familia", 
+    title: "Marcos Diaz (5to A) - Justificativo recibido", 
+    description: "Certificado medico adjuntado por la familia",
+    action: "Validar",
+    href: "/attendance"
+  },
+];
+
+// ============================================
+// MOCK DATA - DOCENTE
+// ============================================
+
+const DOCENTE_METRICS: CriticalMetric[] = [
+  { 
+    label: "Calificaciones Pendientes", 
+    value: "38", 
+    subtext: "de 74 alumnos totales", 
+    icon: BookOpen, 
+    status: "warning" 
+  },
+  { 
+    label: "Dias al Cierre", 
+    value: "12", 
+    subtext: "1er Trimestre 2026", 
+    icon: Calendar, 
+    status: "ok" 
+  },
+  { 
+    label: "Recuperatorios Pendientes", 
+    value: "5", 
+    subtext: "Alumnos con TED", 
+    icon: AlertTriangle, 
+    status: "warning" 
+  },
+];
+
+const DOCENTE_ACTIONS: ActionItem[] = [
+  { 
+    id: "d1", 
+    type: "URGENTE", 
+    category: "Calificaciones", 
+    title: "Matematica IV (4to B) - 18 notas pendientes", 
+    description: "Cierre de trimestre en 12 dias",
+    count: 18,
+    action: "Cargar notas",
+    href: "/grades"
+  },
+  { 
+    id: "d2", 
+    type: "PENDIENTE", 
+    category: "Calificaciones", 
+    title: "Algebra Lineal (5to A) - 12 notas pendientes", 
+    description: "Evaluacion del 28/05 sin cargar",
+    count: 12,
+    action: "Cargar notas",
+    href: "/grades"
+  },
+  { 
+    id: "d3", 
+    type: "PENDIENTE", 
+    category: "Recuperatorios", 
+    title: "5 alumnos con TED requieren instancia", 
+    description: "Fecha limite: 15/06/2026",
+    count: 5,
+    action: "Programar",
+    href: "/grades"
+  },
+];
+
+// ============================================
+// MOCK DATA - FAMILIA
+// ============================================
+
 const ALUMNO_DATA = {
   nombre: "Valentina Castro",
   curso: "4to Ano Secundaria",
@@ -73,20 +288,152 @@ const ALUMNO_DATA = {
   ]
 }
 
-// Materias asignadas para DOCENTE
-const MATERIAS_DOCENTE = [
-  { id: 1, nombre: "Matematica Avanzada IV", curso: "4to Ano", division: "B", alumnos: 24, pendientes: 18 },
-  { id: 2, nombre: "Algebra Lineal", curso: "5to Ano", division: "A", alumnos: 28, pendientes: 12 },
-  { id: 3, nombre: "Calculo I", curso: "6to Ano", division: "C", alumnos: 22, pendientes: 8 },
-]
+// ============================================
+// SCHOOL DATA
+// ============================================
 
-// Cursos asignados para PRECEPTOR
-const CURSOS_PRECEPTOR = [
-  { id: 1, nombre: "4to Ano A", presentes: 24, ausentes: 3, total: 27 },
-  { id: 2, nombre: "4to Ano B", presentes: 22, ausentes: 2, total: 24 },
-  { id: 3, nombre: "5to Ano A", presentes: 26, ausentes: 1, total: 27 },
-  { id: 4, nombre: "5to Ano B", presentes: 23, ausentes: 4, total: 27 },
-]
+const DATA_POR_ESCUELA: Record<string, {
+  name: string
+  periodo: string
+}> = {
+  "inst-1": { name: "Instituto Padre Marquez", periodo: "1er Trimestre 2026" },
+  "inst-2": { name: "Colegio Secundario San Martin", periodo: "1er Cuatrimestre 2026" },
+  "inst-3": { name: "Escuela Tecnica N3", periodo: "1er Trimestre 2026" }
+}
+
+// ============================================
+// COMPONENTS
+// ============================================
+
+function CriticalMetricCard({ metric }: { metric: CriticalMetric }) {
+  const Icon = metric.icon;
+  const statusColors = {
+    critical: "text-red-400 bg-red-500/10 border-red-500/20",
+    warning: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    ok: "text-[#4de082] bg-[#4de082]/10 border-[#4de082]/20",
+  };
+  const valueColors = {
+    critical: "text-red-400",
+    warning: "text-amber-400",
+    ok: "text-[#4de082]",
+  };
+
+  return (
+    <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-white/50 uppercase tracking-wider font-medium">
+          {metric.label}
+        </span>
+        <div className={cn("p-2 rounded-lg border", statusColors[metric.status])}>
+          <Icon className="size-4" />
+        </div>
+      </div>
+      <p className={cn("text-3xl font-bold tracking-tight", valueColors[metric.status])}>
+        {metric.value}
+      </p>
+      <p className="text-[11px] text-white/40">{metric.subtext}</p>
+    </div>
+  );
+}
+
+function ActionItemCard({ item }: { item: ActionItem }) {
+  const typeConfig = {
+    URGENTE: { color: "bg-red-500/10 text-red-400 border-red-500/20", dot: "bg-red-400" },
+    PENDIENTE: { color: "bg-amber-500/10 text-amber-400 border-amber-500/20", dot: "bg-amber-400" },
+    INFO: { color: "bg-blue-500/10 text-blue-400 border-blue-500/20", dot: "bg-blue-400" },
+  };
+  const config = typeConfig[item.type];
+
+  return (
+    <div className="group p-4 rounded-xl bg-white/[0.015] border border-white/5 hover:border-white/10 hover:bg-white/[0.025] transition-all">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 flex-1">
+          <div className={cn("size-2 rounded-full mt-2 shrink-0", config.dot)} />
+          <div className="space-y-1 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border",
+                config.color
+              )}>
+                {item.type}
+              </span>
+              {item.count && (
+                <span className="text-[10px] text-white/30 font-mono">
+                  ({item.count})
+                </span>
+              )}
+            </div>
+            <p className="text-sm font-medium text-[#e4e1ea]">{item.title}</p>
+            <p className="text-xs text-white/40">{item.description}</p>
+          </div>
+        </div>
+        {item.action && (
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="h-8 px-3 text-xs text-[#d0bcff] hover:bg-[#d0bcff]/10 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          >
+            {item.action}
+            <ArrowRight className="size-3 ml-1" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActionSection({ 
+  title, 
+  items, 
+  icon: Icon 
+}: { 
+  title: string; 
+  items: ActionItem[]; 
+  icon: typeof FileText;
+}) {
+  if (items.length === 0) return null;
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 px-1">
+        <Icon className="size-4 text-white/30" />
+        <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider">{title}</h3>
+        <span className="text-[10px] text-white/30 font-mono">({items.length})</span>
+      </div>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <ActionItemCard key={item.id} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ZeroInboxState() {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center justify-center py-16 px-8 rounded-2xl bg-white/[0.01] border border-white/5"
+    >
+      <div className="size-20 rounded-full bg-[#4de082]/10 flex items-center justify-center mb-6 border border-[#4de082]/20">
+        <Sparkles className="size-10 text-[#4de082]" />
+      </div>
+      <h3 className="text-xl font-bold text-[#e4e1ea] mb-2">Todo bajo control</h3>
+      <p className="text-sm text-white/40 text-center max-w-sm">
+        No hay tareas pendientes criticas. La institucion esta operando con normalidad.
+      </p>
+      <div className="flex items-center gap-2 mt-6 px-4 py-2 rounded-full bg-[#4de082]/5 border border-[#4de082]/10">
+        <CheckCircle2 className="size-4 text-[#4de082]" />
+        <span className="text-xs text-[#4de082] font-medium">Zero Inbox</span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 export default function DashboardPage() {
   const { activeContext } = useAuth()
@@ -96,9 +443,7 @@ export default function DashboardPage() {
 
   const role = activeContext?.role || null
   const schoolId = activeContext?.schoolId || "inst-1"
-  const schoolName = activeContext?.schoolName || "Instituto"
   
-  // Get alerts count for the badge
   const alertsCount = getAlertsCount(role)
   const showAlertsButton = role !== "FAMILIA"
 
@@ -114,10 +459,15 @@ export default function DashboardPage() {
     )
   }, [])
 
+  // Calculate if there are pending actions
+  const hasAdminActions = ADMIN_ACTIONS_DOCUMENTACION.length > 0 || ADMIN_ACTIONS_CONVIVENCIA.length > 0;
+  const hasPreceptorActions = PRECEPTOR_ACTIONS_LISTA.length > 0 || PRECEPTOR_ACTIONS_AUSENTES.length > 0;
+  const hasDocenteActions = DOCENTE_ACTIONS.length > 0;
+
   if (!mounted) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#d0bcff] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -126,32 +476,32 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Contextual */}
+      {/* Header */}
       <motion.header 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-2xl glass-panel"
+        className="flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/5"
       >
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
-              <LayoutDashboard className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2.5 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20">
+              <Inbox className="w-5 h-5 text-[#d0bcff]" />
             </div>
             <div>
-              <p className="text-[10px] font-mono uppercase tracking-widest text-primary font-bold">
-                Entorno operativo unificado
+              <p className="text-[10px] font-mono uppercase tracking-widest text-[#d0bcff] font-bold">
+                Bandeja de Accion
               </p>
-              <h1 className="text-xl font-bold tracking-tight text-foreground">
+              <h1 className="text-xl font-bold tracking-tight text-[#e4e1ea]">
                 {role === "FAMILIA" ? "Portal Familiar" : escuelaActiva.name}
               </h1>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground capitalize pl-14">
+          <p className="text-xs text-white/40 capitalize pl-14">
             {today} | {escuelaActiva.periodo}
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex items-center gap-3">
-          <span className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-xs font-mono text-primary font-bold">
+          <span className="px-3 py-1.5 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 text-xs font-mono text-[#d0bcff] font-bold">
             {role}
           </span>
           {showAlertsButton && (
@@ -160,7 +510,7 @@ export default function DashboardPage() {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="gap-2 text-xs relative"
+                  className="gap-2 text-xs relative border-white/10 hover:bg-white/5"
                 >
                   <Bell className="w-4 h-4" />
                   <span className="hidden sm:inline">Alertas</span>
@@ -178,7 +528,7 @@ export default function DashboardPage() {
                 <SheetHeader className="px-6 py-4 border-b border-white/5">
                   <SheetTitle className="text-[#e4e1ea] flex items-center gap-2">
                     <Bell className="w-5 h-5 text-amber-400" />
-                    Centro de Alertas Operativas
+                    Centro de Alertas
                   </SheetTitle>
                 </SheetHeader>
                 <div className="overflow-y-auto h-[calc(100vh-80px)]">
@@ -187,17 +537,16 @@ export default function DashboardPage() {
               </SheetContent>
             </Sheet>
           )}
-          <Button variant="outline" size="sm" className="gap-2 text-xs">
+          <Button variant="outline" size="sm" className="gap-2 text-xs border-white/10 hover:bg-white/5">
             <RefreshCw className="w-3.5 h-3.5" />
             Actualizar
           </Button>
         </div>
       </motion.header>
 
-      {/* Main Content Area - Full Width */}
-      <div className="w-full space-y-6">
-
-      {/* VISTA: ADMIN */}
+      {/* ============================================ */}
+      {/* DASHBOARD ADMIN / SECRETARIA */}
+      {/* ============================================ */}
       {role === "ADMIN" && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -205,121 +554,36 @@ export default function DashboardPage() {
           transition={{ delay: 0.1 }}
           className="space-y-6"
         >
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-5 rounded-2xl glass-panel space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Matricula Total</span>
-                <Users className="w-4 h-4 text-primary" />
-              </div>
-              <p className="text-3xl font-bold tracking-tight">{escuelaActiva.matricula}</p>
-              <p className="text-[11px] text-muted-foreground">Alumnos validados en sistema</p>
-            </div>
-
-            <div className="p-5 rounded-2xl glass-panel space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Asistencia Hoy</span>
-                <Clock className="w-4 h-4 text-secondary" />
-              </div>
-              <p className="text-3xl font-bold tracking-tight text-secondary">{escuelaActiva.presentesHoy}</p>
-              <p className="text-[11px] text-muted-foreground">Presentismo del parte diario</p>
-            </div>
-
-            <div className="p-5 rounded-2xl glass-panel space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Alertas Gabinete</span>
-                <ShieldAlert className="w-4 h-4 text-tertiary" />
-              </div>
-              <p className="text-3xl font-bold tracking-tight text-tertiary">{escuelaActiva.alertasConvivencia}</p>
-              <p className="text-[11px] text-muted-foreground">Casos criticos en seguimiento</p>
-            </div>
-
-            <div className="p-5 rounded-2xl glass-panel space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Docentes Activos</span>
-                <GraduationCap className="w-4 h-4 text-primary" />
-              </div>
-              <p className="text-3xl font-bold tracking-tight">{escuelaActiva.docentesActivos}</p>
-              <p className="text-[11px] text-muted-foreground">Con sesion iniciada hoy</p>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { icon: Users, label: "Gestion de Usuarios", href: "/users" },
-              { icon: FileText, label: "Reportes", href: "/analytics" },
-              { icon: ShieldAlert, label: "Permisos", href: "/permissions" },
-              { icon: Calendar, label: "Calendario", href: "/calendar" },
-            ].map((action, i) => (
-              <button
-                key={i}
-                className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-primary/30 hover:bg-white/[0.04] transition-all flex items-center gap-3 group"
-              >
-                <action.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-sm text-foreground">{action.label}</span>
-              </button>
+          {/* Critical Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {ADMIN_METRICS.map((metric, i) => (
+              <CriticalMetricCard key={i} metric={metric} />
             ))}
           </div>
+
+          {/* Action Inbox */}
+          {hasAdminActions ? (
+            <div className="grid md:grid-cols-2 gap-6">
+              <ActionSection 
+                title="Documentacion Pendiente" 
+                items={ADMIN_ACTIONS_DOCUMENTACION} 
+                icon={FileText} 
+              />
+              <ActionSection 
+                title="Convivencia y Derivaciones" 
+                items={ADMIN_ACTIONS_CONVIVENCIA} 
+                icon={ShieldAlert} 
+              />
+            </div>
+          ) : (
+            <ZeroInboxState />
+          )}
         </motion.div>
       )}
 
-      {/* VISTA: DOCENTE */}
-      {role === "DOCENTE" && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="space-y-6"
-        >
-          <div className="p-6 rounded-2xl glass-panel space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Mis Materias Asignadas</h2>
-              <span className="text-xs text-muted-foreground">{MATERIAS_DOCENTE.length} cursos</span>
-            </div>
-            <div className="grid gap-3">
-              {MATERIAS_DOCENTE.map((materia) => (
-                <div
-                  key={materia.id}
-                  className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-primary/30 transition-all flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                      <BookOpen className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-foreground">{materia.nombre}</h3>
-                      <p className="text-xs text-muted-foreground">{materia.curso} - Division {materia.division} | {materia.alumnos} alumnos</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Pendientes</p>
-                    <p className="text-lg font-bold text-tertiary">{materia.pendientes}/{materia.alumnos}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl glass-panel text-center">
-              <p className="text-2xl font-bold text-foreground">38</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Examenes Pendientes</p>
-            </div>
-            <div className="p-4 rounded-xl glass-panel text-center">
-              <p className="text-2xl font-bold text-secondary">12</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Dias al Cierre</p>
-            </div>
-            <div className="p-4 rounded-xl glass-panel text-center">
-              <p className="text-2xl font-bold text-primary">74</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Alumnos Totales</p>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* VISTA: PRECEPTOR */}
+      {/* ============================================ */}
+      {/* DASHBOARD PRECEPTOR */}
+      {/* ============================================ */}
       {role === "PRECEPTOR" && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -327,62 +591,66 @@ export default function DashboardPage() {
           transition={{ delay: 0.1 }}
           className="space-y-6"
         >
-          <div className="p-6 rounded-2xl glass-panel space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Panel de Asistencia</h2>
-              <span className="px-2 py-1 rounded-lg bg-secondary/10 text-secondary text-xs font-bold">Hoy</span>
-            </div>
-            <div className="grid md:grid-cols-2 gap-3">
-              {CURSOS_PRECEPTOR.map((curso) => (
-                <div
-                  key={curso.id}
-                  className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-primary/30 transition-all"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-foreground">{curso.nombre}</h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      curso.ausentes > 2 ? "bg-destructive/10 text-destructive" : "bg-secondary/10 text-secondary"
-                    }`}>
-                      {curso.ausentes > 0 ? `${curso.ausentes} ausentes` : "Completo"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
-                      <div 
-                        className="h-full bg-secondary rounded-full transition-all"
-                        style={{ width: `${(curso.presentes / curso.total) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {curso.presentes}/{curso.total}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* Critical Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {PRECEPTOR_METRICS.map((metric, i) => (
+              <CriticalMetricCard key={i} metric={metric} />
+            ))}
           </div>
 
-          {/* Summary */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl glass-panel">
-              <div className="flex items-center gap-3 mb-2">
-                <Users className="w-4 h-4 text-secondary" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">Presentes Totales</span>
-              </div>
-              <p className="text-3xl font-bold text-secondary">95</p>
+          {/* Action Inbox */}
+          {hasPreceptorActions ? (
+            <div className="grid md:grid-cols-2 gap-6">
+              <ActionSection 
+                title="Cursos Pendientes de Lista" 
+                items={PRECEPTOR_ACTIONS_LISTA} 
+                icon={ClipboardCheck} 
+              />
+              <ActionSection 
+                title="Alumnos Ausentes - Contactar Familia" 
+                items={PRECEPTOR_ACTIONS_AUSENTES} 
+                icon={Phone} 
+              />
             </div>
-            <div className="p-4 rounded-xl glass-panel">
-              <div className="flex items-center gap-3 mb-2">
-                <ShieldAlert className="w-4 h-4 text-tertiary" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">Incidencias Hoy</span>
-              </div>
-              <p className="text-3xl font-bold text-tertiary">0</p>
-            </div>
-          </div>
+          ) : (
+            <ZeroInboxState />
+          )}
         </motion.div>
       )}
 
-      {/* VISTA: FAMILIA */}
+      {/* ============================================ */}
+      {/* DASHBOARD DOCENTE */}
+      {/* ============================================ */}
+      {role === "DOCENTE" && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-6"
+        >
+          {/* Critical Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {DOCENTE_METRICS.map((metric, i) => (
+              <CriticalMetricCard key={i} metric={metric} />
+            ))}
+          </div>
+
+          {/* Action Inbox */}
+          {hasDocenteActions ? (
+            <ActionSection 
+              title="Tareas Pendientes" 
+              items={DOCENTE_ACTIONS} 
+              icon={BookOpen} 
+            />
+          ) : (
+            <ZeroInboxState />
+          )}
+        </motion.div>
+      )}
+
+      {/* ============================================ */}
+      {/* DASHBOARD FAMILIA */}
+      {/* ============================================ */}
       {role === "FAMILIA" && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -391,82 +659,70 @@ export default function DashboardPage() {
           className="space-y-6"
         >
           {/* Student Card */}
-          <div className="p-6 rounded-2xl glass-panel">
+          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5">
             <div className="flex items-start gap-4 mb-6">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center border border-white/10">
-                <span className="text-lg font-bold text-foreground">VC</span>
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#d0bcff]/30 to-[#4de082]/30 flex items-center justify-center border border-white/10">
+                <span className="text-lg font-bold text-[#e4e1ea]">VC</span>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground">{ALUMNO_DATA.nombre}</h2>
-                <p className="text-sm text-muted-foreground">{ALUMNO_DATA.curso} - Division {ALUMNO_DATA.division}</p>
-                <p className="text-xs text-primary mt-1">{escuelaActiva.name}</p>
+                <h2 className="text-lg font-bold text-[#e4e1ea]">{ALUMNO_DATA.nombre}</h2>
+                <p className="text-sm text-white/50">{ALUMNO_DATA.curso} - Division {ALUMNO_DATA.division}</p>
+                <p className="text-xs text-[#d0bcff] mt-1">{escuelaActiva.name}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Inasistencias</p>
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Inasistencias</p>
                 <p className="text-2xl font-bold">
-                  <span className="text-tertiary">{ALUMNO_DATA.inasistencias}</span>
-                  <span className="text-muted-foreground text-lg"> / {ALUMNO_DATA.limiteInasistencias}</span>
+                  <span className="text-amber-400">{ALUMNO_DATA.inasistencias}</span>
+                  <span className="text-white/30 text-lg"> / {ALUMNO_DATA.limiteInasistencias}</span>
                 </p>
                 <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
                   <div 
-                    className="h-full bg-tertiary rounded-full"
+                    className="h-full bg-amber-400 rounded-full"
                     style={{ width: `${(ALUMNO_DATA.inasistencias / ALUMNO_DATA.limiteInasistencias) * 100}%` }}
                   />
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Promedio General</p>
-                <p className="text-2xl font-bold text-secondary">{ALUMNO_DATA.promedio}</p>
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Promedio General</p>
+                <p className="text-2xl font-bold text-[#4de082]">{ALUMNO_DATA.promedio}</p>
                 <div className="flex items-center gap-1 mt-2">
-                  <TrendingUp className="w-3 h-3 text-secondary" />
-                  <span className="text-[10px] text-secondary">+0.3 este mes</span>
+                  <TrendingUp className="w-3 h-3 text-[#4de082]" />
+                  <span className="text-[10px] text-[#4de082]">+0.3 este mes</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Recent Grades */}
-          <div className="p-6 rounded-2xl glass-panel space-y-4">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Calificaciones Recientes</h3>
+          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
+            <h3 className="text-sm font-bold text-[#e4e1ea] uppercase tracking-wider">Calificaciones Recientes</h3>
             <div className="space-y-2">
               {ALUMNO_DATA.materias.map((materia, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
                   <div className="flex items-center gap-3">
-                    <BookOpen className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-foreground">{materia.nombre}</span>
+                    <BookOpen className="w-4 h-4 text-white/30" />
+                    <span className="text-sm text-[#e4e1ea]">{materia.nombre}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      materia.estado === "TEA" ? "bg-secondary/10 text-secondary" :
-                      materia.estado === "TEP" ? "bg-primary/10 text-primary" :
-                      "bg-tertiary/10 text-tertiary"
-                    }`}>
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-bold",
+                      materia.estado === "TEA" ? "bg-[#4de082]/10 text-[#4de082]" :
+                      materia.estado === "TEP" ? "bg-[#d0bcff]/10 text-[#d0bcff]" :
+                      "bg-red-500/10 text-red-400"
+                    )}>
                       {materia.estado}
                     </span>
-                    <span className="text-lg font-bold text-foreground w-8 text-right">{materia.nota}</span>
+                    <span className="text-lg font-bold text-[#e4e1ea] w-8 text-right">{materia.nota}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Quick Links */}
-          <div className="grid grid-cols-2 gap-3">
-            <button className="p-4 rounded-xl glass-panel hover:border-primary/30 transition-all flex items-center gap-3">
-              <Bell className="w-5 h-5 text-primary" />
-              <span className="text-sm text-foreground">Muro Escolar</span>
-            </button>
-            <button className="p-4 rounded-xl glass-panel hover:border-primary/30 transition-all flex items-center gap-3">
-              <FileText className="w-5 h-5 text-primary" />
-              <span className="text-sm text-foreground">Tramites</span>
-            </button>
-          </div>
         </motion.div>
       )}
-      </div>
     </div>
   )
 }

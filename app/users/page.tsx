@@ -21,6 +21,13 @@ import {
   Settings2,
   Plus,
   X,
+  FileText,
+  AlertTriangle,
+  Upload,
+  Calendar,
+  Phone,
+  MapPin,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -33,6 +40,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -59,6 +74,7 @@ import { cn } from "@/lib/utils";
 
 type StaffRole = "DOCENTE" | "PRECEPTOR" | "ADMINISTRATIVO";
 type StaffStatus = "ACTIVE" | "PENDING" | "SUSPENDED";
+type DocumentStatus = "AL_DIA" | "VENCIDO" | "FALTA_ENTREGAR";
 
 interface StaffMember {
   id: string;
@@ -70,6 +86,27 @@ interface StaffMember {
   assignedSubjects: string[];
   invitedAt: string;
   lastActivity?: string;
+  phone?: string;
+  address?: string;
+  cuil?: string;
+}
+
+interface StaffDocument {
+  id: string;
+  name: string;
+  description: string;
+  status: DocumentStatus;
+  expirationDate?: string;
+  uploadedAt?: string;
+}
+
+interface StaffAttendanceRecord {
+  year: number;
+  totalDays: number;
+  presentDays: number;
+  justifiedAbsences: number;
+  unjustifiedAbsences: number;
+  lateArrivals: number;
 }
 
 // ============================================
@@ -86,7 +123,10 @@ const MOCK_STAFF: StaffMember[] = [
     assignedCourses: ["4to Ano A", "4to Ano B", "5to Ano A"],
     assignedSubjects: ["Matematica", "Fisica"],
     invitedAt: "2024-01-15",
-    lastActivity: "Hace 2 horas"
+    lastActivity: "Hace 2 horas",
+    phone: "+54 11 5555-1234",
+    address: "Av. Corrientes 1234, CABA",
+    cuil: "27-28456789-4",
   },
   { 
     id: "2", 
@@ -97,7 +137,10 @@ const MOCK_STAFF: StaffMember[] = [
     assignedCourses: ["4to Ano A", "4to Ano B"],
     assignedSubjects: [],
     invitedAt: "2024-02-10",
-    lastActivity: "Hace 15 min"
+    lastActivity: "Hace 15 min",
+    phone: "+54 11 5555-5678",
+    address: "Calle Florida 567, CABA",
+    cuil: "27-30123456-8",
   },
   { 
     id: "3", 
@@ -108,6 +151,7 @@ const MOCK_STAFF: StaffMember[] = [
     assignedCourses: [],
     assignedSubjects: [],
     invitedAt: "2024-03-18",
+    phone: "+54 11 5555-9012",
   },
   { 
     id: "4", 
@@ -118,7 +162,10 @@ const MOCK_STAFF: StaffMember[] = [
     assignedCourses: ["3er Ano A", "3er Ano B"],
     assignedSubjects: ["Historia", "Ciudadania"],
     invitedAt: "2024-01-20",
-    lastActivity: "Hace 1 dia"
+    lastActivity: "Hace 1 dia",
+    phone: "+54 11 5555-3456",
+    address: "Belgrano 890, CABA",
+    cuil: "20-25789012-3",
   },
   { 
     id: "5", 
@@ -129,9 +176,40 @@ const MOCK_STAFF: StaffMember[] = [
     assignedCourses: ["5to Ano B"],
     assignedSubjects: [],
     invitedAt: "2023-11-05",
-    lastActivity: "Hace 30 dias"
+    lastActivity: "Hace 30 dias",
+    phone: "+54 11 5555-7890",
   },
 ];
+
+// Mock documents for staff legajo
+const MOCK_DOCUMENTS: Record<string, StaffDocument[]> = {
+  "1": [
+    { id: "d1", name: "Declaracion Jurada (DD.JJ.) de Cargos", description: "Declaracion anual de cargos publicos", status: "AL_DIA", uploadedAt: "2024-03-01", expirationDate: "2025-03-01" },
+    { id: "d2", name: "Titulo Habilitante", description: "Titulo universitario o terciario", status: "AL_DIA", uploadedAt: "2024-01-15" },
+    { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "VENCIDO", uploadedAt: "2023-06-15", expirationDate: "2024-06-15" },
+    { id: "d4", name: "Antecedentes Penales", description: "Certificado de antecedentes", status: "AL_DIA", uploadedAt: "2024-02-20", expirationDate: "2025-02-20" },
+  ],
+  "2": [
+    { id: "d1", name: "Declaracion Jurada (DD.JJ.) de Cargos", description: "Declaracion anual de cargos publicos", status: "AL_DIA", uploadedAt: "2024-02-15", expirationDate: "2025-02-15" },
+    { id: "d2", name: "Titulo Habilitante", description: "Titulo universitario o terciario", status: "AL_DIA", uploadedAt: "2024-02-10" },
+    { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "FALTA_ENTREGAR" },
+    { id: "d4", name: "Antecedentes Penales", description: "Certificado de antecedentes", status: "AL_DIA", uploadedAt: "2024-01-10", expirationDate: "2025-01-10" },
+  ],
+  "4": [
+    { id: "d1", name: "Declaracion Jurada (DD.JJ.) de Cargos", description: "Declaracion anual de cargos publicos", status: "FALTA_ENTREGAR" },
+    { id: "d2", name: "Titulo Habilitante", description: "Titulo universitario o terciario", status: "AL_DIA", uploadedAt: "2024-01-20" },
+    { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "AL_DIA", uploadedAt: "2024-05-01", expirationDate: "2025-05-01" },
+    { id: "d4", name: "Antecedentes Penales", description: "Certificado de antecedentes", status: "VENCIDO", uploadedAt: "2023-01-20", expirationDate: "2024-01-20" },
+  ],
+};
+
+// Mock attendance records
+const MOCK_ATTENDANCE: Record<string, StaffAttendanceRecord> = {
+  "1": { year: 2024, totalDays: 120, presentDays: 112, justifiedAbsences: 5, unjustifiedAbsences: 1, lateArrivals: 2 },
+  "2": { year: 2024, totalDays: 120, presentDays: 118, justifiedAbsences: 2, unjustifiedAbsences: 0, lateArrivals: 0 },
+  "4": { year: 2024, totalDays: 120, presentDays: 105, justifiedAbsences: 10, unjustifiedAbsences: 3, lateArrivals: 2 },
+  "5": { year: 2024, totalDays: 120, presentDays: 80, justifiedAbsences: 15, unjustifiedAbsences: 20, lateArrivals: 5 },
+};
 
 const AVAILABLE_COURSES = [
   { id: "3a", name: "3er Ano A" },
@@ -223,6 +301,15 @@ function getStatusConfig(status: StaffStatus): { label: string; color: string; i
   return configs[status];
 }
 
+function getDocumentStatusConfig(status: DocumentStatus): { label: string; color: string; bgColor: string } {
+  const configs: Record<DocumentStatus, { label: string; color: string; bgColor: string }> = {
+    AL_DIA: { label: "Al dia", color: "text-[#4de082]", bgColor: "bg-[#4de082]/10 border-[#4de082]/20" },
+    VENCIDO: { label: "Vencido", color: "text-red-400", bgColor: "bg-red-500/10 border-red-500/20" },
+    FALTA_ENTREGAR: { label: "Falta Entregar", color: "text-amber-400", bgColor: "bg-amber-500/10 border-amber-500/20" },
+  };
+  return configs[status];
+}
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -266,6 +353,15 @@ export default function StaffManagementPage() {
     subject: string;
   }
   const [memberAssignments, setMemberAssignments] = useState<Assignment[]>([]);
+
+  // Legajo (Staff File) Sheet state
+  const [isLegajoOpen, setIsLegajoOpen] = useState(false);
+  const [legajoMember, setLegajoMember] = useState<StaffMember | null>(null);
+  const [legajoTab, setLegajoTab] = useState("datos");
+  const [isValidatingDoc, setIsValidatingDoc] = useState<string | null>(null);
+
+  // For demo purposes, assume current user is ADMIN (can edit documents)
+  const isAdmin = true;
 
   useEffect(() => {
     setMounted(true);
@@ -422,6 +518,23 @@ export default function StaffManagementPage() {
     });
   }, [selectedMember, memberAssignments]);
 
+  // Open legajo sheet
+  const handleOpenLegajo = useCallback((member: StaffMember) => {
+    setLegajoMember(member);
+    setLegajoTab("datos");
+    setIsLegajoOpen(true);
+  }, []);
+
+  // Validate/Upload document
+  const handleValidateDocument = useCallback(async (docId: string) => {
+    setIsValidatingDoc(docId);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsValidatingDoc(null);
+    toast.success("Documento validado y actualizado", {
+      description: "El estado del documento ha sido modificado a 'Al dia'.",
+    });
+  }, []);
+
   if (!mounted) return null;
 
   return (
@@ -552,7 +665,12 @@ export default function StaffManagementPage() {
                             {member.name.split(",")[0].charAt(0)}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-foreground">{member.name}</p>
+                            <button 
+                              onClick={() => handleOpenLegajo(member)}
+                              className="text-sm font-medium text-foreground hover:text-[#d0bcff] transition-colors text-left"
+                            >
+                              {member.name}
+                            </button>
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                               <Mail className="size-3" />
                               {member.email}
@@ -614,6 +732,13 @@ export default function StaffManagementPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 bg-card border-white/10">
+                            <DropdownMenuItem 
+                              className="gap-2 cursor-pointer"
+                              onClick={() => handleOpenLegajo(member)}
+                            >
+                              <Eye className="size-4" />
+                              Ver Legajo
+                            </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer"
                               onClick={() => handleOpenScopeModal(member)}
@@ -975,6 +1100,320 @@ export default function StaffManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Staff Legajo (360 View) Sheet */}
+      <Sheet open={isLegajoOpen} onOpenChange={setIsLegajoOpen}>
+        <SheetContent className="w-full sm:max-w-[600px] bg-[#131319] border-l border-white/10 p-0 overflow-hidden">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b border-white/5">
+            <div className="flex items-center gap-4">
+              <div className="size-14 rounded-full bg-gradient-to-br from-[#d0bcff]/30 to-[#d0bcff]/10 flex items-center justify-center text-xl font-bold text-[#d0bcff] border border-[#d0bcff]/20">
+                {legajoMember?.name.split(",")[0].charAt(0) || "?"}
+              </div>
+              <div>
+                <SheetTitle className="text-[#e4e1ea] text-lg">{legajoMember?.name}</SheetTitle>
+                <SheetDescription className="text-white/50 flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${legajoMember ? getRoleColor(legajoMember.role) : ""}`}>
+                    {legajoMember ? getRoleLabel(legajoMember.role) : ""}
+                  </span>
+                  {legajoMember?.cuil && <span className="text-xs font-mono">CUIL: {legajoMember.cuil}</span>}
+                </SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+          
+          <Tabs value={legajoTab} onValueChange={setLegajoTab} className="flex-1">
+            <TabsList className="w-full justify-start px-6 pt-4 bg-transparent border-b border-white/5">
+              <TabsTrigger 
+                value="datos" 
+                className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] text-white/50"
+              >
+                Datos y Alcance
+              </TabsTrigger>
+              <TabsTrigger 
+                value="documentacion" 
+                className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] text-white/50"
+              >
+                Documentacion
+              </TabsTrigger>
+              <TabsTrigger 
+                value="asistencia" 
+                className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] text-white/50"
+              >
+                Asistencia
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Tab 1: Datos y Alcance */}
+            <TabsContent value="datos" className="px-6 py-5 space-y-6 max-h-[calc(100vh-220px)] overflow-y-auto">
+              {/* Contact Information */}
+              <div className="space-y-3">
+                <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">Datos de Contacto</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                    <Mail className="size-4 text-white/40" />
+                    <div>
+                      <p className="text-[10px] text-white/40">Email</p>
+                      <p className="text-sm text-[#e4e1ea]">{legajoMember?.email}</p>
+                    </div>
+                  </div>
+                  {legajoMember?.phone && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                      <Phone className="size-4 text-white/40" />
+                      <div>
+                        <p className="text-[10px] text-white/40">Telefono</p>
+                        <p className="text-sm text-[#e4e1ea]">{legajoMember.phone}</p>
+                      </div>
+                    </div>
+                  )}
+                  {legajoMember?.address && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                      <MapPin className="size-4 text-white/40" />
+                      <div>
+                        <p className="text-[10px] text-white/40">Domicilio</p>
+                        <p className="text-sm text-[#e4e1ea]">{legajoMember.address}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Academic Scope */}
+              <div className="space-y-3">
+                <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">Alcance Academico</h3>
+                {legajoMember?.assignedCourses && legajoMember.assignedCourses.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                      <p className="text-[10px] text-white/40 mb-2">Cursos Asignados</p>
+                      <div className="flex flex-wrap gap-2">
+                        {legajoMember.assignedCourses.map((course, i) => (
+                          <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-[#d0bcff]/10 text-[#d0bcff] border border-[#d0bcff]/20">
+                            {course}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {legajoMember.assignedSubjects.length > 0 && (
+                      <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                        <p className="text-[10px] text-white/40 mb-2">Materias</p>
+                        <div className="flex flex-wrap gap-2">
+                          {legajoMember.assignedSubjects.map((subject, i) => (
+                            <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              {subject}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-sm text-white/30 bg-white/[0.02] rounded-xl border border-white/5">
+                    Sin asignaciones academicas
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Tab 2: Documentacion Legal */}
+            <TabsContent value="documentacion" className="px-6 py-5 space-y-4 max-h-[calc(100vh-220px)] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">Documentos Obligatorios</h3>
+                {!isAdmin && (
+                  <span className="text-[10px] px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Solo Lectura
+                  </span>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                {(legajoMember && MOCK_DOCUMENTS[legajoMember.id] ? MOCK_DOCUMENTS[legajoMember.id] : [
+                  { id: "d1", name: "Declaracion Jurada (DD.JJ.) de Cargos", description: "Declaracion anual de cargos publicos", status: "FALTA_ENTREGAR" as DocumentStatus },
+                  { id: "d2", name: "Titulo Habilitante", description: "Titulo universitario o terciario", status: "FALTA_ENTREGAR" as DocumentStatus },
+                  { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "FALTA_ENTREGAR" as DocumentStatus },
+                  { id: "d4", name: "Antecedentes Penales", description: "Certificado de antecedentes", status: "FALTA_ENTREGAR" as DocumentStatus },
+                ]).map((doc) => {
+                  const statusConfig = getDocumentStatusConfig(doc.status);
+                  return (
+                    <div 
+                      key={doc.id}
+                      className="px-4 py-4 bg-white/[0.02] rounded-xl border border-white/5 hover:border-white/10 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className={`size-10 rounded-lg flex items-center justify-center ${statusConfig.bgColor} border`}>
+                            <FileText className={`size-5 ${statusConfig.color}`} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-[#e4e1ea]">{doc.name}</p>
+                            <p className="text-xs text-white/40 mt-0.5">{doc.description}</p>
+                            {doc.uploadedAt && (
+                              <p className="text-[10px] text-white/30 mt-1">
+                                Cargado: {doc.uploadedAt}
+                                {doc.expirationDate && ` | Vence: ${doc.expirationDate}`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${statusConfig.bgColor} ${statusConfig.color} border`}>
+                            {statusConfig.label}
+                          </span>
+                          {isAdmin && doc.status !== "AL_DIA" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleValidateDocument(doc.id)}
+                              disabled={isValidatingDoc === doc.id}
+                              className="h-7 text-xs border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10 gap-1"
+                            >
+                              {isValidatingDoc === doc.id ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Upload className="size-3" />
+                              )}
+                              Validar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Compliance Summary */}
+              <div className="mt-6 p-4 rounded-xl bg-white/[0.01] border border-white/5">
+                <p className="text-xs text-white/40 mb-3">Resumen de Cumplimiento</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {(() => {
+                    const docs = legajoMember && MOCK_DOCUMENTS[legajoMember.id] ? MOCK_DOCUMENTS[legajoMember.id] : [];
+                    const alDia = docs.filter(d => d.status === "AL_DIA").length;
+                    const vencidos = docs.filter(d => d.status === "VENCIDO").length;
+                    const faltantes = docs.filter(d => d.status === "FALTA_ENTREGAR").length;
+                    return (
+                      <>
+                        <div className="text-center p-3 rounded-lg bg-[#4de082]/5 border border-[#4de082]/20">
+                          <p className="text-xl font-bold text-[#4de082]">{alDia}</p>
+                          <p className="text-[10px] text-white/40">Al dia</p>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                          <p className="text-xl font-bold text-red-400">{vencidos}</p>
+                          <p className="text-[10px] text-white/40">Vencidos</p>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                          <p className="text-xl font-bold text-amber-400">{faltantes}</p>
+                          <p className="text-[10px] text-white/40">Faltantes</p>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Tab 3: Asistencia Anual */}
+            <TabsContent value="asistencia" className="px-6 py-5 space-y-6 max-h-[calc(100vh-220px)] overflow-y-auto">
+              <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">Presentismo Anual 2024</h3>
+              
+              {(() => {
+                const attendance = legajoMember && MOCK_ATTENDANCE[legajoMember.id] 
+                  ? MOCK_ATTENDANCE[legajoMember.id] 
+                  : { year: 2024, totalDays: 120, presentDays: 0, justifiedAbsences: 0, unjustifiedAbsences: 0, lateArrivals: 0 };
+                const presentPercentage = Math.round((attendance.presentDays / attendance.totalDays) * 100);
+                
+                return (
+                  <>
+                    {/* Presentismo Gauge */}
+                    <div className="flex items-center justify-center py-6">
+                      <div className="relative size-40">
+                        <svg className="size-full -rotate-90" viewBox="0 0 100 100">
+                          <circle
+                            className="stroke-white/5"
+                            strokeWidth="8"
+                            fill="transparent"
+                            r="42"
+                            cx="50"
+                            cy="50"
+                          />
+                          <circle
+                            className={cn(
+                              "transition-all duration-500",
+                              presentPercentage >= 90 ? "stroke-[#4de082]" : 
+                              presentPercentage >= 75 ? "stroke-amber-400" : "stroke-red-400"
+                            )}
+                            strokeWidth="8"
+                            strokeLinecap="round"
+                            fill="transparent"
+                            r="42"
+                            cx="50"
+                            cy="50"
+                            strokeDasharray={`${presentPercentage * 2.64} 264`}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className={cn(
+                            "text-3xl font-bold",
+                            presentPercentage >= 90 ? "text-[#4de082]" : 
+                            presentPercentage >= 75 ? "text-amber-400" : "text-red-400"
+                          )}>
+                            {presentPercentage}%
+                          </span>
+                          <span className="text-[10px] text-white/40">Presentismo</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CheckCircle className="size-4 text-[#4de082]" />
+                          <span className="text-xs text-white/40">Dias Presentes</span>
+                        </div>
+                        <p className="text-2xl font-bold text-[#e4e1ea]">{attendance.presentDays}</p>
+                        <p className="text-[10px] text-white/30">de {attendance.totalDays} dias habiles</p>
+                      </div>
+                      <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="size-4 text-blue-400" />
+                          <span className="text-xs text-white/40">Ausencias Justificadas</span>
+                        </div>
+                        <p className="text-2xl font-bold text-[#e4e1ea]">{attendance.justifiedAbsences}</p>
+                        <p className="text-[10px] text-white/30">certificados medicos/licencias</p>
+                      </div>
+                      <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <AlertTriangle className="size-4 text-red-400" />
+                          <span className="text-xs text-white/40">Ausencias Injustificadas</span>
+                        </div>
+                        <p className="text-2xl font-bold text-[#e4e1ea]">{attendance.unjustifiedAbsences}</p>
+                        <p className="text-[10px] text-white/30">sin justificativo</p>
+                      </div>
+                      <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Clock className="size-4 text-amber-400" />
+                          <span className="text-xs text-white/40">Llegadas Tarde</span>
+                        </div>
+                        <p className="text-2xl font-bold text-[#e4e1ea]">{attendance.lateArrivals}</p>
+                        <p className="text-[10px] text-white/30">registradas en el ano</p>
+                      </div>
+                    </div>
+
+                    {/* Warning if low attendance */}
+                    {presentPercentage < 85 && (
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/5 border border-red-500/20">
+                        <AlertTriangle className="size-5 text-red-400 shrink-0" />
+                        <p className="text-sm text-red-300">
+                          El presentismo esta por debajo del umbral minimo requerido (85%). Se requiere atencion.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </TabsContent>
+          </Tabs>
+        </SheetContent>
+      </Sheet>
       
       <Toaster theme="dark" />
     </div>
