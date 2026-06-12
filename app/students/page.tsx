@@ -20,6 +20,8 @@ import {
   Copy,
   ExternalLink,
   Lock,
+  Globe,
+  ArrowUpCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -112,11 +114,27 @@ interface Division {
 }
 
 const MOCK_DIVISIONS: Division[] = [
+  { id: "1a", name: "1er Ano A", course: "1er Ano", level: "SECONDARY", studentCount: 24 },
+  { id: "1b", name: "1er Ano B", course: "1er Ano", level: "SECONDARY", studentCount: 22 },
   { id: "4a", name: "4to Ano A", course: "4to Ano", level: "SECONDARY", studentCount: 28 },
   { id: "4b", name: "4to Ano B", course: "4to Ano", level: "SECONDARY", studentCount: 30 },
   { id: "4c", name: "4to Ano C", course: "4to Ano", level: "SECONDARY", studentCount: 26 },
   { id: "5a", name: "5to Ano A", course: "5to Ano", level: "SECONDARY", studentCount: 25 },
   { id: "5b", name: "5to Ano B", course: "5to Ano", level: "SECONDARY", studentCount: 27 },
+];
+
+// Divisiones de ingreso a Secundaria (destino de promocion inter-nivel)
+const SECONDARY_ENTRY_DIVISIONS = MOCK_DIVISIONS.filter((d) => d.course === "1er Ano");
+
+// Padron de Primaria (otro nivel de la misma institucion).
+// El Admin de Secundaria los ve en modo Solo Lectura y puede asimilar a los de 6to Grado.
+const MOCK_PRIMARY_STUDENTS: Student[] = [
+  { id: "p6-1", firstName: "Thiago", lastName: "Acosta", legajo: "2024-301", currentCourse: "6to Grado", currentDivision: "6a-prim", level: "PRIMARY", status: "REGULAR" },
+  { id: "p6-2", firstName: "Mia", lastName: "Bravo", legajo: "2024-302", currentCourse: "6to Grado", currentDivision: "6a-prim", level: "PRIMARY", status: "REGULAR" },
+  { id: "p6-3", firstName: "Bautista", lastName: "Cabrera", legajo: "2024-303", currentCourse: "6to Grado", currentDivision: "6b-prim", level: "PRIMARY", status: "REGULAR" },
+  { id: "p6-4", firstName: "Catalina", lastName: "Dominguez", legajo: "2024-304", currentCourse: "6to Grado", currentDivision: "6b-prim", level: "PRIMARY", status: "CONDICIONAL" },
+  { id: "p5-1", firstName: "Lautaro", lastName: "Esposito", legajo: "2024-310", currentCourse: "5to Grado", currentDivision: "5a-prim", level: "PRIMARY", status: "REGULAR" },
+  { id: "p5-2", firstName: "Renata", lastName: "Figueroa", legajo: "2024-311", currentCourse: "5to Grado", currentDivision: "5a-prim", level: "PRIMARY", status: "REGULAR" },
 ];
 
 const MOCK_STUDENTS: Student[] = [
@@ -149,6 +167,15 @@ export default function StudentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [targetDivision, setTargetDivision] = useState<string>("");
   const [isTransferring, setIsTransferring] = useState(false);
+
+  // Padron view state: "MI_NIVEL" (alumnos del nivel del admin) | "GLOBAL" (toda la institucion, solo lectura)
+  const [padronView, setPadronView] = useState<"MI_NIVEL" | "GLOBAL">("MI_NIVEL");
+
+  // Promocion Inter-Nivel dialog state
+  const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
+  const [studentToPromote, setStudentToPromote] = useState<Student | null>(null);
+  const [promoteTargetDivision, setPromoteTargetDivision] = useState<string>("");
+  const [isPromoting, setIsPromoting] = useState(false);
 
   // Boletin generator dialog state
   const [isBoletinDialogOpen, setIsBoletinDialogOpen] = useState(false);
@@ -185,6 +212,18 @@ export default function StudentsPage() {
     const matchesDivision = filterDivision === "all" || student.currentDivision === filterDivision;
     
     return matchesSearch && matchesDivision;
+  });
+
+  // Padron Global: une el alumnado del nivel propio (Secundaria) con el de otros
+  // niveles de la institucion (Primaria), compartiendo la misma base de datos.
+  const globalRoster = [...students, ...MOCK_PRIMARY_STUDENTS];
+  const filteredGlobalStudents = globalRoster.filter((student) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      student.firstName.toLowerCase().includes(q) ||
+      student.lastName.toLowerCase().includes(q) ||
+      student.legajo.includes(searchQuery)
+    );
   });
 
   // Check permissions
@@ -380,6 +419,51 @@ startxref
     );
   };
 
+  // Open inter-level promotion dialog (asimilar alumno de otro nivel a Secundaria)
+  const handleOpenPromote = (student: Student) => {
+    setStudentToPromote(student);
+    setPromoteTargetDivision("");
+    setIsPromoteDialogOpen(true);
+  };
+
+  // Execute inter-level promotion: incorpora al alumno a la matricula de Secundaria
+  const handlePromote = useCallback(async () => {
+    if (!studentToPromote || !promoteTargetDivision) return;
+
+    setIsPromoting(true);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    const targetDiv = MOCK_DIVISIONS.find((d) => d.id === promoteTargetDivision);
+
+    // Incorpora a la matricula propia del nivel (Secundaria), actualizando curso y division.
+    setStudents((prev) => {
+      if (prev.some((s) => s.id === studentToPromote.id)) return prev;
+      return [
+        ...prev,
+        {
+          ...studentToPromote,
+          level: "SECONDARY",
+          currentCourse: targetDiv?.course ?? studentToPromote.currentCourse,
+          currentDivision: promoteTargetDivision,
+          status: "REGULAR",
+        },
+      ];
+    });
+
+    setIsPromoting(false);
+    setIsPromoteDialogOpen(false);
+    setStudentToPromote(null);
+    setPromoteTargetDivision("");
+
+    toast.success(
+      "Alumno promovido e incorporado a la matricula de Secundaria exitosamente.",
+      {
+        description: `${studentToPromote.firstName} ${studentToPromote.lastName} ahora cursa en ${targetDiv?.name}`,
+        duration: 5000,
+      }
+    );
+  }, [studentToPromote, promoteTargetDivision]);
+
   const getStatusBadge = (status: Student["status"]) => {
     const config = {
       REGULAR: { label: "Regular", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
@@ -388,6 +472,19 @@ startxref
     };
     return config[status];
   };
+
+  // Nivel educativo del Admin actual (en este escenario, Secundaria).
+  const OWN_LEVEL: Student["level"] = "SECONDARY";
+
+  const getLevelBadge = (level: Student["level"]) => {
+    return level === "SECONDARY"
+      ? { label: "Secundaria", className: "bg-[#d0bcff]/15 text-[#d0bcff] border-[#d0bcff]/30" }
+      : { label: "Primaria", className: "bg-sky-500/15 text-sky-300 border-sky-500/30" };
+  };
+
+  // Un alumno es "asimilable" si pertenece a otro nivel y esta en el ultimo grado (6to Grado).
+  const canAssimilate = (student: Student) =>
+    student.level !== OWN_LEVEL && student.currentCourse === "6to Grado";
 
   if (!mounted || !currentRole) return null;
 
@@ -451,6 +548,50 @@ startxref
 
         {/* Alumnos Tab Content */}
         <TabsContent value="alumnos" className="mt-6 space-y-6">
+          {/* Selector de Padron (solo ADMIN): Mi Nivel vs Padron Global Institucional */}
+          {isAdmin && (
+            <div className="flex flex-col gap-3">
+              <div className="inline-flex w-fit items-center gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1">
+                <button
+                  type="button"
+                  onClick={() => setPadronView("MI_NIVEL")}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+                    padronView === "MI_NIVEL"
+                      ? "bg-[#d0bcff]/20 text-[#d0bcff]"
+                      : "text-white/50 hover:text-white/80"
+                  )}
+                >
+                  <GraduationCap className="size-4" />
+                  Mi Nivel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPadronView("GLOBAL")}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+                    padronView === "GLOBAL"
+                      ? "bg-[#d0bcff]/20 text-[#d0bcff]"
+                      : "text-white/50 hover:text-white/80"
+                  )}
+                >
+                  <Globe className="size-4" />
+                  Padron Global
+                </button>
+              </div>
+              {padronView === "GLOBAL" && (
+                <div className="flex items-start gap-3 rounded-xl border border-sky-500/20 bg-sky-500/[0.06] p-3">
+                  <Lock className="mt-0.5 size-4 shrink-0 text-sky-300" />
+                  <p className="text-xs leading-relaxed text-sky-200/70">
+                    Padron compartido a nivel institucional (Solo Lectura). Los alumnos de{" "}
+                    <strong className="text-sky-300">6to Grado - Primaria</strong> pueden ser
+                    asimilados a tu nivel mediante la accion de promocion inter-nivel.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
@@ -463,22 +604,25 @@ startxref
           />
         </div>
         
-        <Select value={filterDivision} onValueChange={setFilterDivision}>
-          <SelectTrigger className="w-[180px] bg-white/[0.02] border-white/10">
-            <SelectValue placeholder="Filtrar division" />
-          </SelectTrigger>
-          <SelectContent className="bg-[#1a1a2e] border-white/10">
-            <SelectItem value="all">Todas las divisiones</SelectItem>
-            {MOCK_DIVISIONS.map((div) => (
-              <SelectItem key={div.id} value={div.id}>
-                {div.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {padronView === "MI_NIVEL" && (
+          <Select value={filterDivision} onValueChange={setFilterDivision}>
+            <SelectTrigger className="w-[180px] bg-white/[0.02] border-white/10">
+              <SelectValue placeholder="Filtrar division" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1a1a2e] border-white/10">
+              <SelectItem value="all">Todas las divisiones</SelectItem>
+              {MOCK_DIVISIONS.map((div) => (
+                <SelectItem key={div.id} value={div.id}>
+                  {div.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
-      {/* Students Table */}
+      {/* ============ VISTA: MI NIVEL ============ */}
+      {padronView === "MI_NIVEL" && (
       <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -591,6 +735,110 @@ startxref
           </div>
         )}
       </div>
+      )}
+
+      {/* ============ VISTA: PADRON GLOBAL (Solo Lectura) ============ */}
+      {padronView === "GLOBAL" && (
+      <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/5">
+                <th className="px-4 py-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Alumno
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Legajo
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Nivel
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Curso Actual
+                </th>
+                <th className="px-4 py-4 text-right text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Accion
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filteredGlobalStudents.map((student) => {
+                const initials = `${student.firstName[0]}${student.lastName[0]}`;
+                const levelBadge = getLevelBadge(student.level);
+                const assimilable = canAssimilate(student);
+                const isOwnLevel = student.level === OWN_LEVEL;
+
+                return (
+                  <tr key={`global-${student.id}`} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-10 ring-2 ring-white/10">
+                          <AvatarImage src={student.photoUrl} />
+                          <AvatarFallback className={cn(
+                            "font-semibold text-sm",
+                            isOwnLevel ? "bg-[#d0bcff]/10 text-[#d0bcff]" : "bg-sky-500/10 text-sky-300"
+                          )}>
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium text-[#e4e1ea]">
+                            {student.lastName}, {student.firstName}
+                          </p>
+                          <p className="text-xs text-white/40">
+                            {isOwnLevel ? "Matricula propia" : "Otro nivel institucional"}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-mono text-white/60">{student.legajo}</span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <Badge variant="outline" className={cn("border", levelBadge.className)}>
+                        {levelBadge.label}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm text-white/70">{student.currentCourse}</span>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      {assimilable ? (
+                        <Button
+                          onClick={() => handleOpenPromote(student)}
+                          size="sm"
+                          className="bg-[#d0bcff]/10 text-[#d0bcff] hover:bg-[#d0bcff]/20 border border-[#d0bcff]/20"
+                        >
+                          <ArrowUpCircle className="size-3.5 mr-1.5" />
+                          Asimilar a Mi Nivel
+                        </Button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-white/30">
+                          <Lock className="size-3.5" />
+                          Solo lectura
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredGlobalStudents.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Globe className="size-12 text-white/20 mb-4" />
+            <h3 className="text-lg font-medium text-[#e4e1ea] mb-1">
+              Sin coincidencias en el padron global
+            </h3>
+            <p className="text-sm text-white/40">
+              Intenta ajustar la busqueda
+            </p>
+          </div>
+        )}
+      </div>
+      )}
         </TabsContent>
 
         {/* Pases Inter-Escolares Tab Content */}
@@ -1008,6 +1256,102 @@ startxref
               className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 w-full"
             >
               Entendido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Promocion Inter-Nivel Dialog */}
+      <Dialog open={isPromoteDialogOpen} onOpenChange={setIsPromoteDialogOpen}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <ArrowUpCircle className="size-5 text-[#d0bcff]" />
+              Promover al Nivel Secundario
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              {studentToPromote
+                ? `Promover a ${studentToPromote.firstName} ${studentToPromote.lastName} al Nivel Secundario`
+                : "Asimilar alumno a tu nivel"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {studentToPromote && (
+            <div className="space-y-5 py-4">
+              {/* Student Info */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <Avatar className="size-12 ring-2 ring-sky-500/20">
+                  <AvatarFallback className="bg-sky-500/10 text-sky-300 font-semibold">
+                    {studentToPromote.firstName[0]}{studentToPromote.lastName[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium text-[#e4e1ea]">
+                    {studentToPromote.lastName}, {studentToPromote.firstName}
+                  </p>
+                  <p className="text-xs text-white/40">
+                    Origen: {studentToPromote.currentCourse} - Primaria
+                  </p>
+                </div>
+              </div>
+
+              {/* Target Course */}
+              <div className="space-y-2">
+                <label className="text-xs text-white/50 uppercase tracking-wider">
+                  Curso de Destino (Secundaria)
+                </label>
+                <Select value={promoteTargetDivision} onValueChange={setPromoteTargetDivision}>
+                  <SelectTrigger className="bg-white/[0.02] border-white/10">
+                    <SelectValue placeholder="Seleccionar curso..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a2e] border-white/10">
+                    {SECONDARY_ENTRY_DIVISIONS.map((div) => (
+                      <SelectItem key={div.id} value={div.id}>
+                        <div className="flex items-center justify-between gap-4">
+                          <span>{div.name}</span>
+                          <span className="text-xs text-white/40">{div.studentCount} alumnos</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Info */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20">
+                <GraduationCap className="size-4 text-[#d0bcff] mt-0.5 shrink-0" />
+                <p className="text-xs text-[#d0bcff]/80 leading-relaxed">
+                  El legajo digital y el historial academico del alumno se conservan intactos
+                  gracias a la base de datos institucional compartida. Solo cambia su matricula activa.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsPromoteDialogOpen(false)}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handlePromote}
+              disabled={!promoteTargetDivision || isPromoting}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              {isPromoting ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Promoviendo...
+                </>
+              ) : (
+                <>
+                  <ArrowUpCircle className="size-4 mr-2" />
+                  Confirmar Promocion
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
