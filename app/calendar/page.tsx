@@ -28,6 +28,7 @@ import {
   Calendar as CalendarIcon
 } from "lucide-react";
 import { toast } from "sonner";
+import { parseLocalDateString } from "@/lib/utils/date-utils";
 import { cn } from "@/lib/utils";
 import { formatDateToLocalISO } from "@/lib/utils/date-utils";
 
@@ -771,7 +772,7 @@ startxref
               <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
                 <p className="text-[10px] text-white/40 uppercase">Dias Receso</p>
                 <p className="text-xl font-bold text-[#ffb93d]">
-                  {recesoStart && recesoEnd ? Math.ceil((new Date(recesoEnd).getTime() - new Date(recesoStart).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0}
+                  {recesoStart && recesoEnd ? Math.ceil((parseLocalDateString(recesoEnd).getTime() - parseLocalDateString(recesoStart).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0}
                 </p>
               </div>
               <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
