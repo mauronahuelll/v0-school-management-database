@@ -22,6 +22,8 @@ import {
   Lock,
   Globe,
   ArrowUpCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -50,6 +52,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -195,6 +208,64 @@ export default function StudentsPage() {
     { id: "p1", firstName: "Carolina", lastName: "Martinez", legajo: "2024-099", currentCourse: "3er Ano", currentDivision: "3a", level: "SECONDARY", status: "REGULAR" },
     { id: "p2", firstName: "Federico", lastName: "Romero", legajo: "2024-087", currentCourse: "5to Ano", currentDivision: "5b", level: "SECONDARY", status: "REGULAR" },
   ]);
+
+  // ── CRUD: Edit student (Update) ────────────────────────────────────
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [studentForm, setStudentForm] = useState<{ firstName: string; lastName: string; currentDivision: string; status: Student["status"] }>({
+    firstName: "",
+    lastName: "",
+    currentDivision: "",
+    status: "REGULAR",
+  });
+  const [isSavingStudent, setIsSavingStudent] = useState(false);
+
+  const handleOpenEditStudent = useCallback((student: Student) => {
+    setEditingStudent(student);
+    setStudentForm({
+      firstName: student.firstName,
+      lastName: student.lastName,
+      currentDivision: student.currentDivision,
+      status: student.status,
+    });
+  }, []);
+
+  const handleSaveStudent = useCallback(async () => {
+    if (!editingStudent) return;
+    if (!studentForm.firstName.trim() || !studentForm.lastName.trim()) {
+      toast.error("El nombre y el apellido son obligatorios");
+      return;
+    }
+    setIsSavingStudent(true);
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    const targetDiv = MOCK_DIVISIONS.find((d) => d.id === studentForm.currentDivision);
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === editingStudent.id
+          ? {
+              ...s,
+              firstName: studentForm.firstName.trim(),
+              lastName: studentForm.lastName.trim(),
+              currentDivision: studentForm.currentDivision,
+              currentCourse: targetDiv?.course ?? s.currentCourse,
+              status: studentForm.status,
+            }
+          : s
+      )
+    );
+    setIsSavingStudent(false);
+    setEditingStudent(null);
+    toast.success("Registro actualizado");
+  }, [editingStudent, studentForm]);
+
+  // ── CRUD: Delete (archive) student ─────────────────────────────────
+  const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
+
+  const handleConfirmDeleteStudent = useCallback(() => {
+    if (!deletingStudent) return;
+    setStudents((prev) => prev.filter((s) => s.id !== deletingStudent.id));
+    setDeletingStudent(null);
+    toast.success("Registro eliminado");
+  }, [deletingStudent]);
 
   useEffect(() => {
     setMounted(true);
@@ -692,11 +763,17 @@ startxref
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-[#1a1a2e] border-white/10">
-                          <DropdownMenuItem className="text-white/80 hover:bg-white/5 cursor-pointer">
+                          <DropdownMenuItem 
+                            onClick={() => toast.info(`Procesando accion de Ver Perfil de ${student.firstName} ${student.lastName}...`)}
+                            className="text-white/80 hover:bg-white/5 cursor-pointer"
+                          >
                             <Eye className="size-4 mr-2" />
                             Ver Perfil
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-white/80 hover:bg-white/5 cursor-pointer">
+                          <DropdownMenuItem 
+                            onClick={() => toast.info(`Procesando accion de Ver Legajo de ${student.firstName} ${student.lastName}...`)}
+                            className="text-white/80 hover:bg-white/5 cursor-pointer"
+                          >
                             <FileText className="size-4 mr-2" />
                             Ver Legajo
                           </DropdownMenuItem>
@@ -710,6 +787,25 @@ startxref
                               >
                                 <ArrowRightLeft className="size-4 mr-2" />
                                 Cambiar de Division
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuItem 
+                                onClick={() => handleOpenEditStudent(student)}
+                                className="text-white/80 hover:bg-white/5 cursor-pointer"
+                              >
+                                <Pencil className="size-4 mr-2" />
+                                Editar Registro
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-white/10" />
+                              <DropdownMenuItem 
+                                onClick={() => setDeletingStudent(student)}
+                                className="text-[#ffb4ab] focus:text-[#ffb4ab] focus:bg-[#ffb4ab]/10 cursor-pointer"
+                              >
+                                <Trash2 className="size-4 mr-2" />
+                                Dar de Baja
                               </DropdownMenuItem>
                             </>
                           )}
@@ -1356,6 +1452,108 @@ startxref
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Student Dialog (Update) */}
+      <Dialog open={editingStudent !== null} onOpenChange={(o) => { if (!o) setEditingStudent(null); }}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <Pencil className="size-5 text-[#d0bcff]" />
+              Editar Registro
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Modifica los datos del alumno. Los cambios se aplican de inmediato al padron.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Nombre</Label>
+                <Input
+                  value={studentForm.firstName}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, firstName: e.target.value }))}
+                  className="bg-white/[0.02] border-white/10 h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Apellido</Label>
+                <Input
+                  value={studentForm.lastName}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, lastName: e.target.value }))}
+                  className="bg-white/[0.02] border-white/10 h-11"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Curso / Division</Label>
+              <Select value={studentForm.currentDivision} onValueChange={(v) => setStudentForm((p) => ({ ...p, currentDivision: v }))}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                  <SelectValue placeholder="Seleccionar division" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {MOCK_DIVISIONS.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Condicion</Label>
+              <Select value={studentForm.status} onValueChange={(v) => setStudentForm((p) => ({ ...p, status: v as Student["status"] }))}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  <SelectItem value="REGULAR">Regular</SelectItem>
+                  <SelectItem value="CONDICIONAL">Condicional</SelectItem>
+                  <SelectItem value="LIBRE">Libre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditingStudent(null)} className="border-white/10">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveStudent}
+              disabled={isSavingStudent || !studentForm.firstName.trim() || !studentForm.lastName.trim()}
+              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-1.5"
+            >
+              {isSavingStudent ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Guardar Cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete (Archive) Student Confirmation */}
+      <AlertDialog open={deletingStudent !== null} onOpenChange={(o) => { if (!o) setDeletingStudent(null); }}>
+        <AlertDialogContent className="bg-[#131319] border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <AlertTriangle className="size-5 text-[#ffb4ab]" />
+              Dar de baja a {deletingStudent?.firstName} {deletingStudent?.lastName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-white/50">
+              Esta accion archivara el legajo del alumno (N.deg {deletingStudent?.legajo}) y lo quitara 
+              del padron activo. El historico academico se conserva y puede restaurarse desde Secretaria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-white/10 bg-transparent hover:bg-white/5">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteStudent}
+              className="bg-[#ffb4ab] text-[#1b1b1f] hover:bg-[#ffb4ab]/90"
+            >
+              <Trash2 className="size-4 mr-1.5" />
+              Confirmar Baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Toaster theme="dark" />
     </div>

@@ -32,6 +32,7 @@ import {
   Ban,
   ShieldCheck,
   FileSearch,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -69,6 +70,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { getTodayLocalISO } from "@/lib/utils/date-utils";
 import { cn } from "@/lib/utils";
 
@@ -457,6 +468,56 @@ export default function StaffManagementPage() {
     toast.success(`Acceso revocado para ${memberName}`);
   }, []);
 
+  // ── CRUD: Edit member ──────────────────────────────────────────────
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; email: string; role: StaffRole; phone: string }>({
+    name: "",
+    email: "",
+    role: "DOCENTE",
+    phone: "",
+  });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const handleOpenEdit = useCallback((member: StaffMember) => {
+    setEditingMember(member);
+    setEditForm({
+      name: member.name,
+      email: member.email,
+      role: member.role,
+      phone: member.phone ?? "",
+    });
+  }, []);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingMember) return;
+    if (!editForm.name.trim() || !editForm.email.trim()) {
+      toast.error("El nombre y el email son obligatorios");
+      return;
+    }
+    setIsSavingEdit(true);
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    setStaff((prev) =>
+      prev.map((m) =>
+        m.id === editingMember.id
+          ? { ...m, name: editForm.name.trim(), email: editForm.email.trim(), role: editForm.role, phone: editForm.phone.trim() || undefined }
+          : m
+      )
+    );
+    setIsSavingEdit(false);
+    setEditingMember(null);
+    toast.success("Registro actualizado");
+  }, [editingMember, editForm]);
+
+  // ── CRUD: Delete (archive) member ──────────────────────────────────
+  const [deletingMember, setDeletingMember] = useState<StaffMember | null>(null);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!deletingMember) return;
+    setStaff((prev) => prev.filter((m) => m.id !== deletingMember.id));
+    setDeletingMember(null);
+    toast.success("Registro eliminado");
+  }, [deletingMember]);
+
   // Reset modal state when closing
   const handleCloseModal = useCallback(() => {
     setIsInviteModalOpen(false);
@@ -834,11 +895,17 @@ export default function StaffManagementPage() {
                               <Settings2 className="size-4" />
                               Gestionar Alcance
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 cursor-pointer">
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer"
+                              onClick={() => handleOpenEdit(member)}
+                            >
                               <Edit3 className="size-4" />
-                              Editar Asignaciones
+                              Editar Registro
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 cursor-pointer">
+                            <DropdownMenuItem 
+                              className="gap-2 cursor-pointer"
+                              onClick={() => toast.info(`Procesando accion de Auditar Actividad de ${member.name}...`)}
+                            >
                               <Activity className="size-4" />
                               Auditar Actividad
                             </DropdownMenuItem>
@@ -849,6 +916,13 @@ export default function StaffManagementPage() {
                             >
                               <UserX className="size-4" />
                               Revocar Acceso
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="gap-2 cursor-pointer text-[#ffb4ab] focus:text-[#ffb4ab] focus:bg-[#ffb4ab]/10"
+                              onClick={() => setDeletingMember(member)}
+                            >
+                              <Trash2 className="size-4" />
+                              Dar de Baja
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1629,6 +1703,105 @@ export default function StaffManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Member Dialog (Update) */}
+      <Dialog open={editingMember !== null} onOpenChange={(o) => { if (!o) setEditingMember(null); }}>
+        <DialogContent className="sm:max-w-[460px] bg-[#131319] border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <Edit3 className="size-5 text-[#d0bcff]" />
+              Editar Registro
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Modifica los datos del miembro del personal. Los cambios se aplican al instante.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Nombre completo</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                className="bg-white/[0.02] border-white/10 h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Email</Label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                className="bg-white/[0.02] border-white/10 h-11"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Rol</Label>
+                <Select value={editForm.role} onValueChange={(v) => setEditForm((p) => ({ ...p, role: v as StaffRole }))}>
+                  <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a2e] border-white/10">
+                    <SelectItem value="DOCENTE">Docente</SelectItem>
+                    <SelectItem value="PRECEPTOR">Preceptor</SelectItem>
+                    <SelectItem value="ADMINISTRATIVO">Administrativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Telefono</Label>
+                <Input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="+54 11 ..."
+                  className="bg-white/[0.02] border-white/10 h-11"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMember(null)} className="border-white/10">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={isSavingEdit || !editForm.name.trim() || !editForm.email.trim()}
+              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-1.5"
+            >
+              {isSavingEdit ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Guardar Cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete (Archive) Confirmation */}
+      <AlertDialog open={deletingMember !== null} onOpenChange={(o) => { if (!o) setDeletingMember(null); }}>
+        <AlertDialogContent className="bg-[#131319] border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <AlertTriangle className="size-5 text-[#ffb4ab]" />
+              Dar de baja a {deletingMember?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-white/50">
+              Esta accion archivara el legajo del miembro y revocara su acceso al sistema. 
+              Podras restaurarlo desde el historico, pero dejara de figurar en el listado activo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-white/10 bg-transparent hover:bg-white/5">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-[#ffb4ab] text-[#1b1b1f] hover:bg-[#ffb4ab]/90"
+            >
+              <Trash2 className="size-4 mr-1.5" />
+              Confirmar Baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       <Toaster theme="dark" />
     </div>
