@@ -372,13 +372,13 @@ export default function CommunityPage() {
   const currentRole = activeContext?.role || null;
   
   // ============================================
-  // SECURITY POLICIES (Strict Evaluation)
+  // SECURITY POLICIES (Strict IAM Evaluation)
   // ============================================
-  // PostCreator: ONLY renders for ADMIN, DOCENTE, PRECEPTOR
-  // FAMILIA: Read-only mode (can only view and like)
-  const ROLES_WITH_POST_ACCESS = ["ADMIN", "DOCENTE", "PRECEPTOR"] as const;
-  const canCreateContent = currentRole !== null && ROLES_WITH_POST_ACCESS.includes(currentRole as typeof ROLES_WITH_POST_ACCESS[number]);
-  const canInteract = currentRole !== null; // All authenticated users can like
+  // The Wall is a UNIDIRECTIONAL channel: Institution -> Community.
+  // PostCreator: STRICTLY renders ONLY for ADMIN (Secretaria/Direccion).
+  // DOCENTE, PRECEPTOR & FAMILIA: READ-ONLY (can view feed and Like only).
+  const canCreateContent = activeContext?.role === "ADMIN";
+  const canInteract = currentRole !== null; // All authenticated users can Like
 
   useEffect(() => {
     setMounted(true);
@@ -431,17 +431,17 @@ export default function CommunityPage() {
         </p>
       </header>
 
-      {/* Read-Only Notice for FAMILIA */}
-      {currentRole === "FAMILIA" && (
+      {/* Read-Only Notice for NON-ADMIN roles (DOCENTE, PRECEPTOR, FAMILIA) */}
+      {!canCreateContent && currentRole !== null && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
           <Heart className="size-5 text-blue-400" />
           <p className="text-sm text-white/50">
-            Podes marcar publicaciones como favoritas tocando el corazon
+            Canal informativo de la institucion. Podes leer las publicaciones y marcarlas como favoritas tocando el corazon.
           </p>
         </div>
       )}
 
-      {/* Post Creator - OBLIGATORY for Staff (ADMIN, DOCENTE, PRECEPTOR) */}
+      {/* Post Creator - EXCLUSIVE to ADMIN (Secretaria/Direccion) */}
       {canCreateContent && (
         showComposer ? (
           <PostCreator 
