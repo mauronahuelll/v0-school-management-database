@@ -132,6 +132,20 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   // ====================================================================
+  // RENDER: Flujo de Onboarding / Setup (Full-Screen inmersivo)
+  // Se evalua ANTES que la autenticacion: el wizard de aprovisionamiento
+  // toma control total de la pantalla y oculta el AppShell por completo.
+  // ====================================================================
+  if (pathname?.startsWith("/admin/setup")) {
+    return (
+      <main className="w-screen h-screen overflow-y-auto bg-background">
+        {children}
+        <Toaster position="bottom-center" />
+      </main>
+    )
+  }
+
+  // ====================================================================
   // RENDER: Usuario logueado pero sin contexto seleccionado
   // Muestra la pantalla de seleccion de perfil/sombrero
   // ====================================================================
