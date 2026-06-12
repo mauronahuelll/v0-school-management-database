@@ -22,6 +22,7 @@ import {
   LineChart,
   BookOpen,
   Scale,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, Role } from "@/lib/context/auth-context";
@@ -58,6 +59,7 @@ const NAV_ITEMS_ADMIN = [
   { id: "secretaria", label: "Secretaria", href: "/students", icon: Building2 },
   { id: "users", label: "Personal", href: "/users", icon: UserCheck },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
+  { id: "my-profile", label: "Mi Perfil", href: "/my-profile", icon: UserCircle },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
@@ -69,6 +71,7 @@ const NAV_ITEMS_PRECEPTOR = [
   { id: "behavior", label: "Convivencia", href: "/behavior", icon: Users },
   { id: "secretaria", label: "Secretaria", href: "/students", icon: Building2 },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
+  { id: "my-profile", label: "Mi Perfil", href: "/my-profile", icon: UserCircle },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
@@ -78,6 +81,7 @@ const NAV_ITEMS_DOCENTE = [
   { id: "attendance", label: "Parte Diario", href: "/attendance", icon: ClipboardCheck },
   { id: "grades", label: "Calificaciones", href: "/grades", icon: BookOpen },
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
+  { id: "my-profile", label: "Mi Perfil", href: "/my-profile", icon: UserCircle },
   { id: "settings", label: "Ajustes", href: "/settings", icon: Settings },
 ];
 
