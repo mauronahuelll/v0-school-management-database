@@ -1,23 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Upload,
   FileSpreadsheet,
-  ArrowRight,
-  ArrowLeft,
-  Check,
   Loader2,
-  Database,
-  Link2,
   GraduationCap,
-  Calendar,
-  AlertCircle,
-  Sparkles,
+  AlertTriangle,
   FileUp,
-  Table,
+  UserPlus,
+  Trash2,
   CheckCircle2,
-  XCircle,
+  Database,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,655 +28,466 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
-// Simulated detected columns from the uploaded file
-const DETECTED_COLUMNS = [
-  { id: "col-1", name: "Nombre Completo", sample: "Martinez, Juan Pablo" },
-  { id: "col-2", name: "Documento", sample: "45.678.901" },
-  { id: "col-3", name: "Mail del Tutor", sample: "padre@email.com" },
-  { id: "col-4", name: "Fecha de Nacimiento", sample: "15/03/2010" },
-  { id: "col-5", name: "Direccion", sample: "Av. Mitre 1234" },
-  { id: "col-6", name: "Telefono Emergencia", sample: "11-4567-8901" },
+// Available courses for global assignment
+const COURSES = [
+  { id: "1A", label: "1° A" },
+  { id: "1B", label: "1° B" },
+  { id: "2A", label: "2° A" },
+  { id: "2B", label: "2° B" },
+  { id: "3A", label: "3° A" },
+  { id: "3B", label: "3° B" },
+  { id: "4A", label: "4° A" },
+  { id: "5A", label: "5° A" },
+  { id: "6A", label: "6° A" },
 ];
 
-// System fields to map to
-const SYSTEM_FIELDS = [
-  { id: "identity.fullName", label: "Nombre Completo", icon: "user" },
-  { id: "identity.dni", label: "DNI / Documento", icon: "id" },
-  { id: "contact.tutorEmail", label: "Email del Tutor", icon: "mail" },
-  { id: "identity.birthDate", label: "Fecha de Nacimiento", icon: "calendar" },
-  { id: "contact.address", label: "Direccion", icon: "map" },
-  { id: "contact.emergencyPhone", label: "Tel. Emergencia", icon: "phone" },
-  { id: "skip", label: "-- Ignorar columna --", icon: "skip" },
+// Student row type
+interface StudentRow {
+  id: string;
+  apellido: string;
+  nombre: string;
+  documento: string;
+  fechaNacimiento: string;
+  contacto: string;
+}
+
+// Simulated parsed data from an uploaded CSV/Excel file
+const SIMULATED_IMPORT: Omit<StudentRow, "id">[] = [
+  { apellido: "Martinez", nombre: "Juan Pablo", documento: "45.678.901", fechaNacimiento: "2010-03-15", contacto: "padre.martinez@email.com" },
+  { apellido: "Gomez", nombre: "Maria Sol", documento: "46.123.456", fechaNacimiento: "2011-07-22", contacto: "11-4567-8901" },
+  { apellido: "Rodriguez", nombre: "Lucas Martin", documento: "45.987.654", fechaNacimiento: "2010-11-03", contacto: "madre.rodriguez@email.com" },
+  { apellido: "Fernandez", nombre: "Valentina", documento: "47.456.789", fechaNacimiento: "2011-01-30", contacto: "11-2345-6789" },
+  { apellido: "Lopez", nombre: "Mateo", documento: "46.789.012", fechaNacimiento: "2010-09-18", contacto: "familia.lopez@email.com" },
+  { apellido: "Diaz", nombre: "Catalina", documento: "47.234.567", fechaNacimiento: "2011-05-12", contacto: "11-9876-5432" },
+  { apellido: "Sanchez", nombre: "Benjamin", documento: "45.345.678", fechaNacimiento: "2010-12-25", contacto: "tutor.sanchez@email.com" },
+  { apellido: "Romero", nombre: "Isabella", documento: "46.567.890", fechaNacimiento: "2011-08-07", contacto: "11-3456-7890" },
 ];
 
-// School levels
-const SCHOOL_LEVELS = [
-  { id: "INICIAL", label: "Nivel Inicial", years: "Sala 3 a 5" },
-  { id: "PRIMARIA", label: "Nivel Primario", years: "1° a 6° Grado" },
-  { id: "SECUNDARIA", label: "Nivel Secundario", years: "1° a 6° Ano" },
-];
+let rowCounter = 0;
+const makeId = () => `row-${Date.now()}-${rowCounter++}`;
 
-// School years
-const SCHOOL_YEARS = [
-  { id: "2024", label: "Ciclo Lectivo 2024" },
-  { id: "2025", label: "Ciclo Lectivo 2025" },
-  { id: "2026", label: "Ciclo Lectivo 2026" },
+const EDITABLE_FIELDS: (keyof Omit<StudentRow, "id">)[] = [
+  "apellido",
+  "nombre",
+  "documento",
+  "fechaNacimiento",
+  "contacto",
 ];
-
-type ImportStep = "upload" | "mapping" | "config" | "processing" | "complete";
 
 export default function AdminImportPage() {
   const [mounted, setMounted] = useState(false);
-  const [currentStep, setCurrentStep] = useState<ImportStep>("upload");
   const [isDragging, setIsDragging] = useState(false);
-  const [mappings, setMappings] = useState<Record<string, string>>({});
-  const [selectedLevel, setSelectedLevel] = useState<string>("");
-  const [selectedYear, setSelectedYear] = useState<string>("2024");
+  const [hasFile, setHasFile] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const [rows, setRows] = useState<StudentRow[]>([]);
+  const [targetCourse, setTargetCourse] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [recordCount] = useState(345);
+  const lastRowRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Handle simulated file upload
+  // Simulate parsing an uploaded file
   const handleSimulateUpload = useCallback(() => {
-    setCurrentStep("mapping");
-    toast.info("Archivo cargado. Detectando estructura de datos...");
+    setFileName("nomina_alumnos_2024.csv");
+    setHasFile(true);
+    setRows(SIMULATED_IMPORT.map((r) => ({ ...r, id: makeId() })));
+    toast.success("Archivo procesado. Revisa la vista previa antes de matricular.");
   }, []);
 
-  // Handle mapping change
-  const handleMappingChange = useCallback((columnId: string, fieldId: string) => {
-    setMappings((prev) => ({ ...prev, [columnId]: fieldId }));
+  // Add a blank editable row for manual fast entry
+  const handleAddManualRow = useCallback(() => {
+    const newRow: StudentRow = {
+      id: makeId(),
+      apellido: "",
+      nombre: "",
+      documento: "",
+      fechaNacimiento: "",
+      contacto: "",
+    };
+    setRows((prev) => [...prev, newRow]);
+    setHasFile(true);
+    // Focus the new row's first input on next tick
+    requestAnimationFrame(() => {
+      lastRowRef.current?.focus();
+    });
   }, []);
 
-  // Proceed to config step
-  const handleProceedToConfig = useCallback(() => {
-    const mappedCount = Object.values(mappings).filter((v) => v && v !== "skip").length;
-    if (mappedCount < 2) {
-      toast.error("Debes mapear al menos 2 columnas para continuar.");
-      return;
-    }
-    setCurrentStep("config");
-  }, [mappings]);
+  // Update a cell value
+  const handleCellChange = useCallback(
+    (rowId: string, field: keyof Omit<StudentRow, "id">, value: string) => {
+      setRows((prev) =>
+        prev.map((row) => (row.id === rowId ? { ...row, [field]: value } : row))
+      );
+    },
+    []
+  );
 
-  // Start processing
-  const handleStartProcessing = useCallback(() => {
-    if (!selectedLevel) {
-      toast.error("Selecciona un nivel escolar para continuar.");
+  // Remove a row
+  const handleRemoveRow = useCallback((rowId: string) => {
+    setRows((prev) => prev.filter((row) => row.id !== rowId));
+  }, []);
+
+  // Tab on the last cell of the last row creates a new row (Excel-like flow)
+  const handleCellKeyDown = useCallback(
+    (e: React.KeyboardEvent, rowIndex: number, fieldIndex: number) => {
+      const isLastRow = rowIndex === rows.length - 1;
+      const isLastField = fieldIndex === EDITABLE_FIELDS.length - 1;
+      if (e.key === "Tab" && !e.shiftKey && isLastRow && isLastField) {
+        e.preventDefault();
+        handleAddManualRow();
+      }
+    },
+    [rows.length, handleAddManualRow]
+  );
+
+  // Process the mass enrollment
+  const handleProcess = useCallback(() => {
+    if (rows.length === 0) {
+      toast.error("No hay alumnos para matricular.");
       return;
     }
-    
-    setCurrentStep("processing");
+    if (!targetCourse) {
+      toast.error("Selecciona el curso de destino antes de procesar.");
+      return;
+    }
+    const incomplete = rows.filter((r) => !r.apellido.trim() || !r.nombre.trim() || !r.documento.trim());
+    if (incomplete.length > 0) {
+      toast.error(`${incomplete.length} fila(s) sin Apellido, Nombre o DNI. Completa los datos obligatorios.`);
+      return;
+    }
+
+    setIsProcessing(true);
     setProgress(0);
-
-    // Simulate progress
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
+          const count = rows.length;
+          const courseLabel = COURSES.find((c) => c.id === targetCourse)?.label || "";
           setTimeout(() => {
-            setCurrentStep("complete");
-            toast.success(`Importacion finalizada. ${recordCount} legajos creados exitosamente.`);
+            setIsProcessing(false);
+            setHasFile(false);
+            setFileName("");
+            setRows([]);
+            setTargetCourse("");
+            setProgress(0);
+            toast.success(`Matricula procesada. ${count} alumnos asignados a ${courseLabel}.`);
           }, 300);
           return 100;
         }
-        return prev + 2;
+        return prev + 4;
       });
-    }, 60);
-  }, [selectedLevel, recordCount]);
+    }, 50);
+  }, [rows, targetCourse]);
 
-  // Reset wizard
-  const handleReset = useCallback(() => {
-    setCurrentStep("upload");
-    setMappings({});
-    setSelectedLevel("");
-    setSelectedYear("2024");
-    setProgress(0);
+  // Reset everything
+  const handleClear = useCallback(() => {
+    setHasFile(false);
+    setFileName("");
+    setRows([]);
+    setTargetCourse("");
   }, []);
 
-  // Hydration guard
   if (!mounted) return null;
 
+  const filledCount = rows.filter((r) => r.apellido.trim() && r.nombre.trim() && r.documento.trim()).length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Header */}
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Importador de Matricula
+            Centro de Matriculacion
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Carga masiva de alumnos desde archivos Excel o CSV
+            Importacion masiva por archivo o carga manual rapida de alumnos
           </p>
         </div>
-        
-        {/* Step indicator */}
-        <div className="hidden md:flex items-center gap-2">
-          {["upload", "mapping", "config", "processing"].map((step, idx) => (
-            <div key={step} className="flex items-center">
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all",
-                  currentStep === step
-                    ? "bg-[#d0bcff] text-[#131319]"
-                    : ["mapping", "config", "processing", "complete"].indexOf(currentStep) > idx
-                    ? "bg-[#4de082]/20 text-[#4de082] border border-[#4de082]/30"
-                    : "bg-white/5 text-white/40 border border-white/10"
-                )}
-              >
-                {["mapping", "config", "processing", "complete"].indexOf(currentStep) > idx ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  idx + 1
-                )}
-              </div>
-              {idx < 3 && (
-                <div
-                  className={cn(
-                    "w-8 h-px mx-1",
-                    ["mapping", "config", "processing", "complete"].indexOf(currentStep) > idx
-                      ? "bg-[#4de082]/50"
-                      : "bg-white/10"
-                  )}
-                />
-              )}
-            </div>
-          ))}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleAddManualRow}
+            className="border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-foreground"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Agregar Alumno
+          </Button>
         </div>
       </header>
 
-      {/* Main content area */}
-      <div className="bg-white/[0.02] border border-white/[0.05] backdrop-blur-md rounded-2xl p-6 md:p-8">
-        
-        {/* STEP 1: Upload */}
-        {currentStep === "upload" && (
-          <div className="space-y-6">
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 mb-4">
-                <FileSpreadsheet className="w-8 h-8 text-[#d0bcff]" />
+      {/* Prevention banner */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
+        <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+          <AlertTriangle className="w-4 h-4 text-amber-400" />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-amber-400">Evita duplicacion de legajos</p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+            Asegurese de que el archivo no contenga alumnos que ya fueron promovidos desde el nivel
+            anterior (Jardin / Primaria). Esos legajos ya existen en el sistema y se duplicarian.
+          </p>
+        </div>
+      </div>
+
+      {/* Upload zone - only when no data loaded yet */}
+      {!hasFile && (
+        <div className="bg-white/[0.02] border border-white/[0.05] backdrop-blur-md rounded-2xl p-6 md:p-8">
+          <div
+            className={cn(
+              "relative min-h-[280px] rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center cursor-pointer group",
+              isDragging
+                ? "border-[#d0bcff] bg-[#d0bcff]/5"
+                : "border-white/20 hover:border-white/40 hover:bg-white/[0.02]"
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              handleSimulateUpload();
+            }}
+            onClick={handleSimulateUpload}
+          >
+            <div className="flex flex-col items-center gap-4 p-8">
+              <div
+                className={cn(
+                  "w-20 h-20 rounded-2xl flex items-center justify-center transition-all",
+                  isDragging ? "bg-[#d0bcff]/20 scale-110" : "bg-white/5 group-hover:bg-white/10"
+                )}
+              >
+                <Upload
+                  className={cn(
+                    "w-10 h-10 transition-colors",
+                    isDragging ? "text-[#d0bcff]" : "text-white/40 group-hover:text-white/60"
+                  )}
+                />
               </div>
-              <h2 className="text-xl font-bold text-foreground">Cargar Nomina de Alumnos</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Sube un archivo Excel (.xlsx) o CSV con los datos de los estudiantes
-              </p>
+              <div className="text-center">
+                <p className="text-base font-medium text-foreground">
+                  Arrastra el archivo Excel o CSV aqui
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  o haz clic para seleccionar la nomina de alumnos
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>.xlsx, .xls, .csv</span>
+                <span className="text-white/20">|</span>
+                <span>Maximo 10MB</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider + manual fallback */}
+          <div className="flex items-center gap-4 my-6">
+            <div className="flex-1 h-px bg-white/5" />
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">o</span>
+            <div className="flex-1 h-px bg-white/5" />
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              onClick={handleSimulateUpload}
+              className="bg-[#d0bcff] hover:bg-[#d0bcff]/80 text-[#131319] font-bold w-full sm:w-auto"
+            >
+              <FileUp className="w-4 h-4 mr-2" />
+              Simular Carga de Archivo
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleAddManualRow}
+              className="border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-foreground w-full sm:w-auto"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Cargar Manualmente
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Data preview + inline editing */}
+      {hasFile && (
+        <div className="bg-white/[0.02] border border-white/[0.05] backdrop-blur-md rounded-2xl overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 md:p-6 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#4de082]/10 border border-[#4de082]/20 flex items-center justify-center shrink-0">
+                <Database className="w-5 h-5 text-[#4de082]" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                  Vista Previa de Datos
+                  {fileName && (
+                    <span className="text-xs font-normal text-muted-foreground font-mono">
+                      ({fileName})
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {rows.length} alumno(s) · {filledCount} con datos completos
+                </p>
+              </div>
             </div>
 
-            {/* Drop zone */}
-            <div
-              className={cn(
-                "relative aspect-video max-h-[300px] rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center cursor-pointer group",
-                isDragging
-                  ? "border-[#d0bcff] bg-[#d0bcff]/5"
-                  : "border-white/20 hover:border-white/40 hover:bg-white/[0.02]"
-              )}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                handleSimulateUpload();
-              }}
-              onClick={handleSimulateUpload}
-            >
-              <div className="flex flex-col items-center gap-4 p-8">
-                <div
+            {/* Global course mapping */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-muted-foreground whitespace-nowrap hidden md:flex items-center gap-1.5">
+                <GraduationCap className="w-4 h-4 text-[#d0bcff]" />
+                Asignar todos al curso:
+              </label>
+              <Select value={targetCourse} onValueChange={setTargetCourse}>
+                <SelectTrigger
                   className={cn(
-                    "w-20 h-20 rounded-2xl flex items-center justify-center transition-all",
-                    isDragging
-                      ? "bg-[#d0bcff]/20 scale-110"
-                      : "bg-white/5 group-hover:bg-white/10"
+                    "bg-white/[0.02] border-white/10 min-w-[140px]",
+                    !targetCourse && "text-muted-foreground"
                   )}
                 >
-                  <Upload
-                    className={cn(
-                      "w-10 h-10 transition-colors",
-                      isDragging ? "text-[#d0bcff]" : "text-white/40 group-hover:text-white/60"
-                    )}
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-base font-medium text-foreground">
-                    Arrastra la nomina en formato Excel/CSV aqui
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    o haz clic para seleccionar el archivo
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span>.xlsx, .xls, .csv</span>
-                  <span className="text-white/20">|</span>
-                  <span>Maximo 10MB</span>
-                </div>
-              </div>
-
-              {/* Animated border effect */}
-              {isDragging && (
-                <div className="absolute inset-0 rounded-2xl pointer-events-none">
-                  <div className="absolute inset-0 rounded-2xl animate-pulse bg-[#d0bcff]/10" />
-                </div>
-              )}
-            </div>
-
-            {/* Simulate button */}
-            <div className="flex justify-center">
-              <Button
-                onClick={handleSimulateUpload}
-                className="bg-[#d0bcff] hover:bg-[#d0bcff]/80 text-[#131319] font-bold"
-              >
-                <FileUp className="w-4 h-4 mr-2" />
-                Simular Carga de Archivo
-              </Button>
-            </div>
-
-            {/* Info cards */}
-            <div className="grid md:grid-cols-3 gap-4 mt-8">
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <Table className="w-5 h-5 text-[#d0bcff] mb-2" />
-                <h3 className="text-sm font-bold text-foreground">Deteccion Automatica</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  El sistema analiza la estructura del archivo y sugiere mapeos
-                </p>
-              </div>
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <Database className="w-5 h-5 text-[#4de082] mb-2" />
-                <h3 className="text-sm font-bold text-foreground">Validacion de Datos</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  DNIs duplicados y formatos incorrectos son detectados
-                </p>
-              </div>
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <Sparkles className="w-5 h-5 text-amber-400 mb-2" />
-                <h3 className="text-sm font-bold text-foreground">Creacion de Legajos</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cada fila se convierte en un legajo digital completo
-                </p>
-              </div>
+                  <SelectValue placeholder="Seleccionar curso" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-white/10">
+                  {COURSES.map((course) => (
+                    <SelectItem key={course.id} value={course.id} className="text-foreground">
+                      {course.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        )}
 
-        {/* STEP 2: Mapping */}
-        {currentStep === "mapping" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <Link2 className="w-5 h-5 text-[#d0bcff]" />
-                  Mapeo de Columnas
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Asocia cada columna del archivo con los campos del sistema
-                </p>
-              </div>
-              <div className="px-3 py-1.5 rounded-lg bg-[#4de082]/10 border border-[#4de082]/20 text-[#4de082] text-xs font-mono">
-                {recordCount} filas detectadas
-              </div>
-            </div>
-
-            {/* Mapping grid */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-[1fr,auto,1fr] gap-4 px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                <span>Columna Detectada</span>
-                <span></span>
-                <span>Campo del Sistema</span>
-              </div>
-
-              {DETECTED_COLUMNS.map((col) => (
-                <div
-                  key={col.id}
-                  className="grid grid-cols-[1fr,auto,1fr] gap-4 items-center p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
-                >
-                  {/* Source column */}
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-foreground">{col.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono truncate">
-                      Ej: {col.sample}
-                    </p>
-                  </div>
-
-                  {/* Arrow */}
-                  <div className="flex items-center justify-center">
-                    <ArrowRight
-                      className={cn(
-                        "w-5 h-5 transition-colors",
-                        mappings[col.id] && mappings[col.id] !== "skip"
-                          ? "text-[#4de082]"
-                          : "text-white/20"
-                      )}
-                    />
-                  </div>
-
-                  {/* Target field selector */}
-                  <Select
-                    value={mappings[col.id] || ""}
-                    onValueChange={(value) => handleMappingChange(col.id, value)}
-                  >
-                    <SelectTrigger
-                      className={cn(
-                        "bg-white/[0.02] border-white/10",
-                        mappings[col.id] && mappings[col.id] !== "skip"
-                          ? "border-[#4de082]/30 text-[#4de082]"
-                          : ""
-                      )}
+          {/* Editable grid */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/5 text-left">
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground w-10">#</th>
+                  <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Apellido <span className="text-amber-400">*</span></th>
+                  <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Nombre <span className="text-amber-400">*</span></th>
+                  <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Documento (DNI) <span className="text-amber-400">*</span></th>
+                  <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Fecha Nac.</th>
+                  <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Contacto</th>
+                  <th className="px-3 py-3 w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIndex) => {
+                  const isLastRow = rowIndex === rows.length - 1;
+                  return (
+                    <tr
+                      key={row.id}
+                      className="border-b border-white/[0.03] hover:bg-white/[0.015] transition-colors group"
                     >
-                      <SelectValue placeholder="Seleccionar campo..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-white/10">
-                      {SYSTEM_FIELDS.map((field) => (
-                        <SelectItem
-                          key={field.id}
-                          value={field.id}
-                          className={cn(
-                            "text-foreground",
-                            field.id === "skip" && "text-muted-foreground"
-                          )}
-                        >
-                          {field.label}
-                        </SelectItem>
+                      <td className="px-4 py-1 text-xs text-muted-foreground font-mono">
+                        {rowIndex + 1}
+                      </td>
+                      {EDITABLE_FIELDS.map((field, fieldIndex) => (
+                        <td key={field} className="px-1 py-1">
+                          <input
+                            ref={isLastRow && fieldIndex === 0 ? lastRowRef : undefined}
+                            type={field === "fechaNacimiento" ? "date" : "text"}
+                            value={row[field]}
+                            onChange={(e) => handleCellChange(row.id, field, e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(e, rowIndex, fieldIndex)}
+                            placeholder={
+                              field === "apellido"
+                                ? "Apellido"
+                                : field === "nombre"
+                                ? "Nombre"
+                                : field === "documento"
+                                ? "00.000.000"
+                                : field === "contacto"
+                                ? "Email o telefono"
+                                : ""
+                            }
+                            className={cn(
+                              "w-full bg-transparent rounded-md px-2.5 py-2 text-sm text-foreground placeholder:text-white/20",
+                              "border border-transparent hover:border-white/5",
+                              "focus:outline-none focus:border-[#d0bcff]/40 focus:bg-[#d0bcff]/[0.04] transition-colors",
+                              field === "documento" && "font-mono"
+                            )}
+                          />
+                        </td>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
-            </div>
-
-            {/* Navigation */}
-            <div className="flex items-center justify-between pt-4 border-t border-white/5">
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentStep("upload")}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver
-              </Button>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {Object.values(mappings).filter((v) => v && v !== "skip").length} de{" "}
-                  {DETECTED_COLUMNS.length} columnas mapeadas
-                </span>
-                <Button
-                  onClick={handleProceedToConfig}
-                  className="bg-[#d0bcff] hover:bg-[#d0bcff]/80 text-[#131319] font-bold"
-                >
-                  Continuar
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
+                      <td className="px-1 py-1">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRow(row.id)}
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-white/20 hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 transition-colors opacity-0 group-hover:opacity-100"
+                          aria-label="Eliminar fila"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
 
-        {/* STEP 3: Config */}
-        {currentStep === "config" && (
-          <div className="space-y-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-[#d0bcff]" />
-                Configuracion de Destino
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Selecciona donde se crearan los nuevos legajos
-              </p>
-            </div>
+          {/* Add row helper */}
+          <button
+            type="button"
+            onClick={handleAddManualRow}
+            className="w-full flex items-center justify-center gap-2 py-3 text-xs font-medium text-muted-foreground hover:text-[#d0bcff] hover:bg-[#d0bcff]/[0.03] transition-colors border-b border-white/5"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            Agregar fila (o presiona Tab en el ultimo campo)
+          </button>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* School Year */}
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#d0bcff]" />
-                  Ciclo Lectivo
-                </label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="bg-white/[0.02] border-white/10 h-12">
-                    <SelectValue placeholder="Seleccionar ciclo..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-white/10">
-                    {SCHOOL_YEARS.map((year) => (
-                      <SelectItem key={year.id} value={year.id} className="text-foreground">
-                        {year.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* Footer actions */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 md:p-6">
+            <Button
+              variant="ghost"
+              onClick={handleClear}
+              disabled={isProcessing}
+              className="text-muted-foreground hover:text-foreground w-full sm:w-auto"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Descartar Todo
+            </Button>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="w-4 h-4 text-[#4de082]" />
+                {filledCount}/{rows.length} listos
               </div>
-
-              {/* School Level */}
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4 text-[#d0bcff]" />
-                  Nivel Escolar
-                </label>
-                <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                  <SelectTrigger
-                    className={cn(
-                      "bg-white/[0.02] border-white/10 h-12",
-                      !selectedLevel && "text-muted-foreground"
-                    )}
-                  >
-                    <SelectValue placeholder="Seleccionar nivel..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-white/10">
-                    {SCHOOL_LEVELS.map((level) => (
-                      <SelectItem key={level.id} value={level.id} className="text-foreground">
-                        <div className="flex flex-col">
-                          <span>{level.label}</span>
-                          <span className="text-xs text-muted-foreground">{level.years}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Summary card */}
-            <div className="p-5 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20 mt-6">
-              <h3 className="text-sm font-bold text-[#d0bcff] mb-3">Resumen de Importacion</h3>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{recordCount}</p>
-                  <p className="text-xs text-muted-foreground">Registros</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {Object.values(mappings).filter((v) => v && v !== "skip").length}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Campos Mapeados</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {selectedLevel
-                      ? SCHOOL_LEVELS.find((l) => l.id === selectedLevel)?.label.split(" ")[1]
-                      : "---"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Nivel Destino</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Warning */}
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
-              <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-amber-400">Verificacion Final</p>
-                <p className="text-xs text-amber-400/70 mt-1">
-                  Una vez procesada la importacion, se crearan {recordCount} legajos nuevos. 
-                  Los DNIs duplicados seran omitidos automaticamente.
-                </p>
-              </div>
-            </div>
-
-            {/* Navigation */}
-            <div className="flex items-center justify-between pt-4 border-t border-white/5">
               <Button
-                variant="ghost"
-                onClick={() => setCurrentStep("mapping")}
-                className="text-muted-foreground hover:text-foreground"
+                onClick={handleProcess}
+                disabled={isProcessing}
+                className="bg-[#d0bcff] hover:bg-[#d0bcff]/80 text-[#131319] font-bold w-full sm:w-auto"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver al Mapeo
-              </Button>
-              <Button
-                onClick={handleStartProcessing}
-                className="bg-[#d0bcff] hover:bg-[#d0bcff]/80 text-[#131319] font-bold"
-                disabled={!selectedLevel}
-              >
-                <Database className="w-4 h-4 mr-2" />
-                Procesar {recordCount} Registros
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Procesando... {progress}%
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Procesar Matricula Masiva
+                  </>
+                )}
               </Button>
             </div>
           </div>
-        )}
 
-        {/* STEP 4: Processing */}
-        {currentStep === "processing" && (
-          <div className="flex flex-col items-center justify-center py-16 space-y-8">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-2xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center">
-                <Loader2 className="w-12 h-12 text-[#d0bcff] animate-spin" />
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-[#131319] border border-[#d0bcff]/30 flex items-center justify-center">
-                <span className="text-xs font-bold text-[#d0bcff]">{progress}%</span>
-              </div>
+          {/* Progress bar while processing */}
+          {isProcessing && (
+            <div className="px-4 md:px-6 pb-6">
+              <Progress value={progress} className="h-1.5" />
             </div>
-
-            <div className="text-center space-y-2">
-              <h2 className="text-xl font-bold text-foreground">Procesando Importacion</h2>
-              <p className="text-sm text-muted-foreground">
-                Creando legajos y validando datos...
-              </p>
-            </div>
-
-            <div className="w-full max-w-md space-y-2">
-              <Progress value={progress} className="h-3 bg-white/5" />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>
-                  {Math.floor((progress / 100) * recordCount)} de {recordCount} registros
-                </span>
-                <span>{progress}% completado</span>
-              </div>
-            </div>
-
-            {/* Processing stages */}
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                {progress > 20 ? (
-                  <CheckCircle2 className="w-4 h-4 text-[#4de082]" />
-                ) : (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                )}
-                <span className={progress > 20 ? "text-[#4de082]" : ""}>
-                  Validando formato de datos...
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                {progress > 50 ? (
-                  <CheckCircle2 className="w-4 h-4 text-[#4de082]" />
-                ) : progress > 20 ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-white/20" />
-                )}
-                <span className={progress > 50 ? "text-[#4de082]" : ""}>
-                  Verificando DNIs duplicados...
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                {progress > 80 ? (
-                  <CheckCircle2 className="w-4 h-4 text-[#4de082]" />
-                ) : progress > 50 ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-white/20" />
-                )}
-                <span className={progress > 80 ? "text-[#4de082]" : ""}>
-                  Creando legajos en base de datos...
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                {progress >= 100 ? (
-                  <CheckCircle2 className="w-4 h-4 text-[#4de082]" />
-                ) : progress > 80 ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-white/20" />
-                )}
-                <span className={progress >= 100 ? "text-[#4de082]" : ""}>
-                  Generando reporte de importacion...
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 5: Complete */}
-        {currentStep === "complete" && (
-          <div className="flex flex-col items-center justify-center py-16 space-y-8">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-2xl bg-[#4de082]/10 border border-[#4de082]/20 flex items-center justify-center">
-                <Check className="w-12 h-12 text-[#4de082]" />
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-[#4de082] flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-[#131319]" />
-              </div>
-            </div>
-
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">Importacion Exitosa</h2>
-              <p className="text-sm text-muted-foreground">
-                Se han creado {recordCount} legajos nuevos en el sistema
-              </p>
-            </div>
-
-            {/* Result stats */}
-            <div className="grid grid-cols-3 gap-6 p-6 rounded-2xl bg-white/[0.02] border border-white/5">
-              <div className="text-center">
-                <div className="w-10 h-10 rounded-full bg-[#4de082]/10 flex items-center justify-center mx-auto mb-2">
-                  <CheckCircle2 className="w-5 h-5 text-[#4de082]" />
-                </div>
-                <p className="text-2xl font-bold text-[#4de082]">{recordCount}</p>
-                <p className="text-xs text-muted-foreground">Importados</p>
-              </div>
-              <div className="text-center">
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-2">
-                  <AlertCircle className="w-5 h-5 text-amber-400" />
-                </div>
-                <p className="text-2xl font-bold text-amber-400">3</p>
-                <p className="text-xs text-muted-foreground">Advertencias</p>
-              </div>
-              <div className="text-center">
-                <div className="w-10 h-10 rounded-full bg-[#ffb4ab]/10 flex items-center justify-center mx-auto mb-2">
-                  <XCircle className="w-5 h-5 text-[#ffb4ab]" />
-                </div>
-                <p className="text-2xl font-bold text-[#ffb4ab]">2</p>
-                <p className="text-xs text-muted-foreground">DNIs Duplicados</p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                className="border-white/10 hover:bg-white/5"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Nueva Importacion
-              </Button>
-              <Button className="bg-[#d0bcff] hover:bg-[#d0bcff]/80 text-[#131319] font-bold">
-                <Database className="w-4 h-4 mr-2" />
-                Ver Legajos Creados
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <Toaster theme="dark" />
     </div>

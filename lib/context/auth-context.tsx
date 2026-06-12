@@ -139,9 +139,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const schoolId = activeContext?.schoolId ?? null
   const schoolName = activeContext?.schoolName ?? null
 
-  // Protect routes: redirect to login if no user and not on login page
+  // Protect routes: redirect to login if no user and not on a public route.
+  // El flujo de Onboarding (/admin/setup) se considera publico: es el primer
+  // contacto del Admin al aprovisionar una institucion nueva.
   useEffect(() => {
-    if (!user && pathname !== "/") {
+    const PUBLIC_ROUTES = ["/", "/admin/setup"]
+    const isPublic = PUBLIC_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith("/admin/setup")
+    )
+    if (!user && !isPublic) {
       router.push("/")
     }
   }, [user, pathname, router])

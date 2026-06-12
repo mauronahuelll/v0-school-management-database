@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
 import { ContextSelector } from "@/components/auth/context-selector"
-import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap } from "lucide-react"
+import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
@@ -68,6 +68,7 @@ export function AppShell({ children }: AppShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [contextSelectorOpen, setContextSelectorOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [alertsOpen, setAlertsOpen] = useState(false)
   const [logs, setLogs] = useState<string[]>([
     "[SYS] Initializing Sequency Core v4.2.0...",
     "[OK] Socket connected to node_AR_BUE_01",
@@ -128,6 +129,20 @@ export function AppShell({ children }: AppShellProps) {
   const handleSwitchContext = (contextId: string) => {
     switchContext(contextId)
     setContextSelectorOpen(false)
+  }
+
+  // ====================================================================
+  // RENDER: Flujo de Onboarding / Setup (Full-Screen inmersivo)
+  // Se evalua ANTES que la autenticacion: el wizard de aprovisionamiento
+  // toma control total de la pantalla y oculta el AppShell por completo.
+  // ====================================================================
+  if (pathname?.startsWith("/admin/setup")) {
+    return (
+      <main className="w-screen h-screen overflow-y-auto bg-background">
+        {children}
+        <Toaster position="bottom-center" />
+      </main>
+    )
   }
 
   // ====================================================================
@@ -560,76 +575,96 @@ export function AppShell({ children }: AppShellProps) {
         </>
       )}
 
-      {/* MAIN CONTENT AREA (full width mobile, flex-1 on desktop) */}
-      <main className="flex-1 h-full overflow-y-auto relative scrollbar-galactic pt-14 md:pt-0">
+      {/* MAIN CONTENT AREA (full width - permanent) */}
+      <main className="flex-1 w-full h-full overflow-y-auto relative scrollbar-galactic pt-14 md:pt-0">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
         <div className="relative z-10 p-4 md:p-8">
           {children}
         </div>
       </main>
 
-      {/* RIGHT UTILITY PANEL (hidden on mobile and tablets, visible lg+) */}
-      <aside className="hidden lg:flex w-[25%] min-w-[300px] h-full glass-panel border-l border-white/5 p-6 overflow-y-auto scrollbar-galactic flex-col gap-6">
-        <header className="border-b border-white/5 pb-4">
-          <h2 className="text-sm font-bold text-foreground">Panel de Utilidades</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Ruta: <span className="text-primary font-mono">{pathname}</span>
-          </p>
-        </header>
+      {/* FLOATING ALERTS TRIGGER (operative alerts now live in a Sheet, not the layout) */}
+      <button
+        onClick={() => setAlertsOpen(true)}
+        className="fixed bottom-4 left-4 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-white/10 hover:border-primary/30 hover:bg-white/5 transition-all shadow-2xl group"
+        aria-label="Abrir alertas operativas"
+      >
+        <Bell className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+        <span className="text-xs font-medium text-foreground hidden sm:inline">Alertas</span>
+        <span className="flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
+          {role === "ADMIN" ? "3" : role === "PRECEPTOR" ? "2" : role === "DOCENTE" ? "1" : "2"}
+        </span>
+      </button>
 
-        {/* Role-based contextual content */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-          {role === "ADMIN" && (
-            <>
-              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Metricas Rapidas</span>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>Sistema operando con normalidad.</p>
-                <p><span className="text-secondary font-mono">14</span> docentes activos hoy.</p>
-                <p><span className="text-secondary font-mono">342</span> alumnos registrados.</p>
-              </div>
-            </>
-          )}
-          {role === "DOCENTE" && (
-            <>
-              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Entregas Pendientes</span>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>Faltan <span className="text-primary font-mono">12</span> dias para el cierre.</p>
-                <p>Corregir: <span className="text-primary font-mono">18/24</span> examenes.</p>
-              </div>
-            </>
-          )}
-          {role === "PRECEPTOR" && (
-            <>
-              <span className="text-[10px] font-bold text-tertiary uppercase tracking-widest">Registro Diario</span>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>Sin incidencias reportadas hoy.</p>
-                <p>Asistencia: <span className="text-secondary font-mono">6/6</span> cursos.</p>
-              </div>
-            </>
-          )}
-          {role === "FAMILIA" && (
-            <>
-              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Notificaciones</span>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>Reunion: <span className="text-primary">15 May, 18:00</span></p>
-                <p><span className="text-secondary font-mono">2</span> documentos pendientes.</p>
-              </div>
-            </>
-          )}
-        </div>
+      {/* OPERATIVE ALERTS SHEET (replaces the old static right utility panel) */}
+      <Sheet open={alertsOpen} onOpenChange={setAlertsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 bg-background border-l border-white/5 flex flex-col">
+          <SheetHeader className="p-6 border-b border-white/5">
+            <SheetTitle className="text-left text-sm font-bold flex items-center gap-2">
+              <Bell className="w-4 h-4 text-primary" />
+              Alertas Operativas
+            </SheetTitle>
+            <p className="text-xs text-muted-foreground text-left">
+              Ruta: <span className="text-primary font-mono">{pathname}</span>
+            </p>
+          </SheetHeader>
 
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-center">
-            <p className="text-2xl font-bold text-foreground">94.2%</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Asistencia</p>
+          <div className="flex-1 overflow-y-auto scrollbar-galactic p-6 flex flex-col gap-6">
+            {/* Role-based contextual content */}
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+              {role === "ADMIN" && (
+                <>
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Metricas Rapidas</span>
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <p>Sistema operando con normalidad.</p>
+                    <p><span className="text-secondary font-mono">14</span> docentes activos hoy.</p>
+                    <p><span className="text-secondary font-mono">342</span> alumnos registrados.</p>
+                  </div>
+                </>
+              )}
+              {role === "DOCENTE" && (
+                <>
+                  <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Entregas Pendientes</span>
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <p>Faltan <span className="text-primary font-mono">12</span> dias para el cierre.</p>
+                    <p>Corregir: <span className="text-primary font-mono">18/24</span> examenes.</p>
+                  </div>
+                </>
+              )}
+              {role === "PRECEPTOR" && (
+                <>
+                  <span className="text-[10px] font-bold text-tertiary uppercase tracking-widest">Registro Diario</span>
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <p>Sin incidencias reportadas hoy.</p>
+                    <p>Asistencia: <span className="text-secondary font-mono">6/6</span> cursos.</p>
+                  </div>
+                </>
+              )}
+              {role === "FAMILIA" && (
+                <>
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Notificaciones</span>
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <p>Reunion: <span className="text-primary">15 May, 18:00</span></p>
+                    <p><span className="text-secondary font-mono">2</span> documentos pendientes.</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-center">
+                <p className="text-2xl font-bold text-foreground">94.2%</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Asistencia</p>
+              </div>
+              <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-center">
+                <p className="text-2xl font-bold text-foreground">7.42</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Promedio</p>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-center">
-            <p className="text-2xl font-bold text-foreground">7.42</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Promedio</p>
-          </div>
-        </div>
-      </aside>
+        </SheetContent>
+      </Sheet>
 
       {/* DEV CONSOLE (Floating - works on all screens) */}
       <div 
