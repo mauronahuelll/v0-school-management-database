@@ -30,12 +30,19 @@ import {
   Rocket,
   Sparkles,
   GraduationCap,
+  Baby,
+  Backpack,
+  Building2,
+  Info,
+  Fingerprint,
 } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // ====================================================================
 // TYPES
 // ====================================================================
 type CalendarType = "TRIMESTRAL" | "CUATRIMESTRAL" | "BIMESTRAL"
+type EducationLevel = "INICIAL" | "PRIMARIO" | "SECUNDARIO" | "SUPERIOR"
 
 interface CourseConfig {
   id: string
@@ -76,6 +83,20 @@ const CALENDAR_OPTIONS: { value: CalendarType; label: string; desc: string; peri
 const DEFAULT_DIVISIONS = ["A", "B", "C"]
 const YEAR_OPTIONS = ["1°", "2°", "3°", "4°", "5°", "6°", "7°"]
 
+const EDUCATION_LEVELS: { value: EducationLevel; label: string; desc: string; icon: typeof Baby }[] = [
+  { value: "INICIAL", label: "Nivel Inicial", desc: "Jardin de infantes", icon: Baby },
+  { value: "PRIMARIO", label: "Nivel Primario", desc: "Educacion primaria", icon: Backpack },
+  { value: "SECUNDARIO", label: "Nivel Secundario", desc: "Educacion media", icon: GraduationCap },
+  { value: "SUPERIOR", label: "Nivel Superior", desc: "Terciario / Universitario", icon: Building2 },
+]
+
+const LEVEL_LABELS: Record<EducationLevel, string> = {
+  INICIAL: "Inicial",
+  PRIMARIO: "Primario",
+  SECUNDARIO: "Secundario",
+  SUPERIOR: "Superior / Universitario",
+}
+
 // ====================================================================
 // MAIN WIZARD
 // ====================================================================
@@ -86,6 +107,8 @@ export default function AdminSetupPage() {
 
   // Step 1
   const [institutionName, setInstitutionName] = useState("")
+  const [cueCode, setCueCode] = useState("")
+  const [educationLevel, setEducationLevel] = useState<EducationLevel | "">("")
   const [calendarType, setCalendarType] = useState<CalendarType | "">("")
 
   // Step 2
@@ -227,7 +250,12 @@ export default function AdminSetupPage() {
   const canAdvance = (() => {
     switch (currentStep) {
       case 1:
-        return institutionName.trim().length > 1 && calendarType !== ""
+        return (
+          institutionName.trim().length > 1 &&
+          cueCode.trim().length > 0 &&
+          educationLevel !== "" &&
+          calendarType !== ""
+        )
       case 2:
         return courses.length > 0 && courses.every((c) => c.divisions.length > 0)
       case 3:
@@ -352,17 +380,93 @@ export default function AdminSetupPage() {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="institution" className="text-xs uppercase tracking-wider text-white/50">
-                  Nombre de la Institucion
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="institution" className="text-xs uppercase tracking-wider text-white/50">
+                    Nombre de la Institucion
+                  </Label>
+                  <Input
+                    id="institution"
+                    value={institutionName}
+                    onChange={(e) => setInstitutionName(e.target.value)}
+                    placeholder="Ej: Colegio San Martin"
+                    className="h-12 bg-white/[0.02] border-white/10 text-base focus-visible:border-[#d0bcff]/50 focus-visible:ring-[#d0bcff]/20"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cue" className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-white/50">
+                    <Fingerprint className="size-3.5" />
+                    Codigo CUE / Identificador Unico
+                  </Label>
+                  <Input
+                    id="cue"
+                    value={cueCode}
+                    onChange={(e) => setCueCode(e.target.value)}
+                    placeholder="Ej: 020123400"
+                    className="h-12 bg-white/[0.02] border-white/10 text-base font-mono focus-visible:border-[#d0bcff]/50 focus-visible:ring-[#d0bcff]/20"
+                  />
+                  <p className="text-[11px] text-white/30">
+                    Agrupa a los directores bajo la misma entidad legal.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-xs uppercase tracking-wider text-white/50">
+                  Nivel Educativo a Cargo
                 </Label>
-                <Input
-                  id="institution"
-                  value={institutionName}
-                  onChange={(e) => setInstitutionName(e.target.value)}
-                  placeholder="Ej: Colegio San Martin"
-                  className="h-12 bg-white/[0.02] border-white/10 text-base focus-visible:border-[#d0bcff]/50 focus-visible:ring-[#d0bcff]/20"
-                />
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {EDUCATION_LEVELS.map((opt) => {
+                    const LevelIcon = opt.icon
+                    const selected = educationLevel === opt.value
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setEducationLevel(opt.value)}
+                        className={cn(
+                          "group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all duration-200",
+                          selected
+                            ? "border-[#d0bcff]/50 bg-[#d0bcff]/10 shadow-[0_0_24px_-8px_rgba(208,188,255,0.4)]"
+                            : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={cn(
+                              "flex size-9 items-center justify-center rounded-lg border transition-colors",
+                              selected
+                                ? "border-[#d0bcff]/30 bg-[#d0bcff]/15 text-[#d0bcff]"
+                                : "border-white/10 bg-white/[0.03] text-white/40"
+                            )}
+                          >
+                            <LevelIcon className="size-4" />
+                          </div>
+                          {selected && <Check className="size-4 text-[#d0bcff]" />}
+                        </div>
+                        <span className={cn("text-sm font-semibold", selected ? "text-[#d0bcff]" : "text-white/80")}>
+                          {opt.label}
+                        </span>
+                        <p className="text-xs text-white/40">{opt.desc}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {educationLevel && (
+                  <Alert className="border-[#d0bcff]/20 bg-[#d0bcff]/[0.06] text-[#e4e1ea] animate-in fade-in slide-in-from-top-1 duration-300">
+                    <Info className="size-4 text-[#d0bcff]" />
+                    <AlertDescription className="text-xs text-white/60 leading-relaxed">
+                      Configurara la estructura exclusiva para el{" "}
+                      <span className="font-semibold text-[#d0bcff]">
+                        Nivel {LEVEL_LABELS[educationLevel]}
+                      </span>
+                      . La base de datos del alumnado sera compartida a nivel
+                      institucional para facilitar la promocion entre niveles.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
 
               <div className="space-y-3">
