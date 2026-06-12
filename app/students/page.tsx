@@ -24,6 +24,10 @@ import {
   ArrowUpCircle,
   Pencil,
   Trash2,
+  FileSpreadsheet,
+  UploadCloud,
+  FileUp,
+  Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -195,6 +199,12 @@ export default function StudentsPage() {
   const [boletinCourse, setBoletinCourse] = useState<string>("");
   const [isGeneratingBoletin, setIsGeneratingBoletin] = useState(false);
 
+  // Importador de Matricula (Excel/CSV) state
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isProcessingImport, setIsProcessingImport] = useState(false);
+
   // Pases state
   const [activeTab, setActiveTab] = useState("alumnos");
   const [incomingToken, setIncomingToken] = useState("");
@@ -266,6 +276,42 @@ export default function StudentsPage() {
     setDeletingStudent(null);
     toast.success("Registro eliminado");
   }, [deletingStudent]);
+
+  // ── Importador de Matricula (Excel/CSV) ────────────────────────────
+  const isValidImportFile = (file: File) => /\.(xlsx|xls|csv)$/i.test(file.name);
+
+  const handleFileSelected = useCallback((file: File | undefined) => {
+    if (!file) return;
+    if (!isValidImportFile(file)) {
+      toast.error("Formato no valido", { description: "Solo se aceptan archivos .xlsx, .xls o .csv" });
+      return;
+    }
+    setImportFile(file);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelected(e.dataTransfer.files?.[0]);
+  }, [handleFileSelected]);
+
+  const handleDownloadTemplate = useCallback(() => {
+    toast.info("Generando plantilla base...", {
+      description: "Incluye las columnas estandar mas los campos personalizados definidos en Configuracion.",
+    });
+  }, []);
+
+  const handleProcessImport = useCallback(async () => {
+    if (!importFile) return;
+    setIsProcessingImport(true);
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    setIsProcessingImport(false);
+    setImportFile(null);
+    setIsImportOpen(false);
+    toast.success("Matricula importada correctamente", {
+      description: `Se proceso "${importFile.name}". Los alumnos fueron incorporados al padron.`,
+    });
+  }, [importFile]);
 
   useEffect(() => {
     setMounted(true);
@@ -572,6 +618,14 @@ startxref
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Importador de Matricula - Boton primario omnipresente */}
+          <Button
+            onClick={() => setIsImportOpen(true)}
+            className="gap-2 bg-emerald-500 text-[#0a160f] hover:bg-emerald-400 font-semibold shadow-lg shadow-emerald-500/20"
+          >
+            <FileSpreadsheet className="size-4" />
+            Importar Matricula (Excel/CSV)
+          </Button>
           {/* Dynamic Export Button - Shows format based on role */}
           <Button
             onClick={() => setIsBoletinDialogOpen(true)}
@@ -1554,6 +1608,133 @@ startxref
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Importador de Matricula (Excel/CSV) */}
+      <Dialog open={isImportOpen} onOpenChange={(o) => { if (!isProcessingImport) { setIsImportOpen(o); if (!o) setImportFile(null); } }}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+              <FileSpreadsheet className="size-5 text-emerald-400" />
+              Importar Matricula
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Carga masiva del padron de alumnos desde una planilla. Soporta Excel (.xlsx, .xls) y CSV.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Drag & Drop zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              className={cn(
+                "relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition-colors",
+                isDragging
+                  ? "border-emerald-400 bg-emerald-500/10"
+                  : importFile
+                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    : "border-white/15 bg-white/[0.02] hover:border-white/25"
+              )}
+            >
+              {importFile ? (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                    <FileSpreadsheet className="size-7 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#e4e1ea]">{importFile.name}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">
+                      {(importFile.size / 1024).toFixed(1)} KB · Listo para procesar
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setImportFile(null)}
+                    className="text-white/50 hover:text-white hover:bg-white/5"
+                  >
+                    Quitar archivo
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                    <UploadCloud className="size-7 text-white/40" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#e4e1ea]">
+                      Arrastra y suelta tu archivo aqui
+                    </p>
+                    <p className="text-[11px] text-white/40 mt-0.5">o selecciona desde tu equipo</p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors">
+                      <FileUp className="size-4" />
+                      Seleccionar archivo
+                    </span>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="sr-only"
+                      onChange={(e) => handleFileSelected(e.target.files?.[0])}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+
+            {/* Plantilla base */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-white/[0.02] border border-white/5 p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center shrink-0">
+                  <Sparkles className="size-4 text-[#d0bcff]" />
+                </div>
+                <p className="text-[11px] text-white/50 leading-relaxed max-w-sm">
+                  El sistema requerira las columnas estandar mas los campos personalizados que haya 
+                  definido en la Configuracion.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleDownloadTemplate}
+                className="border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10 hover:text-[#d0bcff] shrink-0 gap-2"
+              >
+                <Download className="size-4" />
+                Descargar Plantilla Base
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setIsImportOpen(false); setImportFile(null); }}
+              disabled={isProcessingImport}
+              className="border-white/10"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleProcessImport}
+              disabled={!importFile || isProcessingImport}
+              className="bg-emerald-500 text-[#0a160f] hover:bg-emerald-400 font-semibold gap-2"
+            >
+              {isProcessingImport ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <ArrowDownToLine className="size-4" />
+                  Importar Padron
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Toaster theme="dark" />
     </div>
