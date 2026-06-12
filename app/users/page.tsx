@@ -28,6 +28,10 @@ import {
   Phone,
   MapPin,
   Eye,
+  Check,
+  Ban,
+  ShieldCheck,
+  FileSearch,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -74,7 +78,7 @@ import { cn } from "@/lib/utils";
 
 type StaffRole = "DOCENTE" | "PRECEPTOR" | "ADMINISTRATIVO";
 type StaffStatus = "ACTIVE" | "PENDING" | "SUSPENDED";
-type DocumentStatus = "AL_DIA" | "VENCIDO" | "FALTA_ENTREGAR";
+type DocumentStatus = "AL_DIA" | "VENCIDO" | "FALTA_ENTREGAR" | "EN_REVISION" | "RECHAZADO";
 
 interface StaffMember {
   id: string;
@@ -98,6 +102,8 @@ interface StaffDocument {
   status: DocumentStatus;
   expirationDate?: string;
   uploadedAt?: string;
+  rejectionReason?: string;
+  uploadedByAdmin?: boolean;
 }
 
 interface StaffAttendanceRecord {
@@ -186,7 +192,7 @@ const MOCK_DOCUMENTS: Record<string, StaffDocument[]> = {
   "1": [
     { id: "d1", name: "Declaracion Jurada (DD.JJ.) de Cargos", description: "Declaracion anual de cargos publicos", status: "AL_DIA", uploadedAt: "2024-03-01", expirationDate: "2025-03-01" },
     { id: "d2", name: "Titulo Habilitante", description: "Titulo universitario o terciario", status: "AL_DIA", uploadedAt: "2024-01-15" },
-    { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "VENCIDO", uploadedAt: "2023-06-15", expirationDate: "2024-06-15" },
+    { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "EN_REVISION", uploadedAt: "2024-06-10" },
     { id: "d4", name: "Antecedentes Penales", description: "Certificado de antecedentes", status: "AL_DIA", uploadedAt: "2024-02-20", expirationDate: "2025-02-20" },
   ],
   "2": [
@@ -303,9 +309,11 @@ function getStatusConfig(status: StaffStatus): { label: string; color: string; i
 
 function getDocumentStatusConfig(status: DocumentStatus): { label: string; color: string; bgColor: string } {
   const configs: Record<DocumentStatus, { label: string; color: string; bgColor: string }> = {
-    AL_DIA: { label: "Al dia", color: "text-[#4de082]", bgColor: "bg-[#4de082]/10 border-[#4de082]/20" },
+    AL_DIA: { label: "Aprobado", color: "text-[#4de082]", bgColor: "bg-[#4de082]/10 border-[#4de082]/20" },
     VENCIDO: { label: "Vencido", color: "text-red-400", bgColor: "bg-red-500/10 border-red-500/20" },
     FALTA_ENTREGAR: { label: "Falta Entregar", color: "text-amber-400", bgColor: "bg-amber-500/10 border-amber-500/20" },
+    EN_REVISION: { label: "En Revision", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
+    RECHAZADO: { label: "Rechazado", color: "text-red-400", bgColor: "bg-red-500/10 border-red-500/20" },
   };
   return configs[status];
 }
@@ -359,6 +367,23 @@ export default function StaffManagementPage() {
   const [legajoMember, setLegajoMember] = useState<StaffMember | null>(null);
   const [legajoTab, setLegajoTab] = useState("datos");
   const [isValidatingDoc, setIsValidatingDoc] = useState<string | null>(null);
+
+  // Editable documents store (audit flow: approve / reject / upload on behalf)
+  const [documentsStore, setDocumentsStore] = useState<Record<string, StaffDocument[]>>(MOCK_DOCUMENTS);
+
+  // Reject modal state (requires reason)
+  const [rejectingDoc, setRejectingDoc] = useState<StaffDocument | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  // Upload-on-behalf modal state
+  const [uploadingDoc, setUploadingDoc] = useState<StaffDocument | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+  // Documents of the currently open legajo member
+  const legajoDocuments = legajoMember
+    ? documentsStore[legajoMember.id] ?? []
+    : [];
 
   // For demo purposes, assume current user is ADMIN (can edit documents)
   const isAdmin = true;
@@ -525,15 +550,71 @@ export default function StaffManagementPage() {
     setIsLegajoOpen(true);
   }, []);
 
-  // Validate/Upload document
-  const handleValidateDocument = useCallback(async (docId: string) => {
-    setIsValidatingDoc(docId);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsValidatingDoc(null);
-    toast.success("Documento validado y actualizado", {
-      description: "El estado del documento ha sido modificado a 'Al dia'.",
+  // Helper: patch a document in the store for a given member
+  const patchDocument = useCallback((memberId: string, docId: string, patch: Partial<StaffDocument>) => {
+    setDocumentsStore((prev) => {
+      const memberDocs = prev[memberId] ?? [];
+      return {
+        ...prev,
+        [memberId]: memberDocs.map((d) => (d.id === docId ? { ...d, ...patch } : d)),
+      };
     });
   }, []);
+
+  // Approve a document submitted by the teacher
+  const handleApproveDocument = useCallback(async (docId: string) => {
+    if (!legajoMember) return;
+    setIsValidatingDoc(docId);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    patchDocument(legajoMember.id, docId, {
+      status: "AL_DIA",
+      rejectionReason: undefined,
+      uploadedAt: getTodayLocalISO(),
+    });
+    setIsValidatingDoc(null);
+    toast.success("Documento aprobado", {
+      description: "El docente fue notificado de la validacion.",
+    });
+  }, [legajoMember, patchDocument]);
+
+  // Confirm rejection with a reason
+  const handleConfirmReject = useCallback(async () => {
+    if (!legajoMember || !rejectingDoc) return;
+    if (!rejectionReason.trim()) {
+      toast.error("Debes indicar el motivo del rechazo");
+      return;
+    }
+    setIsRejecting(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    patchDocument(legajoMember.id, rejectingDoc.id, {
+      status: "RECHAZADO",
+      rejectionReason: rejectionReason.trim(),
+    });
+    setIsRejecting(false);
+    setRejectingDoc(null);
+    setRejectionReason("");
+    toast.success("Documento rechazado", {
+      description: "Se notifico al docente con el motivo para que lo vuelva a subir.",
+    });
+  }, [legajoMember, rejectingDoc, rejectionReason, patchDocument]);
+
+  // Upload a document on behalf of the teacher (physical paper scanned by admin)
+  const handleConfirmUploadOnBehalf = useCallback(async () => {
+    if (!legajoMember || !uploadingDoc) return;
+    setIsUploadingFile(true);
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    patchDocument(legajoMember.id, uploadingDoc.id, {
+      status: "AL_DIA",
+      rejectionReason: undefined,
+      uploadedAt: getTodayLocalISO(),
+      uploadedByAdmin: true,
+    });
+    setIsUploadingFile(false);
+    setUploadingDoc(null);
+    toast.success("Documento cargado en nombre del docente", {
+      description: "Quedo registrado y aprobado por Secretaria.",
+    });
+  }, [legajoMember, uploadingDoc, patchDocument]);
 
   if (!mounted) return null;
 
@@ -738,6 +819,13 @@ export default function StaffManagementPage() {
                             >
                               <Eye className="size-4" />
                               Ver Legajo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="gap-2 cursor-pointer"
+                              onClick={() => { handleOpenLegajo(member); setLegajoTab("documentacion"); }}
+                            >
+                              <FileSearch className="size-4" />
+                              Auditar Documentacion
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer"
@@ -1213,10 +1301,13 @@ export default function StaffManagementPage() {
               </div>
             </TabsContent>
 
-            {/* Tab 2: Documentacion Legal */}
+            {/* Tab 2: Documentacion Legal - Auditoria */}
             <TabsContent value="documentacion" className="px-6 py-5 space-y-4 max-h-[calc(100vh-220px)] overflow-y-auto">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">Documentos Obligatorios</h3>
+                <div>
+                  <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">Auditoria de Documentacion</h3>
+                  <p className="text-[10px] text-white/30 mt-0.5">Valida lo que subio el docente desde su Portal</p>
+                </div>
                 {!isAdmin && (
                   <span className="text-[10px] px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
                     Solo Lectura
@@ -1225,13 +1316,14 @@ export default function StaffManagementPage() {
               </div>
               
               <div className="space-y-3">
-                {(legajoMember && MOCK_DOCUMENTS[legajoMember.id] ? MOCK_DOCUMENTS[legajoMember.id] : [
-                  { id: "d1", name: "Declaracion Jurada (DD.JJ.) de Cargos", description: "Declaracion anual de cargos publicos", status: "FALTA_ENTREGAR" as DocumentStatus },
-                  { id: "d2", name: "Titulo Habilitante", description: "Titulo universitario o terciario", status: "FALTA_ENTREGAR" as DocumentStatus },
-                  { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "FALTA_ENTREGAR" as DocumentStatus },
-                  { id: "d4", name: "Antecedentes Penales", description: "Certificado de antecedentes", status: "FALTA_ENTREGAR" as DocumentStatus },
-                ]).map((doc) => {
+                {legajoDocuments.length === 0 ? (
+                  <div className="text-center py-10 text-sm text-white/30 bg-white/[0.02] rounded-xl border border-white/5">
+                    Este miembro aun no tiene documentos requeridos cargados.
+                  </div>
+                ) : legajoDocuments.map((doc) => {
                   const statusConfig = getDocumentStatusConfig(doc.status);
+                  const isPending = doc.status === "EN_REVISION";
+                  const needsUpload = doc.status === "FALTA_ENTREGAR" || doc.status === "VENCIDO" || doc.status === "RECHAZADO";
                   return (
                     <div 
                       key={doc.id}
@@ -1249,32 +1341,70 @@ export default function StaffManagementPage() {
                               <p className="text-[10px] text-white/30 mt-1">
                                 Cargado: {doc.uploadedAt}
                                 {doc.expirationDate && ` | Vence: ${doc.expirationDate}`}
+                                {doc.uploadedByAdmin && " | Cargado por Secretaria"}
+                              </p>
+                            )}
+                            {doc.status === "RECHAZADO" && doc.rejectionReason && (
+                              <p className="text-[10px] text-red-400/80 mt-1.5 flex items-start gap-1">
+                                <Ban className="size-3 shrink-0 mt-px" />
+                                Motivo: {doc.rejectionReason}
                               </p>
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${statusConfig.bgColor} ${statusConfig.color} border`}>
-                            {statusConfig.label}
-                          </span>
-                          {isAdmin && doc.status !== "AL_DIA" && (
+                        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded shrink-0 ${statusConfig.bgColor} ${statusConfig.color} border`}>
+                          {statusConfig.label}
+                        </span>
+                      </div>
+
+                      {/* Audit actions */}
+                      {isAdmin && (
+                        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-white/5">
+                          {isPending && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveDocument(doc.id)}
+                                disabled={isValidatingDoc === doc.id}
+                                className="h-8 text-xs bg-[#4de082]/15 text-[#4de082] border border-[#4de082]/30 hover:bg-[#4de082]/25 gap-1.5"
+                              >
+                                {isValidatingDoc === doc.id ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="size-3.5" />
+                                )}
+                                Aprobar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => { setRejectingDoc(doc); setRejectionReason(""); }}
+                                className="h-8 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 gap-1.5"
+                              >
+                                <Ban className="size-3.5" />
+                                Rechazar
+                              </Button>
+                            </>
+                          )}
+                          {needsUpload && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleValidateDocument(doc.id)}
-                              disabled={isValidatingDoc === doc.id}
-                              className="h-7 text-xs border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10 gap-1"
+                              onClick={() => setUploadingDoc(doc)}
+                              className="h-8 text-xs border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10 gap-1.5"
                             >
-                              {isValidatingDoc === doc.id ? (
-                                <Loader2 className="size-3 animate-spin" />
-                              ) : (
-                                <Upload className="size-3" />
-                              )}
-                              Validar
+                              <Upload className="size-3.5" />
+                              Subir en nombre del docente
                             </Button>
                           )}
+                          {doc.status === "AL_DIA" && (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] text-[#4de082]/80">
+                              <ShieldCheck className="size-3.5" />
+                              Documento validado por Secretaria
+                            </span>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1283,21 +1413,26 @@ export default function StaffManagementPage() {
               {/* Compliance Summary */}
               <div className="mt-6 p-4 rounded-xl bg-white/[0.01] border border-white/5">
                 <p className="text-xs text-white/40 mb-3">Resumen de Cumplimiento</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   {(() => {
-                    const docs = legajoMember && MOCK_DOCUMENTS[legajoMember.id] ? MOCK_DOCUMENTS[legajoMember.id] : [];
-                    const alDia = docs.filter(d => d.status === "AL_DIA").length;
-                    const vencidos = docs.filter(d => d.status === "VENCIDO").length;
-                    const faltantes = docs.filter(d => d.status === "FALTA_ENTREGAR").length;
+                    const docs = legajoDocuments;
+                    const aprobados = docs.filter(d => d.status === "AL_DIA").length;
+                    const revision = docs.filter(d => d.status === "EN_REVISION").length;
+                    const rechazados = docs.filter(d => d.status === "RECHAZADO").length;
+                    const faltantes = docs.filter(d => d.status === "FALTA_ENTREGAR" || d.status === "VENCIDO").length;
                     return (
                       <>
                         <div className="text-center p-3 rounded-lg bg-[#4de082]/5 border border-[#4de082]/20">
-                          <p className="text-xl font-bold text-[#4de082]">{alDia}</p>
-                          <p className="text-[10px] text-white/40">Al dia</p>
+                          <p className="text-xl font-bold text-[#4de082]">{aprobados}</p>
+                          <p className="text-[10px] text-white/40">Aprobados</p>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                          <p className="text-xl font-bold text-blue-400">{revision}</p>
+                          <p className="text-[10px] text-white/40">En Revision</p>
                         </div>
                         <div className="text-center p-3 rounded-lg bg-red-500/5 border border-red-500/20">
-                          <p className="text-xl font-bold text-red-400">{vencidos}</p>
-                          <p className="text-[10px] text-white/40">Vencidos</p>
+                          <p className="text-xl font-bold text-red-400">{rechazados}</p>
+                          <p className="text-[10px] text-white/40">Rechazados</p>
                         </div>
                         <div className="text-center p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
                           <p className="text-xl font-bold text-amber-400">{faltantes}</p>
@@ -1414,6 +1549,86 @@ export default function StaffManagementPage() {
           </Tabs>
         </SheetContent>
       </Sheet>
+
+      {/* Reject Document Modal (requires reason) */}
+      <Dialog open={rejectingDoc !== null} onOpenChange={(o) => { if (!o) { setRejectingDoc(null); setRejectionReason(""); } }}>
+        <DialogContent className="sm:max-w-[440px] bg-[#131319] border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <Ban className="size-5 text-red-400" />
+              Rechazar Documento
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              {rejectingDoc?.name}. Indica el motivo; el docente lo recibira para corregir y volver a subir.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label className="text-xs text-white/60">Motivo del rechazo</Label>
+            <Textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Ej: El documento esta vencido / ilegible / no corresponde al periodo actual."
+              className="bg-white/[0.02] border-white/10 min-h-[100px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectingDoc(null); setRejectionReason(""); }} className="border-white/10">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmReject}
+              disabled={isRejecting || !rejectionReason.trim()}
+              className="bg-red-500/90 hover:bg-red-500 text-white gap-1.5"
+            >
+              {isRejecting ? <Loader2 className="size-4 animate-spin" /> : <Ban className="size-4" />}
+              Confirmar Rechazo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload-on-behalf Modal */}
+      <Dialog open={uploadingDoc !== null} onOpenChange={(o) => { if (!o) setUploadingDoc(null); }}>
+        <DialogContent className="sm:max-w-[460px] bg-[#131319] border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <Upload className="size-5 text-[#d0bcff]" />
+              Subir en nombre del docente
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              {uploadingDoc?.name}. Usa esta opcion cuando el docente entrego el papel fisico y Secretaria lo escaneo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="flex flex-col items-center justify-center gap-3 px-6 py-10 rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-[#d0bcff]/40 hover:bg-[#d0bcff]/[0.03] transition-colors cursor-pointer text-center">
+              <div className="w-12 h-12 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center">
+                <Upload className="size-6 text-[#d0bcff]" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[#e4e1ea]">Arrastra el archivo escaneado aqui</p>
+                <p className="text-[10px] text-white/40 mt-1">PDF o imagen (JPG, PNG) - Max 10MB</p>
+              </div>
+              <input type="file" accept="application/pdf,image/*" className="hidden" />
+            </label>
+            <p className="text-[10px] text-white/30 mt-3 text-center">
+              Al confirmar, el documento quedara aprobado y registrado como cargado por Secretaria.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadingDoc(null)} className="border-white/10">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmUploadOnBehalf}
+              disabled={isUploadingFile}
+              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-1.5"
+            >
+              {isUploadingFile ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Confirmar y Aprobar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Toaster theme="dark" />
     </div>

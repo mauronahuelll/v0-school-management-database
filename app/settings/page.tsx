@@ -19,7 +19,11 @@ import {
   FileWarning,
   BarChart3,
   Trash2,
-  X
+  X,
+  FileStack,
+  FileText,
+  CalendarClock,
+  Briefcase,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,6 +62,22 @@ interface Permission {
   label: string;
   description: string;
   category: string;
+}
+
+type RequirementAudience =
+  | "TODOS"
+  | "SOLO_DOCENTES"
+  | "SOLO_TITULARES";
+
+type RequirementTarget = "PERSONAL" | "ALUMNOS";
+
+interface DocumentRequirement {
+  id: string;
+  title: string;
+  target: RequirementTarget;
+  audience: RequirementAudience;
+  annualExpiration: boolean;
+  isSystem: boolean;
 }
 
 // ============================================================================
@@ -111,6 +131,33 @@ const AVAILABLE_PERMISSIONS: Permission[] = [
   { id: "emitir_sanciones", label: "Emitir Sanciones", description: "Crear actas de convivencia", category: "Convivencia" },
   { id: "ver_analitica", label: "Ver Analitica", description: "Acceder a metricas institucionales", category: "Sistema" },
 ];
+
+const INITIAL_REQUIREMENTS: DocumentRequirement[] = [
+  { id: "req_1", title: "Declaracion Jurada (DD.JJ.) de Cargos", target: "PERSONAL", audience: "TODOS", annualExpiration: true, isSystem: true },
+  { id: "req_2", title: "Titulo Habilitante", target: "PERSONAL", audience: "SOLO_DOCENTES", annualExpiration: false, isSystem: true },
+  { id: "req_3", title: "Apto Medico (Aptitud Psicofisica)", target: "PERSONAL", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "req_4", title: "Certificado de Antecedentes Penales", target: "PERSONAL", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "req_5", title: "Certificado de Reincidencia", target: "PERSONAL", audience: "SOLO_TITULARES", annualExpiration: true, isSystem: false },
+];
+
+const INITIAL_STUDENT_REQUIREMENTS: DocumentRequirement[] = [
+  { id: "sreq_1", title: "DNI (copia)", target: "ALUMNOS", audience: "TODOS", annualExpiration: false, isSystem: true },
+  { id: "sreq_2", title: "Libreta de Vacunacion", target: "ALUMNOS", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "sreq_3", title: "Ficha Medica / Apto Fisico", target: "ALUMNOS", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "sreq_4", title: "Certificado de Estudios Previos", target: "ALUMNOS", audience: "TODOS", annualExpiration: false, isSystem: false },
+];
+
+const AUDIENCE_LABELS: Record<RequirementAudience, string> = {
+  TODOS: "Todos",
+  SOLO_DOCENTES: "Solo Docentes",
+  SOLO_TITULARES: "Solo Titulares",
+};
+
+const STUDENT_AUDIENCE_LABELS: Record<RequirementAudience, string> = {
+  TODOS: "Todos los alumnos",
+  SOLO_DOCENTES: "Solo Ingresantes",
+  SOLO_TITULARES: "Solo Egresados",
+};
 
 // ============================================================================
 // ACCESS DENIED COMPONENT
@@ -311,6 +358,238 @@ function CreateRoleModal({ open, onOpenChange, onSave }: CreateRoleModalProps) {
 }
 
 // ============================================================================
+// REQUIREMENT LIST (Editable Documental Requirements)
+// ============================================================================
+
+interface RequirementListProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  accent: "blue" | "emerald";
+  requirements: DocumentRequirement[];
+  labels: Record<RequirementAudience, string>;
+  onAdd: () => void;
+  onDelete: (id: string) => void;
+}
+
+function RequirementList({
+  title,
+  description,
+  icon,
+  accent,
+  requirements,
+  labels,
+  onAdd,
+  onDelete,
+}: RequirementListProps) {
+  return (
+    <div className="flex flex-col bg-white/[0.01] border border-white/5 rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 p-5 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center border",
+            accent === "blue" && "bg-blue-500/10 border-blue-500/20",
+            accent === "emerald" && "bg-emerald-500/10 border-emerald-500/20",
+          )}>
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">{title}</h3>
+            <p className="text-[10px] text-white/40">{description}</p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={onAdd}
+          className="bg-white/5 hover:bg-white/10 text-white border border-white/10 shrink-0"
+        >
+          <Plus className="size-4 mr-1.5" />
+          Anadir Requisito
+        </Button>
+      </div>
+
+      {/* List */}
+      <div className="p-3 space-y-2 flex-1">
+        {requirements.length === 0 ? (
+          <div className="py-10 text-center text-xs text-white/30">
+            No hay requisitos configurados. Anade el primero.
+          </div>
+        ) : (
+          requirements.map((req) => (
+            <div
+              key={req.id}
+              className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                  <FileText className="size-4 text-white/50" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[#e4e1ea] truncate">{req.title}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <span className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-white/50 border border-white/5">
+                      {labels[req.audience]}
+                    </span>
+                    {req.annualExpiration && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-[9px] font-mono text-amber-400 border border-amber-500/20">
+                        <CalendarClock className="size-2.5" />
+                        Vencimiento Anual
+                      </span>
+                    )}
+                    {req.isSystem && (
+                      <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-[9px] font-mono text-purple-400 border border-purple-500/20">
+                        OBLIGATORIO LEY
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(req.id)}
+                className="h-8 w-8 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label={`Eliminar ${req.title}`}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// ADD REQUIREMENT MODAL
+// ============================================================================
+
+interface AddRequirementModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  target: RequirementTarget;
+  onSave: (req: Omit<DocumentRequirement, "id" | "isSystem">) => void;
+}
+
+function AddRequirementModal({ open, onOpenChange, target, onSave }: AddRequirementModalProps) {
+  const [title, setTitle] = useState("");
+  const [audience, setAudience] = useState<RequirementAudience>("TODOS");
+  const [annualExpiration, setAnnualExpiration] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const isStudent = target === "ALUMNOS";
+  const audienceOptions: RequirementAudience[] = isStudent
+    ? ["TODOS", "SOLO_DOCENTES", "SOLO_TITULARES"]
+    : ["TODOS", "SOLO_DOCENTES", "SOLO_TITULARES"];
+  const labels = isStudent ? STUDENT_AUDIENCE_LABELS : AUDIENCE_LABELS;
+
+  const resetForm = () => {
+    setTitle("");
+    setAudience("TODOS");
+    setAnnualExpiration(false);
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error("Ingresa un titulo para el requisito");
+      return;
+    }
+    setIsSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    onSave({ title: title.trim(), target, audience, annualExpiration });
+    setIsSaving(false);
+    resetForm();
+    onOpenChange(false);
+    toast.success("Requisito documental creado", {
+      description: "Se exigira automaticamente en los legajos correspondientes.",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="bg-[#131319] border-white/10 max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <FileStack className="size-5 text-purple-400" />
+            Nuevo Requisito {isStudent ? "para Alumnos" : "para Personal"}
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            Define un documento que la institucion exigira. Se aplica de forma dinamica sin tocar codigo.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Title */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Titulo del Requisito</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={isStudent ? "Ej: Libreta de Vacunacion" : "Ej: Certificado de Reincidencia"}
+              className="bg-white/[0.02] border-white/10 h-11"
+            />
+          </div>
+
+          {/* Audience */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">A quien aplica</Label>
+            <Select value={audience} onValueChange={(v) => setAudience(v as RequirementAudience)}>
+              <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                {audienceOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{labels[opt]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Annual Expiration */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                <CalendarClock className="size-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[#e4e1ea]">Requiere Vencimiento Anual</p>
+                <p className="text-[10px] text-white/40">El sistema solicitara renovacion cada ano</p>
+              </div>
+            </div>
+            <Switch
+              checked={annualExpiration}
+              onCheckedChange={setAnnualExpiration}
+              className="data-[state=checked]:bg-amber-500"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || !title.trim()} className="bg-purple-600 hover:bg-purple-500">
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Plus className="size-4 mr-2" />
+                Anadir Requisito
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
 
@@ -328,6 +607,11 @@ export default function SettingsPage() {
   // Roles management
   const [roles, setRoles] = useState<SystemRole[]>(SYSTEM_ROLES);
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
+
+  // Documental requirements management (dynamic compliance config)
+  const [staffRequirements, setStaffRequirements] = useState<DocumentRequirement[]>(INITIAL_REQUIREMENTS);
+  const [studentRequirements, setStudentRequirements] = useState<DocumentRequirement[]>(INITIAL_STUDENT_REQUIREMENTS);
+  const [requirementModalTarget, setRequirementModalTarget] = useState<RequirementTarget | null>(null);
 
   // Hydration-safe initialization with localStorage fallback
   useEffect(() => {
@@ -356,6 +640,30 @@ export default function SettingsPage() {
       color: "slate",
     };
     setRoles(prev => [...prev, role]);
+  }, []);
+
+  // Handle add documental requirement
+  const handleAddRequirement = useCallback((req: Omit<DocumentRequirement, "id" | "isSystem">) => {
+    const newReq: DocumentRequirement = {
+      ...req,
+      id: `req_${Date.now()}`,
+      isSystem: false,
+    };
+    if (req.target === "ALUMNOS") {
+      setStudentRequirements(prev => [...prev, newReq]);
+    } else {
+      setStaffRequirements(prev => [...prev, newReq]);
+    }
+  }, []);
+
+  // Handle delete documental requirement
+  const handleDeleteRequirement = useCallback((id: string, target: RequirementTarget) => {
+    if (target === "ALUMNOS") {
+      setStudentRequirements(prev => prev.filter(r => r.id !== id));
+    } else {
+      setStaffRequirements(prev => prev.filter(r => r.id !== id));
+    }
+    toast.success("Requisito eliminado del esquema institucional");
   }, []);
 
   // Loading state to prevent hydration mismatch
@@ -421,6 +729,13 @@ export default function SettingsPage() {
             >
               <Shield className="w-4 h-4 mr-2" />
               Permisos y Roles
+            </TabsTrigger>
+            <TabsTrigger 
+              value="requisitos"
+              className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-300 rounded-xl px-4 py-2 text-sm"
+            >
+              <FileStack className="w-4 h-4 mr-2" />
+              Requisitos Documentales
             </TabsTrigger>
           </TabsList>
 
@@ -696,6 +1011,43 @@ export default function SettingsPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Tab 4: Requisitos Documentales (Dynamic Compliance) */}
+          <TabsContent value="requisitos" className="space-y-6">
+            <div className="p-4 bg-purple-500/5 border border-purple-500/10 rounded-2xl flex items-start gap-3">
+              <FileStack className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-purple-300/70 leading-relaxed">
+                Define dinamicamente que documentacion exige la institucion. Los cambios se propagan 
+                automaticamente a los legajos del personal y a las fichas de los alumnos, sin campos fijos.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Personal Requirements */}
+              <RequirementList
+                title="Documentos para Personal"
+                description="Exigibles a docentes, preceptores y administrativos"
+                icon={<Briefcase className="size-5 text-blue-400" />}
+                accent="blue"
+                requirements={staffRequirements}
+                labels={AUDIENCE_LABELS}
+                onAdd={() => setRequirementModalTarget("PERSONAL")}
+                onDelete={(id) => handleDeleteRequirement(id, "PERSONAL")}
+              />
+
+              {/* Student Requirements */}
+              <RequirementList
+                title="Documentos para Alumnos"
+                description="Exigibles en el momento de la matriculacion"
+                icon={<GraduationCap className="size-5 text-emerald-400" />}
+                accent="emerald"
+                requirements={studentRequirements}
+                labels={STUDENT_AUDIENCE_LABELS}
+                onAdd={() => setRequirementModalTarget("ALUMNOS")}
+                onDelete={(id) => handleDeleteRequirement(id, "ALUMNOS")}
+              />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -725,6 +1077,14 @@ export default function SettingsPage() {
         open={isCreateRoleOpen}
         onOpenChange={setIsCreateRoleOpen}
         onSave={handleCreateRole}
+      />
+
+      {/* Add Documental Requirement Modal */}
+      <AddRequirementModal
+        open={requirementModalTarget !== null}
+        onOpenChange={(o) => { if (!o) setRequirementModalTarget(null); }}
+        target={requirementModalTarget ?? "PERSONAL"}
+        onSave={handleAddRequirement}
       />
     </div>
   );
