@@ -22,6 +22,12 @@ import {
   Lock,
   Globe,
   ArrowUpCircle,
+  Pencil,
+  Trash2,
+  FileSpreadsheet,
+  UploadCloud,
+  FileUp,
+  Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -50,6 +56,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -182,6 +199,12 @@ export default function StudentsPage() {
   const [boletinCourse, setBoletinCourse] = useState<string>("");
   const [isGeneratingBoletin, setIsGeneratingBoletin] = useState(false);
 
+  // Importador de Matricula (Excel/CSV) state
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isProcessingImport, setIsProcessingImport] = useState(false);
+
   // Pases state
   const [activeTab, setActiveTab] = useState("alumnos");
   const [incomingToken, setIncomingToken] = useState("");
@@ -195,6 +218,100 @@ export default function StudentsPage() {
     { id: "p1", firstName: "Carolina", lastName: "Martinez", legajo: "2024-099", currentCourse: "3er Ano", currentDivision: "3a", level: "SECONDARY", status: "REGULAR" },
     { id: "p2", firstName: "Federico", lastName: "Romero", legajo: "2024-087", currentCourse: "5to Ano", currentDivision: "5b", level: "SECONDARY", status: "REGULAR" },
   ]);
+
+  // ── CRUD: Edit student (Update) ────────────────────────────────────
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [studentForm, setStudentForm] = useState<{ firstName: string; lastName: string; currentDivision: string; status: Student["status"] }>({
+    firstName: "",
+    lastName: "",
+    currentDivision: "",
+    status: "REGULAR",
+  });
+  const [isSavingStudent, setIsSavingStudent] = useState(false);
+
+  const handleOpenEditStudent = useCallback((student: Student) => {
+    setEditingStudent(student);
+    setStudentForm({
+      firstName: student.firstName,
+      lastName: student.lastName,
+      currentDivision: student.currentDivision,
+      status: student.status,
+    });
+  }, []);
+
+  const handleSaveStudent = useCallback(async () => {
+    if (!editingStudent) return;
+    if (!studentForm.firstName.trim() || !studentForm.lastName.trim()) {
+      toast.error("El nombre y el apellido son obligatorios");
+      return;
+    }
+    setIsSavingStudent(true);
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    const targetDiv = MOCK_DIVISIONS.find((d) => d.id === studentForm.currentDivision);
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === editingStudent.id
+          ? {
+              ...s,
+              firstName: studentForm.firstName.trim(),
+              lastName: studentForm.lastName.trim(),
+              currentDivision: studentForm.currentDivision,
+              currentCourse: targetDiv?.course ?? s.currentCourse,
+              status: studentForm.status,
+            }
+          : s
+      )
+    );
+    setIsSavingStudent(false);
+    setEditingStudent(null);
+    toast.success("Registro actualizado");
+  }, [editingStudent, studentForm]);
+
+  // ── CRUD: Delete (archive) student ─────────────────────────────────
+  const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
+
+  const handleConfirmDeleteStudent = useCallback(() => {
+    if (!deletingStudent) return;
+    setStudents((prev) => prev.filter((s) => s.id !== deletingStudent.id));
+    setDeletingStudent(null);
+    toast.success("Registro eliminado");
+  }, [deletingStudent]);
+
+  // ── Importador de Matricula (Excel/CSV) ────────────────────────────
+  const isValidImportFile = (file: File) => /\.(xlsx|xls|csv)$/i.test(file.name);
+
+  const handleFileSelected = useCallback((file: File | undefined) => {
+    if (!file) return;
+    if (!isValidImportFile(file)) {
+      toast.error("Formato no valido", { description: "Solo se aceptan archivos .xlsx, .xls o .csv" });
+      return;
+    }
+    setImportFile(file);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelected(e.dataTransfer.files?.[0]);
+  }, [handleFileSelected]);
+
+  const handleDownloadTemplate = useCallback(() => {
+    toast.info("Generando plantilla base...", {
+      description: "Incluye las columnas estandar mas los campos personalizados definidos en Configuracion.",
+    });
+  }, []);
+
+  const handleProcessImport = useCallback(async () => {
+    if (!importFile) return;
+    setIsProcessingImport(true);
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    setIsProcessingImport(false);
+    setImportFile(null);
+    setIsImportOpen(false);
+    toast.success("Matricula importada correctamente", {
+      description: `Se proceso "${importFile.name}". Los alumnos fueron incorporados al padron.`,
+    });
+  }, [importFile]);
 
   useEffect(() => {
     setMounted(true);
@@ -501,6 +618,14 @@ startxref
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Importador de Matricula - Boton primario omnipresente */}
+          <Button
+            onClick={() => setIsImportOpen(true)}
+            className="gap-2 bg-emerald-500 text-[#0a160f] hover:bg-emerald-400 font-semibold shadow-lg shadow-emerald-500/20"
+          >
+            <FileSpreadsheet className="size-4" />
+            Importar Matricula (Excel/CSV)
+          </Button>
           {/* Dynamic Export Button - Shows format based on role */}
           <Button
             onClick={() => setIsBoletinDialogOpen(true)}
@@ -692,11 +817,17 @@ startxref
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-[#1a1a2e] border-white/10">
-                          <DropdownMenuItem className="text-white/80 hover:bg-white/5 cursor-pointer">
+                          <DropdownMenuItem 
+                            onClick={() => toast.info(`Procesando accion de Ver Perfil de ${student.firstName} ${student.lastName}...`)}
+                            className="text-white/80 hover:bg-white/5 cursor-pointer"
+                          >
                             <Eye className="size-4 mr-2" />
                             Ver Perfil
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-white/80 hover:bg-white/5 cursor-pointer">
+                          <DropdownMenuItem 
+                            onClick={() => toast.info(`Procesando accion de Ver Legajo de ${student.firstName} ${student.lastName}...`)}
+                            className="text-white/80 hover:bg-white/5 cursor-pointer"
+                          >
                             <FileText className="size-4 mr-2" />
                             Ver Legajo
                           </DropdownMenuItem>
@@ -710,6 +841,25 @@ startxref
                               >
                                 <ArrowRightLeft className="size-4 mr-2" />
                                 Cambiar de Division
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuItem 
+                                onClick={() => handleOpenEditStudent(student)}
+                                className="text-white/80 hover:bg-white/5 cursor-pointer"
+                              >
+                                <Pencil className="size-4 mr-2" />
+                                Editar Registro
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-white/10" />
+                              <DropdownMenuItem 
+                                onClick={() => setDeletingStudent(student)}
+                                className="text-[#ffb4ab] focus:text-[#ffb4ab] focus:bg-[#ffb4ab]/10 cursor-pointer"
+                              >
+                                <Trash2 className="size-4 mr-2" />
+                                Dar de Baja
                               </DropdownMenuItem>
                             </>
                           )}
@@ -1350,6 +1500,235 @@ startxref
                 <>
                   <ArrowUpCircle className="size-4 mr-2" />
                   Confirmar Promocion
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Student Dialog (Update) */}
+      <Dialog open={editingStudent !== null} onOpenChange={(o) => { if (!o) setEditingStudent(null); }}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <Pencil className="size-5 text-[#d0bcff]" />
+              Editar Registro
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Modifica los datos del alumno. Los cambios se aplican de inmediato al padron.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Nombre</Label>
+                <Input
+                  value={studentForm.firstName}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, firstName: e.target.value }))}
+                  className="bg-white/[0.02] border-white/10 h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Apellido</Label>
+                <Input
+                  value={studentForm.lastName}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, lastName: e.target.value }))}
+                  className="bg-white/[0.02] border-white/10 h-11"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Curso / Division</Label>
+              <Select value={studentForm.currentDivision} onValueChange={(v) => setStudentForm((p) => ({ ...p, currentDivision: v }))}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                  <SelectValue placeholder="Seleccionar division" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {MOCK_DIVISIONS.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Condicion</Label>
+              <Select value={studentForm.status} onValueChange={(v) => setStudentForm((p) => ({ ...p, status: v as Student["status"] }))}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  <SelectItem value="REGULAR">Regular</SelectItem>
+                  <SelectItem value="CONDICIONAL">Condicional</SelectItem>
+                  <SelectItem value="LIBRE">Libre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditingStudent(null)} className="border-white/10">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveStudent}
+              disabled={isSavingStudent || !studentForm.firstName.trim() || !studentForm.lastName.trim()}
+              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-1.5"
+            >
+              {isSavingStudent ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Guardar Cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete (Archive) Student Confirmation */}
+      <AlertDialog open={deletingStudent !== null} onOpenChange={(o) => { if (!o) setDeletingStudent(null); }}>
+        <AlertDialogContent className="bg-[#131319] border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <AlertTriangle className="size-5 text-[#ffb4ab]" />
+              Dar de baja a {deletingStudent?.firstName} {deletingStudent?.lastName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-white/50">
+              Esta accion archivara el legajo del alumno (N.deg {deletingStudent?.legajo}) y lo quitara 
+              del padron activo. El historico academico se conserva y puede restaurarse desde Secretaria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-white/10 bg-transparent hover:bg-white/5">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteStudent}
+              className="bg-[#ffb4ab] text-[#1b1b1f] hover:bg-[#ffb4ab]/90"
+            >
+              <Trash2 className="size-4 mr-1.5" />
+              Confirmar Baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Importador de Matricula (Excel/CSV) */}
+      <Dialog open={isImportOpen} onOpenChange={(o) => { if (!isProcessingImport) { setIsImportOpen(o); if (!o) setImportFile(null); } }}>
+        <DialogContent className="bg-[#131319] border-white/10 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+              <FileSpreadsheet className="size-5 text-emerald-400" />
+              Importar Matricula
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Carga masiva del padron de alumnos desde una planilla. Soporta Excel (.xlsx, .xls) y CSV.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Drag & Drop zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              className={cn(
+                "relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition-colors",
+                isDragging
+                  ? "border-emerald-400 bg-emerald-500/10"
+                  : importFile
+                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    : "border-white/15 bg-white/[0.02] hover:border-white/25"
+              )}
+            >
+              {importFile ? (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                    <FileSpreadsheet className="size-7 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#e4e1ea]">{importFile.name}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">
+                      {(importFile.size / 1024).toFixed(1)} KB · Listo para procesar
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setImportFile(null)}
+                    className="text-white/50 hover:text-white hover:bg-white/5"
+                  >
+                    Quitar archivo
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                    <UploadCloud className="size-7 text-white/40" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#e4e1ea]">
+                      Arrastra y suelta tu archivo aqui
+                    </p>
+                    <p className="text-[11px] text-white/40 mt-0.5">o selecciona desde tu equipo</p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors">
+                      <FileUp className="size-4" />
+                      Seleccionar archivo
+                    </span>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="sr-only"
+                      onChange={(e) => handleFileSelected(e.target.files?.[0])}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+
+            {/* Plantilla base */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-white/[0.02] border border-white/5 p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center shrink-0">
+                  <Sparkles className="size-4 text-[#d0bcff]" />
+                </div>
+                <p className="text-[11px] text-white/50 leading-relaxed max-w-sm">
+                  El sistema requerira las columnas estandar mas los campos personalizados que haya 
+                  definido en la Configuracion.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleDownloadTemplate}
+                className="border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10 hover:text-[#d0bcff] shrink-0 gap-2"
+              >
+                <Download className="size-4" />
+                Descargar Plantilla Base
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setIsImportOpen(false); setImportFile(null); }}
+              disabled={isProcessingImport}
+              className="border-white/10"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleProcessImport}
+              disabled={!importFile || isProcessingImport}
+              className="bg-emerald-500 text-[#0a160f] hover:bg-emerald-400 font-semibold gap-2"
+            >
+              {isProcessingImport ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <ArrowDownToLine className="size-4" />
+                  Importar Padron
                 </>
               )}
             </Button>

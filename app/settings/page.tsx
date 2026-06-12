@@ -19,7 +19,18 @@ import {
   FileWarning,
   BarChart3,
   Trash2,
-  X
+  X,
+  FileStack,
+  FileText,
+  CalendarClock,
+  Briefcase,
+  Lock,
+  IdCard,
+  Cake,
+  Phone,
+  User,
+  Columns3,
+  Asterisk,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,6 +69,33 @@ interface Permission {
   label: string;
   description: string;
   category: string;
+}
+
+type RequirementAudience =
+  | "TODOS"
+  | "SOLO_DOCENTES"
+  | "SOLO_TITULARES";
+
+type RequirementTarget = "PERSONAL" | "ALUMNOS";
+
+interface DocumentRequirement {
+  id: string;
+  title: string;
+  target: RequirementTarget;
+  audience: RequirementAudience;
+  annualExpiration: boolean;
+  isSystem: boolean;
+}
+
+type EnrollmentFieldType = "TEXTO" | "NUMERO" | "FECHA" | "TELEFONO" | "EMAIL" | "SELECCION";
+
+interface EnrollmentField {
+  id: string;
+  label: string;
+  type: EnrollmentFieldType;
+  required: boolean;
+  isFixed: boolean; // Fixed system fields cannot be edited or deleted
+  icon?: "name" | "id" | "date" | "phone";
 }
 
 // ============================================================================
@@ -111,6 +149,55 @@ const AVAILABLE_PERMISSIONS: Permission[] = [
   { id: "emitir_sanciones", label: "Emitir Sanciones", description: "Crear actas de convivencia", category: "Convivencia" },
   { id: "ver_analitica", label: "Ver Analitica", description: "Acceder a metricas institucionales", category: "Sistema" },
 ];
+
+const INITIAL_REQUIREMENTS: DocumentRequirement[] = [
+  { id: "req_1", title: "Declaracion Jurada (DD.JJ.) de Cargos", target: "PERSONAL", audience: "TODOS", annualExpiration: true, isSystem: true },
+  { id: "req_2", title: "Titulo Habilitante", target: "PERSONAL", audience: "SOLO_DOCENTES", annualExpiration: false, isSystem: true },
+  { id: "req_3", title: "Apto Medico (Aptitud Psicofisica)", target: "PERSONAL", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "req_4", title: "Certificado de Antecedentes Penales", target: "PERSONAL", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "req_5", title: "Certificado de Reincidencia", target: "PERSONAL", audience: "SOLO_TITULARES", annualExpiration: true, isSystem: false },
+];
+
+const INITIAL_STUDENT_REQUIREMENTS: DocumentRequirement[] = [
+  { id: "sreq_1", title: "DNI (copia)", target: "ALUMNOS", audience: "TODOS", annualExpiration: false, isSystem: true },
+  { id: "sreq_2", title: "Libreta de Vacunacion", target: "ALUMNOS", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "sreq_3", title: "Ficha Medica / Apto Fisico", target: "ALUMNOS", audience: "TODOS", annualExpiration: true, isSystem: false },
+  { id: "sreq_4", title: "Certificado de Estudios Previos", target: "ALUMNOS", audience: "TODOS", annualExpiration: false, isSystem: false },
+];
+
+const AUDIENCE_LABELS: Record<RequirementAudience, string> = {
+  TODOS: "Todos",
+  SOLO_DOCENTES: "Solo Docentes",
+  SOLO_TITULARES: "Solo Titulares",
+};
+
+const STUDENT_AUDIENCE_LABELS: Record<RequirementAudience, string> = {
+  TODOS: "Todos los alumnos",
+  SOLO_DOCENTES: "Solo Ingresantes",
+  SOLO_TITULARES: "Solo Egresados",
+};
+
+const FIXED_ENROLLMENT_FIELDS: EnrollmentField[] = [
+  { id: "fx_nombre", label: "Nombre", type: "TEXTO", required: true, isFixed: true, icon: "name" },
+  { id: "fx_apellido", label: "Apellido", type: "TEXTO", required: true, isFixed: true, icon: "name" },
+  { id: "fx_dni", label: "DNI", type: "NUMERO", required: true, isFixed: true, icon: "id" },
+  { id: "fx_nacimiento", label: "Fecha de Nacimiento", type: "FECHA", required: true, isFixed: true, icon: "date" },
+  { id: "fx_contacto", label: "Contacto", type: "TELEFONO", required: true, isFixed: true, icon: "phone" },
+];
+
+const INITIAL_CUSTOM_FIELDS: EnrollmentField[] = [
+  { id: "cf_obra_social", label: "Obra Social", type: "TEXTO", required: true, isFixed: false },
+  { id: "cf_grupo_sanguineo", label: "Grupo Sanguineo", type: "SELECCION", required: false, isFixed: false },
+];
+
+const FIELD_TYPE_LABELS: Record<EnrollmentFieldType, string> = {
+  TEXTO: "Texto",
+  NUMERO: "Numero",
+  FECHA: "Fecha",
+  TELEFONO: "Telefono",
+  EMAIL: "Email",
+  SELECCION: "Seleccion",
+};
 
 // ============================================================================
 // ACCESS DENIED COMPONENT
@@ -311,6 +398,441 @@ function CreateRoleModal({ open, onOpenChange, onSave }: CreateRoleModalProps) {
 }
 
 // ============================================================================
+// REQUIREMENT LIST (Editable Documental Requirements)
+// ============================================================================
+
+interface RequirementListProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  accent: "blue" | "emerald";
+  requirements: DocumentRequirement[];
+  labels: Record<RequirementAudience, string>;
+  onAdd: () => void;
+  onDelete: (id: string) => void;
+}
+
+function RequirementList({
+  title,
+  description,
+  icon,
+  accent,
+  requirements,
+  labels,
+  onAdd,
+  onDelete,
+}: RequirementListProps) {
+  return (
+    <div className="flex flex-col bg-white/[0.01] border border-white/5 rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 p-5 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center border",
+            accent === "blue" && "bg-blue-500/10 border-blue-500/20",
+            accent === "emerald" && "bg-emerald-500/10 border-emerald-500/20",
+          )}>
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">{title}</h3>
+            <p className="text-[10px] text-white/40">{description}</p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={onAdd}
+          className="bg-white/5 hover:bg-white/10 text-white border border-white/10 shrink-0"
+        >
+          <Plus className="size-4 mr-1.5" />
+          Anadir Requisito
+        </Button>
+      </div>
+
+      {/* List */}
+      <div className="p-3 space-y-2 flex-1">
+        {requirements.length === 0 ? (
+          <div className="py-10 text-center text-xs text-white/30">
+            No hay requisitos configurados. Anade el primero.
+          </div>
+        ) : (
+          requirements.map((req) => (
+            <div
+              key={req.id}
+              className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                  <FileText className="size-4 text-white/50" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[#e4e1ea] truncate">{req.title}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <span className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-white/50 border border-white/5">
+                      {labels[req.audience]}
+                    </span>
+                    {req.annualExpiration && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-[9px] font-mono text-amber-400 border border-amber-500/20">
+                        <CalendarClock className="size-2.5" />
+                        Vencimiento Anual
+                      </span>
+                    )}
+                    {req.isSystem && (
+                      <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-[9px] font-mono text-purple-400 border border-purple-500/20">
+                        OBLIGATORIO LEY
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(req.id)}
+                className="h-8 w-8 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label={`Eliminar ${req.title}`}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// ENROLLMENT FIELDS MANAGER (Campos de Matricula)
+// ============================================================================
+
+const FIXED_FIELD_ICONS: Record<string, React.ReactNode> = {
+  name: <User className="size-4 text-white/50" />,
+  id: <IdCard className="size-4 text-white/50" />,
+  date: <Cake className="size-4 text-white/50" />,
+  phone: <Phone className="size-4 text-white/50" />,
+};
+
+interface EnrollmentFieldRowProps {
+  field: EnrollmentField;
+  onToggleRequired: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function EnrollmentFieldRow({ field, onToggleRequired, onDelete }: EnrollmentFieldRowProps) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors group",
+        field.isFixed
+          ? "bg-white/[0.015] border-white/5"
+          : "bg-white/[0.02] border-white/5 hover:border-white/10"
+      )}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+          {field.isFixed && field.icon ? FIXED_FIELD_ICONS[field.icon] : <Columns3 className="size-4 text-[#d0bcff]/70" />}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-[#e4e1ea] truncate">{field.label}</p>
+            {field.isFixed && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-white/40 border border-white/10">
+                <Lock className="size-2.5" />
+                FIJO
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <span className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-white/50 border border-white/5">
+              {FIELD_TYPE_LABELS[field.type]}
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border",
+                field.required
+                  ? "bg-red-500/10 text-red-400 border-red-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              )}
+            >
+              {field.required && <Asterisk className="size-2.5" />}
+              {field.required ? "Obligatorio" : "Opcional"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        {field.isFixed ? (
+          <span className="text-[10px] font-mono text-white/25 pr-1">Inmutable</span>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 pr-1">
+              <span className="text-[10px] text-white/40 hidden sm:inline">Obligatorio</span>
+              <Switch
+                checked={field.required}
+                onCheckedChange={() => onToggleRequired(field.id)}
+                className="data-[state=checked]:bg-red-500 scale-90"
+                aria-label={`Marcar ${field.label} como obligatorio`}
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(field.id)}
+              className="h-8 w-8 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label={`Eliminar ${field.label}`}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface AddFieldModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (field: Omit<EnrollmentField, "id" | "isFixed">) => void;
+}
+
+function AddFieldModal({ open, onOpenChange, onSave }: AddFieldModalProps) {
+  const [label, setLabel] = useState("");
+  const [type, setType] = useState<EnrollmentFieldType>("TEXTO");
+  const [required, setRequired] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const resetForm = () => {
+    setLabel("");
+    setType("TEXTO");
+    setRequired(true);
+  };
+
+  const handleSave = async () => {
+    if (!label.trim()) {
+      toast.error("Ingresa un nombre para la columna");
+      return;
+    }
+    setIsSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    onSave({ label: label.trim(), type, required });
+    setIsSaving(false);
+    resetForm();
+    onOpenChange(false);
+    toast.success("Campo de matricula creado", {
+      description: "Se exigira como columna en la plantilla de importacion Excel/CSV.",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="bg-[#131319] border-white/10 max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <Columns3 className="size-5 text-[#d0bcff]" />
+            Anadir Campo Personalizado
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            Define una nueva columna que se exigira en la matricula. Se incorpora automaticamente a la plantilla de importacion.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Nombre del Campo / Columna</Label>
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Ej: Obra Social, Grupo Sanguineo, Contacto de Emergencia"
+              className="bg-white/[0.02] border-white/10 h-11"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Tipo de Dato</Label>
+            <Select value={type} onValueChange={(v) => setType(v as EnrollmentFieldType)}>
+              <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                {(Object.keys(FIELD_TYPE_LABELS) as EnrollmentFieldType[]).map((opt) => (
+                  <SelectItem key={opt} value={opt}>{FIELD_TYPE_LABELS[opt]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                <Asterisk className="size-4 text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[#e4e1ea]">Campo Obligatorio</p>
+                <p className="text-[10px] text-white/40">La importacion fallara si esta columna esta vacia</p>
+              </div>
+            </div>
+            <Switch
+              checked={required}
+              onCheckedChange={setRequired}
+              className="data-[state=checked]:bg-red-500"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || !label.trim()} className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90">
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-[#1a1a2e]/30 border-t-[#1a1a2e] rounded-full animate-spin mr-2" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Plus className="size-4 mr-1.5" />
+                Crear Campo
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
+// ADD REQUIREMENT MODAL
+// ============================================================================
+
+interface AddRequirementModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  target: RequirementTarget;
+  onSave: (req: Omit<DocumentRequirement, "id" | "isSystem">) => void;
+}
+
+function AddRequirementModal({ open, onOpenChange, target, onSave }: AddRequirementModalProps) {
+  const [title, setTitle] = useState("");
+  const [audience, setAudience] = useState<RequirementAudience>("TODOS");
+  const [annualExpiration, setAnnualExpiration] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const isStudent = target === "ALUMNOS";
+  const audienceOptions: RequirementAudience[] = isStudent
+    ? ["TODOS", "SOLO_DOCENTES", "SOLO_TITULARES"]
+    : ["TODOS", "SOLO_DOCENTES", "SOLO_TITULARES"];
+  const labels = isStudent ? STUDENT_AUDIENCE_LABELS : AUDIENCE_LABELS;
+
+  const resetForm = () => {
+    setTitle("");
+    setAudience("TODOS");
+    setAnnualExpiration(false);
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error("Ingresa un titulo para el requisito");
+      return;
+    }
+    setIsSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    onSave({ title: title.trim(), target, audience, annualExpiration });
+    setIsSaving(false);
+    resetForm();
+    onOpenChange(false);
+    toast.success("Requisito documental creado", {
+      description: "Se exigira automaticamente en los legajos correspondientes.",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="bg-[#131319] border-white/10 max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <FileStack className="size-5 text-purple-400" />
+            Nuevo Requisito {isStudent ? "para Alumnos" : "para Personal"}
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            Define un documento que la institucion exigira. Se aplica de forma dinamica sin tocar codigo.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Title */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Titulo del Requisito</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={isStudent ? "Ej: Libreta de Vacunacion" : "Ej: Certificado de Reincidencia"}
+              className="bg-white/[0.02] border-white/10 h-11"
+            />
+          </div>
+
+          {/* Audience */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">A quien aplica</Label>
+            <Select value={audience} onValueChange={(v) => setAudience(v as RequirementAudience)}>
+              <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                {audienceOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{labels[opt]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Annual Expiration */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                <CalendarClock className="size-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[#e4e1ea]">Requiere Vencimiento Anual</p>
+                <p className="text-[10px] text-white/40">El sistema solicitara renovacion cada ano</p>
+              </div>
+            </div>
+            <Switch
+              checked={annualExpiration}
+              onCheckedChange={setAnnualExpiration}
+              className="data-[state=checked]:bg-amber-500"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || !title.trim()} className="bg-purple-600 hover:bg-purple-500">
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Plus className="size-4 mr-2" />
+                Anadir Requisito
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
 
@@ -328,6 +850,11 @@ export default function SettingsPage() {
   // Roles management
   const [roles, setRoles] = useState<SystemRole[]>(SYSTEM_ROLES);
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
+
+  // Documental requirements management (dynamic compliance config)
+  const [staffRequirements, setStaffRequirements] = useState<DocumentRequirement[]>(INITIAL_REQUIREMENTS);
+  const [studentRequirements, setStudentRequirements] = useState<DocumentRequirement[]>(INITIAL_STUDENT_REQUIREMENTS);
+  const [requirementModalTarget, setRequirementModalTarget] = useState<RequirementTarget | null>(null);
 
   // Hydration-safe initialization with localStorage fallback
   useEffect(() => {
@@ -356,6 +883,47 @@ export default function SettingsPage() {
       color: "slate",
     };
     setRoles(prev => [...prev, role]);
+  }, []);
+
+  // Handle add documental requirement
+  const handleAddRequirement = useCallback((req: Omit<DocumentRequirement, "id" | "isSystem">) => {
+    const newReq: DocumentRequirement = {
+      ...req,
+      id: `req_${Date.now()}`,
+      isSystem: false,
+    };
+    if (req.target === "ALUMNOS") {
+      setStudentRequirements(prev => [...prev, newReq]);
+    } else {
+      setStaffRequirements(prev => [...prev, newReq]);
+    }
+  }, []);
+
+  // Handle delete documental requirement
+  const handleDeleteRequirement = useCallback((id: string, target: RequirementTarget) => {
+    if (target === "ALUMNOS") {
+      setStudentRequirements(prev => prev.filter(r => r.id !== id));
+    } else {
+      setStaffRequirements(prev => prev.filter(r => r.id !== id));
+    }
+    toast.success("Requisito eliminado del esquema institucional");
+  }, []);
+
+  // ── Enrollment fields (Campos de Matricula) ──────────────────────
+  const [customFields, setCustomFields] = useState<EnrollmentField[]>(INITIAL_CUSTOM_FIELDS);
+  const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
+
+  const handleAddField = useCallback((field: Omit<EnrollmentField, "id" | "isFixed">) => {
+    setCustomFields(prev => [...prev, { ...field, id: `cf_${Date.now()}`, isFixed: false }]);
+  }, []);
+
+  const handleToggleFieldRequired = useCallback((id: string) => {
+    setCustomFields(prev => prev.map(f => f.id === id ? { ...f, required: !f.required } : f));
+  }, []);
+
+  const handleDeleteField = useCallback((id: string) => {
+    setCustomFields(prev => prev.filter(f => f.id !== id));
+    toast.success("Campo personalizado eliminado de la matricula");
   }, []);
 
   // Loading state to prevent hydration mismatch
@@ -421,6 +989,20 @@ export default function SettingsPage() {
             >
               <Shield className="w-4 h-4 mr-2" />
               Permisos y Roles
+            </TabsTrigger>
+            <TabsTrigger 
+              value="requisitos"
+              className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-300 rounded-xl px-4 py-2 text-sm"
+            >
+              <FileStack className="w-4 h-4 mr-2" />
+              Requisitos Documentales
+            </TabsTrigger>
+            <TabsTrigger 
+              value="matricula"
+              className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-300 rounded-xl px-4 py-2 text-sm"
+            >
+              <Columns3 className="w-4 h-4 mr-2" />
+              Campos de Matricula
             </TabsTrigger>
           </TabsList>
 
@@ -696,6 +1278,115 @@ export default function SettingsPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Tab 4: Requisitos Documentales (Dynamic Compliance) */}
+          <TabsContent value="requisitos" className="space-y-6">
+            <div className="p-4 bg-purple-500/5 border border-purple-500/10 rounded-2xl flex items-start gap-3">
+              <FileStack className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-purple-300/70 leading-relaxed">
+                Define dinamicamente que documentacion exige la institucion. Los cambios se propagan 
+                automaticamente a los legajos del personal y a las fichas de los alumnos, sin campos fijos.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Personal Requirements */}
+              <RequirementList
+                title="Documentos para Personal"
+                description="Exigibles a docentes, preceptores y administrativos"
+                icon={<Briefcase className="size-5 text-blue-400" />}
+                accent="blue"
+                requirements={staffRequirements}
+                labels={AUDIENCE_LABELS}
+                onAdd={() => setRequirementModalTarget("PERSONAL")}
+                onDelete={(id) => handleDeleteRequirement(id, "PERSONAL")}
+              />
+
+              {/* Student Requirements */}
+              <RequirementList
+                title="Documentos para Alumnos"
+                description="Exigibles en el momento de la matriculacion"
+                icon={<GraduationCap className="size-5 text-emerald-400" />}
+                accent="emerald"
+                requirements={studentRequirements}
+                labels={STUDENT_AUDIENCE_LABELS}
+                onAdd={() => setRequirementModalTarget("ALUMNOS")}
+                onDelete={(id) => handleDeleteRequirement(id, "ALUMNOS")}
+              />
+            </div>
+          </TabsContent>
+
+          {/* Campos de Matricula */}
+          <TabsContent value="matricula" className="space-y-6">
+            <div className="p-4 bg-[#d0bcff]/5 border border-[#d0bcff]/10 rounded-2xl flex items-start gap-3">
+              <Columns3 className="w-4 h-4 text-[#d0bcff] shrink-0 mt-0.5" />
+              <p className="text-xs text-[#d0bcff]/80 leading-relaxed">
+                Define que columnas exige el sistema al matricular alumnos. Los campos fijos son obligatorios por 
+                normativa y no pueden modificarse. Los campos personalizados que agregues se incorporan 
+                automaticamente a la plantilla de importacion Excel/CSV de Secretaria.
+              </p>
+            </div>
+
+            <div className="flex flex-col bg-white/[0.01] border border-white/5 rounded-2xl overflow-hidden">
+              {/* Fixed Fields Section */}
+              <div className="p-5 border-b border-white/5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Lock className="size-4 text-white/40" />
+                  <h3 className="text-sm font-bold text-white">Campos Fijos del Sistema</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] font-mono text-white/40 border border-white/10">
+                    {FIXED_ENROLLMENT_FIELDS.length} inmutables
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {FIXED_ENROLLMENT_FIELDS.map((field) => (
+                    <EnrollmentFieldRow
+                      key={field.id}
+                      field={field}
+                      onToggleRequired={() => {}}
+                      onDelete={() => {}}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Fields Section */}
+              <div className="p-5">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Columns3 className="size-4 text-[#d0bcff]/70" />
+                    <h3 className="text-sm font-bold text-white">Campos Personalizados</h3>
+                    <span className="px-2 py-0.5 rounded-full bg-[#d0bcff]/10 text-[10px] font-mono text-[#d0bcff] border border-[#d0bcff]/20">
+                      {customFields.length} activos
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setIsAddFieldOpen(true)}
+                    className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90 shrink-0 font-medium"
+                  >
+                    <Plus className="size-4 mr-1.5" />
+                    Anadir Campo Personalizado
+                  </Button>
+                </div>
+                {customFields.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-white/30 border border-dashed border-white/10 rounded-xl">
+                    No hay campos personalizados. Anade el primero para exigir columnas extra en el Excel.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {customFields.map((field) => (
+                      <EnrollmentFieldRow
+                        key={field.id}
+                        field={field}
+                        onToggleRequired={handleToggleFieldRequired}
+                        onDelete={handleDeleteField}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -725,6 +1416,21 @@ export default function SettingsPage() {
         open={isCreateRoleOpen}
         onOpenChange={setIsCreateRoleOpen}
         onSave={handleCreateRole}
+      />
+
+      {/* Add Documental Requirement Modal */}
+      <AddRequirementModal
+        open={requirementModalTarget !== null}
+        onOpenChange={(o) => { if (!o) setRequirementModalTarget(null); }}
+        target={requirementModalTarget ?? "PERSONAL"}
+        onSave={handleAddRequirement}
+      />
+
+      {/* Add Enrollment Field Modal */}
+      <AddFieldModal
+        open={isAddFieldOpen}
+        onOpenChange={setIsAddFieldOpen}
+        onSave={handleAddField}
       />
     </div>
   );
