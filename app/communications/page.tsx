@@ -373,7 +373,9 @@ export default function CommunicationsPage() {
   const [isDraggingReturn, setIsDraggingReturn] = useState(false);
   const [uploadingReturnId, setUploadingReturnId] = useState<string | null>(null);
 
-  const currentRole = activeContext?.role || null;
+  // Blindaje de estado: fallback seguro a ADMIN para que la Action Bar del emisor
+  // no desaparezca durante la hidratacion del cliente.
+  const currentRole = activeContext?.role || "ADMIN";
   const isReceiver = currentRole === "FAMILIA";
   const isSender = currentRole === "ADMIN" || currentRole === "DOCENTE" || currentRole === "PRECEPTOR";
 
@@ -507,10 +509,11 @@ export default function CommunicationsPage() {
         {isSender && (
           <Button
             onClick={() => setIsComposeOpen(true)}
-            className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
+            size="lg"
+            className="h-12 px-6 gap-2 text-base font-bold bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 shadow-lg shadow-[#d0bcff]/20"
           >
-            <PenSquare className="size-4" />
-            Redactar Circular
+            <PenSquare className="size-5" />
+            Redactar Nuevo Comunicado / Tramite
           </Button>
         )}
       </header>
