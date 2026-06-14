@@ -24,6 +24,11 @@ import {
   Lock,
   Sparkles,
   Image as ImageIcon,
+  Download,
+  Eye,
+  UploadCloud,
+  FolderArchive,
+  FileCheck2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +81,17 @@ interface Communication {
   totalRecipients?: number;
   signedCount?: number;
   pendingRecipients?: { id: string; name: string; course: string }[];
+  // Actionable circulars (require document return)
+  requiresReturn?: boolean;
+  returnTemplateName?: string; // Blank template attached by the preceptor
+  returnStatus?: "PENDIENTE" | "ENTREGADO"; // FAMILIA return state
+  // Sender-side tracking grid (one row per student of target course)
+  tracking?: {
+    id: string;
+    name: string;
+    status: "PENDIENTE" | "ENTREGADO";
+    fileName?: string;
+  }[];
 }
 
 // ============================================
@@ -90,6 +107,32 @@ const TYPE_CONFIG: Record<CommunicationType, { label: string; color: string; ico
 
 // Communications for FAMILIA (receiver view)
 const MOCK_FAMILIA_COMMUNICATIONS: Communication[] = [
+  {
+    id: "c0",
+    type: "EVENTO",
+    title: "Autorizacion - Salida Didactica al Museo de Ciencias",
+    body: `Estimadas familias,
+
+Informamos que el dia jueves 20 de junio el curso realizara una salida didactica al Museo de Ciencias Naturales en el marco del proyecto anual de Biologia.
+
+La salida se realizara en colectivo contratado, con partida a las 08:30 hs desde la institucion y regreso estimado a las 14:00 hs.
+
+Para que su hijo/a pueda participar, es OBLIGATORIO descargar la autorizacion adjunta, completarla, firmarla y devolverla a traves de este mismo comunicado antes del martes 18 de junio.
+
+Quedamos a disposicion ante cualquier consulta.
+
+Preceptoria 4to Ano A`,
+    senderName: "Preceptoria 4to A",
+    senderRole: "Preceptor",
+    sentAt: "Hoy, 08:00",
+    priority: "ALTA",
+    status: "PENDIENTE",
+    hasAttachment: true,
+    attachmentName: "Autorizacion_Museo.pdf",
+    requiresReturn: true,
+    returnTemplateName: "Autorizacion_Museo.pdf",
+    returnStatus: "PENDIENTE",
+  },
   {
     id: "c1",
     type: "ALERTA",
@@ -181,6 +224,36 @@ Secretaria Academica`,
 // Communications for ADMIN/DOCENTE/PRECEPTOR (sender view)
 const MOCK_SENDER_COMMUNICATIONS: Communication[] = [
   {
+    id: "s0",
+    type: "EVENTO",
+    title: "Autorizacion - Salida Didactica al Museo de Ciencias",
+    body: `Estimadas familias,
+
+Informamos que el dia jueves 20 de junio el curso realizara una salida didactica al Museo de Ciencias Naturales en el marco del proyecto anual de Biologia.
+
+Para que su hijo/a pueda participar, es OBLIGATORIO descargar la autorizacion adjunta, completarla, firmarla y devolverla a traves de este mismo comunicado antes del martes 18 de junio.
+
+Preceptoria 4to Ano A`,
+    senderName: "Yo",
+    senderRole: "Preceptor 4to A",
+    sentAt: "Hoy, 08:00",
+    priority: "ALTA",
+    hasAttachment: true,
+    attachmentName: "Autorizacion_Museo.pdf",
+    requiresReturn: true,
+    returnTemplateName: "Autorizacion_Museo.pdf",
+    tracking: [
+      { id: "t1", name: "Benitez, Lucas", status: "ENTREGADO", fileName: "Autorizacion_Benitez.pdf" },
+      { id: "t2", name: "Acosta, Martina", status: "ENTREGADO", fileName: "Autorizacion_Acosta.pdf" },
+      { id: "t3", name: "Cardozo, Tomas", status: "PENDIENTE" },
+      { id: "t4", name: "Dominguez, Valentina", status: "ENTREGADO", fileName: "Autorizacion_Dominguez.pdf" },
+      { id: "t5", name: "Espinoza, Mateo", status: "PENDIENTE" },
+      { id: "t6", name: "Figueroa, Camila", status: "PENDIENTE" },
+      { id: "t7", name: "Gimenez, Bautista", status: "ENTREGADO", fileName: "Autorizacion_Gimenez.pdf" },
+      { id: "t8", name: "Herrera, Julieta", status: "PENDIENTE" },
+    ],
+  },
+  {
     id: "s1",
     type: "ALERTA",
     title: "Suspension de Clases - Jornada Docente",
@@ -255,13 +328,19 @@ const TAG_OPTIONS = [
 ];
 
 const AUDIENCE_OPTIONS = [
-  { value: "all", label: "Toda la escuela" },
-  { value: "1-year", label: "1er Ano" },
-  { value: "2-year", label: "2do Ano" },
-  { value: "3-year", label: "3er Ano" },
-  { value: "4-year", label: "4to Ano" },
-  { value: "5-year", label: "5to Ano" },
-  { value: "6-year", label: "6to Ano" },
+  { value: "all", label: "Toda la escuela", group: "General" },
+  { value: "1-A", label: "1er Ano A", group: "Cursos especificos" },
+  { value: "1-B", label: "1er Ano B", group: "Cursos especificos" },
+  { value: "2-A", label: "2do Ano A", group: "Cursos especificos" },
+  { value: "2-B", label: "2do Ano B", group: "Cursos especificos" },
+  { value: "3-A", label: "3er Ano A", group: "Cursos especificos" },
+  { value: "3-B", label: "3er Ano B", group: "Cursos especificos" },
+  { value: "4-A", label: "4to Ano A", group: "Cursos especificos" },
+  { value: "4-B", label: "4to Ano B", group: "Cursos especificos" },
+  { value: "5-A", label: "5to Ano A", group: "Cursos especificos" },
+  { value: "5-B", label: "5to Ano B", group: "Cursos especificos" },
+  { value: "6-A", label: "6to Ano A", group: "Cursos especificos" },
+  { value: "6-B", label: "6to Ano B", group: "Cursos especificos" },
 ];
 
 // ============================================
@@ -280,12 +359,19 @@ export default function CommunicationsPage() {
   const [composeBody, setComposeBody] = useState("");
   const [composeType, setComposeType] = useState("");
   const [composeAudience, setComposeAudience] = useState("");
+  const [composeTemplateName, setComposeTemplateName] = useState<string | null>(null);
+  const [requireSignedReturn, setRequireSignedReturn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Sign dialog state
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
   const [signPin, setSignPin] = useState("");
   const [isSigning, setIsSigning] = useState(false);
+
+  // Actionable circulars - return upload state (FAMILIA)
+  const [uploadedReturns, setUploadedReturns] = useState<Set<string>>(new Set());
+  const [isDraggingReturn, setIsDraggingReturn] = useState(false);
+  const [uploadingReturnId, setUploadingReturnId] = useState<string | null>(null);
 
   const currentRole = activeContext?.role || null;
   const isReceiver = currentRole === "FAMILIA";
@@ -332,6 +418,49 @@ export default function CommunicationsPage() {
     });
   }, [signPin]);
 
+  const handleDownloadTemplate = useCallback((name: string) => {
+    toast.success("Descargando plantilla", {
+      description: `${name} - completala, firmala y subila por este mismo comunicado.`,
+    });
+  }, []);
+
+  const handleUploadReturn = useCallback(async (commId: string) => {
+    setUploadingReturnId(commId);
+    setIsDraggingReturn(false);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setUploadedReturns(prev => new Set(prev).add(commId));
+    setUploadingReturnId(null);
+    toast.success("Documento entregado", {
+      description: "Tu autorizacion fue enviada. Esperando revision de la institucion.",
+    });
+  }, []);
+
+  const handleViewReturnFile = useCallback((studentName: string) => {
+    toast.info("Abriendo documento", {
+      description: `Autorizacion subida por la familia de ${studentName}.`,
+    });
+  }, []);
+
+  const handleDownloadAllZip = useCallback((count: number) => {
+    toast.success("Generando archivo ZIP", {
+      description: `Comprimiendo ${count} autorizaciones entregadas para su descarga.`,
+    });
+  }, []);
+
+  const handleAttachTemplate = useCallback(() => {
+    // Simulates the preceptor attaching a blank authorization template
+    const mockTemplates = [
+      "autorizacion_salida_didactica.pdf",
+      "planilla_consentimiento.docx",
+      "autorizacion_pileta.pdf",
+    ];
+    const picked = mockTemplates[Math.floor(Math.random() * mockTemplates.length)];
+    setComposeTemplateName(picked);
+    toast.success("Plantilla adjuntada", {
+      description: `${picked} se enviara en blanco para que las familias la completen.`,
+    });
+  }, []);
+
   const handleCompose = useCallback(async () => {
     if (!composeTitle.trim() || !composeBody.trim() || !composeType || !composeAudience) {
       toast.error("Por favor completa todos los campos");
@@ -346,11 +475,16 @@ export default function CommunicationsPage() {
     setComposeBody("");
     setComposeType("");
     setComposeAudience("");
+    setComposeTemplateName(null);
+    const wasActionable = requireSignedReturn;
+    setRequireSignedReturn(false);
     
-    toast.success("Circular enviada exitosamente", {
-      description: `El comunicado fue enviado a ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`,
+    toast.success(wasActionable ? "Circular accionable enviada" : "Circular enviada exitosamente", {
+      description: wasActionable
+        ? `Se habilito el buzon de devolucion para ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`
+        : `El comunicado fue enviado a ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`,
     });
-  }, [composeTitle, composeBody, composeType, composeAudience]);
+  }, [composeTitle, composeBody, composeType, composeAudience, requireSignedReturn]);
 
   if (!mounted) return null;
 
@@ -546,8 +680,74 @@ export default function CommunicationsPage() {
 
               {/* Footer - Role-specific actions */}
               <div className="px-6 py-4 border-t border-white/5 shrink-0 bg-white/[0.01]">
-                {/* FAMILIA View - Sign Button */}
-                {isReceiver && selectedCommunication.status !== "FIRMADO" && (
+                {/* FAMILIA - Actionable circular: download template + upload return */}
+                {isReceiver && selectedCommunication.requiresReturn && (
+                  <div className="space-y-3">
+                    {/* Download original template from preceptor */}
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/[0.02] border border-white/5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="size-5 text-[#d0bcff] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#e4e1ea] truncate">
+                            {selectedCommunication.returnTemplateName}
+                          </p>
+                          <p className="text-xs text-white/40">Plantilla a completar y firmar</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadTemplate(selectedCommunication.returnTemplateName!)}
+                        className="gap-1.5 border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10 hover:text-[#d0bcff] shrink-0"
+                      >
+                        <Download className="size-4" />
+                        Descargar
+                      </Button>
+                    </div>
+
+                    {/* Return mailbox: drag & drop / upload OR delivered badge */}
+                    {uploadedReturns.has(selectedCommunication.id) ? (
+                      <div className="flex items-center gap-2 py-3 px-4 rounded-xl bg-[#4de082]/10 border border-[#4de082]/20">
+                        <FileCheck2 className="size-5 text-[#4de082] shrink-0" />
+                        <span className="text-sm font-medium text-[#4de082]">
+                          Documento Entregado. Esperando revision.
+                        </span>
+                      </div>
+                    ) : uploadingReturnId === selectedCommunication.id ? (
+                      <div className="flex items-center justify-center gap-2 py-6 px-4 rounded-xl border-2 border-dashed border-[#d0bcff]/30 bg-[#d0bcff]/5">
+                        <Loader2 className="size-5 text-[#d0bcff] animate-spin" />
+                        <span className="text-sm text-white/60">Subiendo documento...</span>
+                      </div>
+                    ) : (
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleUploadReturn(selectedCommunication.id)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleUploadReturn(selectedCommunication.id); }}
+                        onDragOver={(e) => { e.preventDefault(); setIsDraggingReturn(true); }}
+                        onDragLeave={() => setIsDraggingReturn(false)}
+                        onDrop={(e) => { e.preventDefault(); handleUploadReturn(selectedCommunication.id); }}
+                        className={cn(
+                          "flex flex-col items-center justify-center gap-2 py-6 px-4 rounded-xl border-2 border-dashed cursor-pointer transition-colors text-center",
+                          isDraggingReturn
+                            ? "border-[#d0bcff] bg-[#d0bcff]/10"
+                            : "border-white/15 bg-white/[0.02] hover:border-[#d0bcff]/40 hover:bg-[#d0bcff]/5"
+                        )}
+                      >
+                        <UploadCloud className="size-6 text-[#d0bcff]" />
+                        <span className="text-sm font-bold text-[#e4e1ea]">
+                          Subir Documento Completado/Firmado
+                        </span>
+                        <span className="text-xs text-white/40">
+                          Arrastra el archivo aqui o haz clic para seleccionarlo (PDF/DOCX)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* FAMILIA View - Sign Button (non-actionable) */}
+                {isReceiver && !selectedCommunication.requiresReturn && selectedCommunication.status !== "FIRMADO" && (
                   <Button
                     onClick={() => setIsSignDialogOpen(true)}
                     className="w-full h-12 bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2 font-bold"
@@ -557,7 +757,7 @@ export default function CommunicationsPage() {
                   </Button>
                 )}
                 
-                {isReceiver && selectedCommunication.status === "FIRMADO" && (
+                {isReceiver && !selectedCommunication.requiresReturn && selectedCommunication.status === "FIRMADO" && (
                   <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#4de082]/10 border border-[#4de082]/20">
                     <CheckCheck className="size-5 text-[#4de082]" />
                     <span className="text-sm font-medium text-[#4de082]">
@@ -566,8 +766,81 @@ export default function CommunicationsPage() {
                   </div>
                 )}
 
-                {/* ADMIN/DOCENTE/PRECEPTOR View - Signature Status */}
-                {isSender && selectedCommunication.totalRecipients && (
+                {/* ADMIN/DOCENTE/PRECEPTOR - Actionable circular: tracking grid */}
+                {isSender && selectedCommunication.requiresReturn && selectedCommunication.tracking && (
+                  <div className="space-y-3">
+                    {(() => {
+                      const delivered = selectedCommunication.tracking!.filter(t => t.status === "ENTREGADO").length;
+                      const total = selectedCommunication.tracking!.length;
+                      return (
+                        <>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs text-white/40 uppercase tracking-wider font-medium">
+                              Seguimiento de devoluciones ({delivered}/{total})
+                            </p>
+                            <Button
+                              size="sm"
+                              onClick={() => handleDownloadAllZip(delivered)}
+                              disabled={delivered === 0}
+                              className="gap-1.5 bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 disabled:opacity-40"
+                            >
+                              <FolderArchive className="size-4" />
+                              Descargar todos los adjuntos (ZIP)
+                            </Button>
+                          </div>
+
+                          {/* Tracking Grid (Data Table) */}
+                          <div className="rounded-xl border border-white/5 overflow-hidden">
+                            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 bg-white/[0.03] border-b border-white/5">
+                              <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Alumno</span>
+                              <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold text-center w-24">Estado</span>
+                              <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold text-right w-28">Accion</span>
+                            </div>
+                            <div className="max-h-56 overflow-y-auto divide-y divide-white/5">
+                              {selectedCommunication.tracking!.map((row) => (
+                                <div
+                                  key={row.id}
+                                  className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-2.5"
+                                >
+                                  <span className="text-sm text-[#e4e1ea] truncate">{row.name}</span>
+                                  <div className="w-24 flex justify-center">
+                                    {row.status === "ENTREGADO" ? (
+                                      <Badge variant="outline" className="text-[10px] bg-[#4de082]/10 text-[#4de082] border-[#4de082]/20">
+                                        Entregado
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20">
+                                        Pendiente
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="w-28 flex justify-end">
+                                    {row.status === "ENTREGADO" ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleViewReturnFile(row.name)}
+                                        className="gap-1.5 text-xs text-[#d0bcff] hover:bg-[#d0bcff]/10 h-8"
+                                      >
+                                        <Eye className="size-3.5" />
+                                        Ver archivo
+                                      </Button>
+                                    ) : (
+                                      <span className="text-xs text-white/25 pr-2">Sin entregar</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* ADMIN/DOCENTE/PRECEPTOR View - Signature Status (non-actionable) */}
+                {isSender && !selectedCommunication.requiresReturn && selectedCommunication.totalRecipients && (
                   <div className="space-y-4">
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-3">
@@ -737,10 +1010,10 @@ export default function CommunicationsPage() {
               </div>
               
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-white/50">Audiencia</Label>
+                <Label className="text-xs uppercase tracking-wider text-white/50">Destino</Label>
                 <Select value={composeAudience} onValueChange={setComposeAudience}>
                   <SelectTrigger className="bg-white/[0.02] border-white/10">
-                    <SelectValue placeholder="Seleccionar..." />
+                    <SelectValue placeholder="Seleccionar curso..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1a2e] border-white/10">
                     {AUDIENCE_OPTIONS.map((opt) => (
@@ -760,6 +1033,59 @@ export default function CommunicationsPage() {
                 onChange={(e) => setComposeBody(e.target.value)}
                 placeholder="Escribe el contenido del comunicado..."
                 className="min-h-[150px] bg-white/[0.02] border-white/10 resize-none"
+              />
+            </div>
+
+            {/* Adjuntar plantilla de salida (PDF/DOCX) */}
+            <div className="space-y-2">
+              {composeTemplateName ? (
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+                  <FileText className="size-5 text-[#d0bcff] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#e4e1ea] truncate">{composeTemplateName}</p>
+                    <p className="text-xs text-white/40">Plantilla en blanco adjunta</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setComposeTemplateName(null)}
+                    className="text-white/40 hover:text-white hover:bg-white/5 shrink-0"
+                    aria-label="Quitar plantilla"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={handleAttachTemplate}
+                  className="w-full justify-start gap-2 text-white/60 hover:text-[#d0bcff] hover:bg-[#d0bcff]/10 border border-dashed border-white/10"
+                >
+                  <Paperclip className="size-4" />
+                  Adjuntar Plantilla (PDF/DOCX)
+                </Button>
+              )}
+            </div>
+
+            {/* Switch: requerir devolucion de documento firmado */}
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="flex-1 min-w-0">
+                <Label
+                  htmlFor="require-signed-return"
+                  className="text-sm font-medium text-[#e4e1ea] cursor-pointer"
+                >
+                  Requerir devolucion de documento firmado
+                </Label>
+                <p className="text-xs text-white/50 mt-1 leading-relaxed">
+                  Si se activa, se habilitara un buzon de subida temporal para que las familias
+                  devuelvan autorizaciones o planillas completadas vinculadas a este comunicado.
+                </p>
+              </div>
+              <Switch
+                id="require-signed-return"
+                checked={requireSignedReturn}
+                onCheckedChange={setRequireSignedReturn}
+                className="mt-0.5 data-[state=checked]:bg-[#d0bcff]"
               />
             </div>
           </div>
