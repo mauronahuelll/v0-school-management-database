@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -255,13 +256,19 @@ const TAG_OPTIONS = [
 ];
 
 const AUDIENCE_OPTIONS = [
-  { value: "all", label: "Toda la escuela" },
-  { value: "1-year", label: "1er Ano" },
-  { value: "2-year", label: "2do Ano" },
-  { value: "3-year", label: "3er Ano" },
-  { value: "4-year", label: "4to Ano" },
-  { value: "5-year", label: "5to Ano" },
-  { value: "6-year", label: "6to Ano" },
+  { value: "all", label: "Toda la escuela", group: "General" },
+  { value: "1-A", label: "1er Ano A", group: "Cursos especificos" },
+  { value: "1-B", label: "1er Ano B", group: "Cursos especificos" },
+  { value: "2-A", label: "2do Ano A", group: "Cursos especificos" },
+  { value: "2-B", label: "2do Ano B", group: "Cursos especificos" },
+  { value: "3-A", label: "3er Ano A", group: "Cursos especificos" },
+  { value: "3-B", label: "3er Ano B", group: "Cursos especificos" },
+  { value: "4-A", label: "4to Ano A", group: "Cursos especificos" },
+  { value: "4-B", label: "4to Ano B", group: "Cursos especificos" },
+  { value: "5-A", label: "5to Ano A", group: "Cursos especificos" },
+  { value: "5-B", label: "5to Ano B", group: "Cursos especificos" },
+  { value: "6-A", label: "6to Ano A", group: "Cursos especificos" },
+  { value: "6-B", label: "6to Ano B", group: "Cursos especificos" },
 ];
 
 // ============================================
@@ -280,6 +287,8 @@ export default function CommunicationsPage() {
   const [composeBody, setComposeBody] = useState("");
   const [composeType, setComposeType] = useState("");
   const [composeAudience, setComposeAudience] = useState("");
+  const [composeTemplateName, setComposeTemplateName] = useState<string | null>(null);
+  const [requireSignedReturn, setRequireSignedReturn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Sign dialog state
@@ -332,6 +341,20 @@ export default function CommunicationsPage() {
     });
   }, [signPin]);
 
+  const handleAttachTemplate = useCallback(() => {
+    // Simulates the preceptor attaching a blank authorization template
+    const mockTemplates = [
+      "autorizacion_salida_didactica.pdf",
+      "planilla_consentimiento.docx",
+      "autorizacion_pileta.pdf",
+    ];
+    const picked = mockTemplates[Math.floor(Math.random() * mockTemplates.length)];
+    setComposeTemplateName(picked);
+    toast.success("Plantilla adjuntada", {
+      description: `${picked} se enviara en blanco para que las familias la completen.`,
+    });
+  }, []);
+
   const handleCompose = useCallback(async () => {
     if (!composeTitle.trim() || !composeBody.trim() || !composeType || !composeAudience) {
       toast.error("Por favor completa todos los campos");
@@ -346,11 +369,16 @@ export default function CommunicationsPage() {
     setComposeBody("");
     setComposeType("");
     setComposeAudience("");
+    setComposeTemplateName(null);
+    const wasActionable = requireSignedReturn;
+    setRequireSignedReturn(false);
     
-    toast.success("Circular enviada exitosamente", {
-      description: `El comunicado fue enviado a ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`,
+    toast.success(wasActionable ? "Circular accionable enviada" : "Circular enviada exitosamente", {
+      description: wasActionable
+        ? `Se habilito el buzon de devolucion para ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`
+        : `El comunicado fue enviado a ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`,
     });
-  }, [composeTitle, composeBody, composeType, composeAudience]);
+  }, [composeTitle, composeBody, composeType, composeAudience, requireSignedReturn]);
 
   if (!mounted) return null;
 
@@ -737,10 +765,10 @@ export default function CommunicationsPage() {
               </div>
               
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-white/50">Audiencia</Label>
+                <Label className="text-xs uppercase tracking-wider text-white/50">Destino</Label>
                 <Select value={composeAudience} onValueChange={setComposeAudience}>
                   <SelectTrigger className="bg-white/[0.02] border-white/10">
-                    <SelectValue placeholder="Seleccionar..." />
+                    <SelectValue placeholder="Seleccionar curso..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1a2e] border-white/10">
                     {AUDIENCE_OPTIONS.map((opt) => (
@@ -760,6 +788,59 @@ export default function CommunicationsPage() {
                 onChange={(e) => setComposeBody(e.target.value)}
                 placeholder="Escribe el contenido del comunicado..."
                 className="min-h-[150px] bg-white/[0.02] border-white/10 resize-none"
+              />
+            </div>
+
+            {/* Adjuntar plantilla de salida (PDF/DOCX) */}
+            <div className="space-y-2">
+              {composeTemplateName ? (
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+                  <FileText className="size-5 text-[#d0bcff] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#e4e1ea] truncate">{composeTemplateName}</p>
+                    <p className="text-xs text-white/40">Plantilla en blanco adjunta</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setComposeTemplateName(null)}
+                    className="text-white/40 hover:text-white hover:bg-white/5 shrink-0"
+                    aria-label="Quitar plantilla"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={handleAttachTemplate}
+                  className="w-full justify-start gap-2 text-white/60 hover:text-[#d0bcff] hover:bg-[#d0bcff]/10 border border-dashed border-white/10"
+                >
+                  <Paperclip className="size-4" />
+                  Adjuntar Plantilla (PDF/DOCX)
+                </Button>
+              )}
+            </div>
+
+            {/* Switch: requerir devolucion de documento firmado */}
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="flex-1 min-w-0">
+                <Label
+                  htmlFor="require-signed-return"
+                  className="text-sm font-medium text-[#e4e1ea] cursor-pointer"
+                >
+                  Requerir devolucion de documento firmado
+                </Label>
+                <p className="text-xs text-white/50 mt-1 leading-relaxed">
+                  Si se activa, se habilitara un buzon de subida temporal para que las familias
+                  devuelvan autorizaciones o planillas completadas vinculadas a este comunicado.
+                </p>
+              </div>
+              <Switch
+                id="require-signed-return"
+                checked={requireSignedReturn}
+                onCheckedChange={setRequireSignedReturn}
+                className="mt-0.5 data-[state=checked]:bg-[#d0bcff]"
               />
             </div>
           </div>
