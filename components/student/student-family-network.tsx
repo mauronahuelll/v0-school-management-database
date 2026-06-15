@@ -20,12 +20,22 @@ import {
   Send,
   Key,
   CreditCard,
+  Clock,
+  MoreVertical,
+  ShieldX,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -63,6 +73,8 @@ interface FamilyContact {
   email?: string;
   dni?: string;
   hasAccount: boolean;
+  // Estado de acceso al portal familiar
+  inviteStatus?: "ACTIVE" | "PENDING";
   isPrimaryTutor: boolean;
   roles: ("TUTOR_LEGAL" | "AUTORIZADO_RETIRO" | "EMERGENCIA" | "RESTRINGIDO")[];
   restrictionDetails?: string;
@@ -71,7 +83,7 @@ interface FamilyContact {
 }
 
 interface StudentFamilyNetworkProps {
-  studentId: string;
+  studentId?: string;
   studentName: string;
   userRole?: UserRole;
   canEdit?: boolean;
@@ -87,8 +99,21 @@ const MOCK_CONTACTS: FamilyContact[] = [
     email: "maria.rodriguez@email.com",
     dni: "28.456.789",
     hasAccount: true,
+    inviteStatus: "ACTIVE",
     isPrimaryTutor: true,
     roles: ["TUTOR_LEGAL", "AUTORIZADO_RETIRO", "EMERGENCIA"],
+  },
+  {
+    id: "c5",
+    fullName: "Diego Hernan Fernandez",
+    relationship: "Padre",
+    phone: "+54 11 4321-7654",
+    email: "diego.fernandez@email.com",
+    dni: "27.987.123",
+    hasAccount: false,
+    inviteStatus: "PENDING",
+    isPrimaryTutor: true,
+    roles: ["TUTOR_LEGAL", "AUTORIZADO_RETIRO"],
   },
   {
     id: "c2",
@@ -272,6 +297,7 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
       email: accountFormData.email,
       dni: accountFormData.dni,
       hasAccount: true,
+      inviteStatus: "PENDING",
       isPrimaryTutor: accountFormData.isPrimaryTutor,
       roles: accountFormData.isPrimaryTutor ? ["TUTOR_LEGAL", "AUTORIZADO_RETIRO"] : ["AUTORIZADO_RETIRO"],
     };
@@ -296,9 +322,36 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
     });
   };
 
+  // Reenviar invitacion de acceso al portal familiar
+  const handleResendInvite = (contact: FamilyContact) => {
+    toast.success("Invitacion reenviada", {
+      description: `Se ha vuelto a enviar el enlace de acceso a ${contact.email ?? contact.fullName}.`,
+    });
+  };
+
+  // Revocar acceso al portal familiar (cambio de responsable legal)
+  const handleRevokeAccess = (contact: FamilyContact) => {
+    setContacts(prev =>
+      prev.map(c =>
+        c.id === contact.id
+          ? { ...c, hasAccount: false, inviteStatus: undefined }
+          : c
+      )
+    );
+    toast.success("Acceso revocado", {
+      description: `${contact.fullName} ya no tiene acceso al portal familiar.`,
+    });
+  };
+
   // Separate restricted contacts
   const restrictedContacts = contacts.filter(c => c.roles.includes("RESTRINGIDO"));
   const safeContacts = contacts.filter(c => !c.roles.includes("RESTRINGIDO"));
+
+  // Tutores principales destacados (maximo 2)
+  const primaryTutors = safeContacts.filter(c => c.isPrimaryTutor);
+  const otherContacts = safeContacts.filter(c => !c.isPrimaryTutor);
+  const PRIMARY_TUTOR_LIMIT = 2;
+  const hasReachedTutorLimit = primaryTutors.length >= PRIMARY_TUTOR_LIMIT;
 
   return (
     <div className="space-y-6">
@@ -319,10 +372,11 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
           {canCreateAccounts && (
             <Button 
               onClick={() => setIsAccountDialogOpen(true)}
-              className="bg-[#4de082] text-[#0a1f0d] hover:bg-[#4de082]/90 gap-2"
+              disabled={hasReachedTutorLimit}
+              className="bg-[#4de082] text-[#0a1f0d] hover:bg-[#4de082]/90 gap-2 disabled:opacity-40"
             >
               <UserPlus className="h-4 w-4" />
-              <span className="hidden sm:inline">Vincular Nuevo Tutor / Familiar</span>
+              <span className="hidden sm:inline">Vincular Nuevo Familiar / Tutor</span>
               <span className="sm:hidden">Vincular</span>
             </Button>
           )}
@@ -384,22 +438,67 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
         </div>
       )}
 
-      {/* Safe Contacts Section */}
+      {/* Primary Tutors Grid - Highlighted (max 2) */}
       <div className="space-y-3">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Tutores y Contactos Autorizados
-        </h4>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {safeContacts.map((contact) => (
-            <ContactCard 
-              key={contact.id} 
-              contact={contact} 
-              onEdit={canEdit ? () => handleOpenSheet(contact) : undefined}
-            />
-          ))}
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#d0bcff]" />
+            Tutores Principales
+          </h4>
+          <span className="text-[10px] font-mono text-white/40">
+            {primaryTutors.length}/{PRIMARY_TUTOR_LIMIT} vinculados
+          </span>
         </div>
+
+        {primaryTutors.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {primaryTutors.map((contact) => (
+              <ActiveTutorCard
+                key={contact.id}
+                contact={contact}
+                canManage={canCreateAccounts}
+                onEdit={canEdit ? () => handleOpenSheet(contact) : undefined}
+                onResend={() => handleResendInvite(contact)}
+                onRevoke={() => handleRevokeAccess(contact)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground p-4 rounded-xl bg-white/[0.02]">
+            No hay tutores principales vinculados todavia.
+          </p>
+        )}
+
+        {/* Limit reached notice */}
+        {canCreateAccounts && hasReachedTutorLimit && (
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+            <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-300/80 leading-relaxed">
+              Se alcanzo el limite de {PRIMARY_TUTOR_LIMIT} tutores principales. Para vincular un nuevo
+              responsable legal, primero debes revocar el acceso de uno de los tutores existentes.
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Other Authorized Contacts */}
+      {otherContacts.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Otros Contactos Autorizados
+          </h4>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {otherContacts.map((contact) => (
+              <ContactCard 
+                key={contact.id} 
+                contact={contact} 
+                onEdit={canEdit ? () => handleOpenSheet(contact) : undefined}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
@@ -782,6 +881,110 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Active/Primary Tutor Card - highlights access status and individual actions
+function ActiveTutorCard({
+  contact,
+  canManage,
+  onEdit,
+  onResend,
+  onRevoke,
+}: {
+  contact: FamilyContact;
+  canManage?: boolean;
+  onEdit?: () => void;
+  onResend?: () => void;
+  onRevoke?: () => void;
+}) {
+  const isPending = contact.inviteStatus === "PENDING";
+  const isActive = contact.inviteStatus === "ACTIVE";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] transition-all"
+    >
+      {/* Header: avatar + name + relationship + status badge */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="size-11 rounded-full flex items-center justify-center text-sm font-bold bg-[#d0bcff]/15 text-[#d0bcff] shrink-0">
+            {contact.fullName.split(" ").map(n => n[0]).join("").slice(0, 2)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{contact.fullName}</p>
+            <p className="text-xs text-muted-foreground">{contact.relationship}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Invitation status badge */}
+          {isActive && (
+            <Badge variant="outline" className="text-[10px] bg-[#4de082]/15 text-[#4de082] border-[#4de082]/30">
+              <ShieldCheck className="h-3 w-3 mr-1" />
+              Activo
+            </Badge>
+          )}
+          {isPending && (
+            <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-400 border-amber-500/30">
+              <Clock className="h-3 w-3 mr-1" />
+              Invitacion Pendiente
+            </Badge>
+          )}
+
+          {/* Admin actions dropdown */}
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-[#131319] border-white/10">
+                {onEdit && (
+                  <DropdownMenuItem onClick={onEdit} className="text-foreground focus:bg-white/5">
+                    <Edit2 className="h-3.5 w-3.5 mr-2" />
+                    Editar datos
+                  </DropdownMenuItem>
+                )}
+                {(isActive || isPending) && onRevoke && (
+                  <DropdownMenuItem
+                    onClick={onRevoke}
+                    className="text-red-400 focus:bg-red-500/10 focus:text-red-400"
+                  >
+                    <ShieldX className="h-3.5 w-3.5 mr-2" />
+                    Revocar Acceso
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </div>
+
+      {/* Email */}
+      {contact.email && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+          <Mail className="h-3 w-3 shrink-0" />
+          <span className="truncate">{contact.email}</span>
+        </div>
+      )}
+
+      {/* Resend invitation action for pending tutors */}
+      {canManage && isPending && onResend && (
+        <Button
+          onClick={onResend}
+          variant="outline"
+          size="sm"
+          className="w-full h-8 text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200"
+        >
+          <Send className="h-3 w-3 mr-1.5" />
+          Reenviar Invitacion
+        </Button>
+      )}
+    </motion.div>
   );
 }
 

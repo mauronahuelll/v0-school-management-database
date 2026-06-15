@@ -14,6 +14,7 @@ import { MedicalContactCard } from "./medical-contact-card";
 import { StudentTrayectoria } from "./student-trayectoria";
 import { StudentFamilyNetwork } from "./student-family-network";
 import type { Student360Data } from "@/lib/types/student";
+import { useActiveRole } from "@/lib/context/auth-context";
 import { toast } from "sonner";
 
 interface Student360ViewProps {
@@ -28,6 +29,7 @@ export function Student360View({
   onExportPDF,
 }: Student360ViewProps) {
   const [activeTab, setActiveTab] = useState("general");
+  const { role } = useActiveRole();
 
   // Count pending subjects for badge
   const pendingSubjectsCount = 2; // This would come from data in real implementation
@@ -144,6 +146,7 @@ export function Student360View({
           <TabsContent value="familia" className="mt-6">
             <StudentFamilyNetwork 
               studentName={`${data.profile.firstName} ${data.profile.lastName}`}
+              userRole={role ?? undefined}
               canEdit={true}
             />
           </TabsContent>
