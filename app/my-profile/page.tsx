@@ -16,8 +16,10 @@ import {
   Pencil,
   X,
   FileCheck,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { downloadSimplePdf } from "@/lib/utils/download";
 import { useAuth, Role } from "@/lib/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -182,6 +184,29 @@ export default function MyProfilePage() {
     setIsDragging(false);
     setIsUploadOpen(true);
   }, []);
+
+  // Fuerza la descarga real del documento cargado (Aprobado / En Revision)
+  const handleDownloadDoc = useCallback((doc: ComplianceDoc) => {
+    const slug = doc.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    const filename = `${slug}.pdf`;
+    downloadSimplePdf(filename, `${doc.name.toUpperCase()} - SEQUENCY`, [
+      `Titular: ${displayName}`,
+      `Rol: ${roleLabel}`,
+      `Estado: ${STATUS_CONFIG[doc.status].label}`,
+      `Descripcion: ${doc.description}`,
+      "",
+      "Documento de cumplimiento institucional.",
+      `Descargado: ${new Date().toLocaleDateString("es-AR")}`,
+    ]);
+    toast.success("Documento descargado en su dispositivo", {
+      description: filename,
+    });
+  }, [displayName, roleLabel]);
 
   const handleFileSelect = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -401,19 +426,30 @@ export default function MyProfilePage() {
                           Subir Archivo
                         </Button>
                       ) : (
-                        <p className="flex items-center justify-center gap-1.5 py-2 text-xs text-white/30">
-                          {doc.status === "EN_REVISION" ? (
-                            <>
-                              <Clock className="size-3.5" />
-                              Esperando validacion
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="size-3.5 text-emerald-400/60" />
-                              Documentacion completa
-                            </>
-                          )}
-                        </p>
+                        <div className="flex flex-col gap-2">
+                          <p className="flex items-center justify-center gap-1.5 text-xs text-white/30">
+                            {doc.status === "EN_REVISION" ? (
+                              <>
+                                <Clock className="size-3.5" />
+                                Esperando validacion
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="size-3.5 text-emerald-400/60" />
+                                Documentacion completa
+                              </>
+                            )}
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownloadDoc(doc)}
+                            className="w-full border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+                          >
+                            <Download className="mr-1.5 size-3.5" />
+                            Descargar
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>

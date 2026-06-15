@@ -33,7 +33,9 @@ import {
   ShieldCheck,
   FileSearch,
   Trash2,
+  Download,
 } from "lucide-react";
+import { downloadSimplePdf } from "@/lib/utils/download";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
@@ -621,6 +623,30 @@ export default function StaffManagementPage() {
       };
     });
   }, []);
+
+  // Fuerza la descarga real del documento del legajo (En Revision / Al Dia)
+  const handleDownloadStaffDoc = useCallback((doc: StaffDocument) => {
+    const slug = doc.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    const filename = `${slug}.pdf`;
+    downloadSimplePdf(filename, `${doc.name.toUpperCase()} - SEQUENCY`, [
+      `Titular: ${legajoMember?.name ?? "N/A"}`,
+      `CUIL: ${legajoMember?.cuil ?? "N/A"}`,
+      `Estado: ${doc.status}`,
+      `Descripcion: ${doc.description}`,
+      doc.uploadedAt ? `Cargado: ${doc.uploadedAt}` : "",
+      "",
+      "Documento del legajo del personal (uso administrativo).",
+      `Descargado: ${new Date().toLocaleDateString("es-AR")}`,
+    ]);
+    toast.success("Documento descargado en su dispositivo", {
+      description: filename,
+    });
+  }, [legajoMember]);
 
   // Approve a document submitted by the teacher
   const handleApproveDocument = useCallback(async (docId: string) => {
@@ -1434,6 +1460,17 @@ export default function StaffManagementPage() {
                       {/* Audit actions */}
                       {isAdmin && (
                         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-white/5">
+                          {(isPending || doc.status === "AL_DIA") && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDownloadStaffDoc(doc)}
+                              className="h-8 text-xs border-white/10 text-white/70 hover:text-white hover:bg-white/5 gap-1.5"
+                            >
+                              <Download className="size-3.5" />
+                              Descargar
+                            </Button>
+                          )}
                           {isPending && (
                             <>
                               <Button

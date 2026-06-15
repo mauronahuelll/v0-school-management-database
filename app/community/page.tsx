@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { downloadSimplePdf } from "@/lib/utils/download";
 import { cn } from "@/lib/utils";
 
 // ============================================
@@ -253,6 +254,23 @@ function PostCard({ post, isLiked, onLike, canInteract }: PostCardProps) {
   const config = POST_TYPE_CONFIG[post.type];
   const Icon = config.icon;
 
+  // Descarga real del archivo adjunto a la publicacion
+  const handleDownloadAttachment = useCallback(() => {
+    const filename = post.attachmentName || "archivo_adjunto.pdf";
+    downloadSimplePdf(filename, `${post.title} - SEQUENCY`, [
+      `Publicacion: ${post.title}`,
+      `Autor: ${post.author} (${post.authorRole})`,
+      `Archivo: ${filename}`,
+      "",
+      post.content,
+      "",
+      "Documento adjunto del Muro Escolar.",
+    ]);
+    toast.success("Archivo descargado en su dispositivo", {
+      description: filename,
+    });
+  }, [post]);
+
   return (
     <article className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden hover:border-white/10 transition-all duration-300">
       {/* Image Header (if applicable) */}
@@ -302,7 +320,12 @@ function PostCard({ post, isLiked, onLike, canInteract }: PostCardProps) {
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5 w-fit">
             <FileText className="size-4 text-blue-400" />
             <span className="text-xs text-white/50">{post.attachmentName}</span>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-blue-400 hover:text-blue-300">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDownloadAttachment}
+              className="h-6 px-2 text-[10px] text-blue-400 hover:text-blue-300"
+            >
               Descargar
             </Button>
           </div>
