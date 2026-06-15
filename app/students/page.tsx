@@ -296,11 +296,39 @@ export default function StudentsPage() {
     handleFileSelected(e.dataTransfer.files?.[0]);
   }, [handleFileSelected]);
 
-  const handleDownloadTemplate = useCallback(() => {
-    toast.info("Generando plantilla base...", {
-      description: "Incluye las columnas estandar mas los campos personalizados definidos en Configuracion.",
-    });
+  // Native Download Engine: crea un Blob, fuerza el click en un <a> oculto y limpia el DOM.
+  const triggerDownload = useCallback((filename: string, content: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }, []);
+
+  const handleDownloadTemplate = useCallback(() => {
+    // Cabeceras estandar requeridas para la importacion de matricula (CSV separado por comas)
+    const headers = [
+      "Nombre",
+      "Apellido",
+      "DNI",
+      "FechaNacimiento",
+      "Curso",
+      "Division",
+      "Tutor",
+      "TelefonoContacto",
+      "Email",
+    ];
+    const csvContent = headers.join(",") + "\n";
+    triggerDownload("plantilla_matricula.csv", csvContent, "text/csv;charset=utf-8;");
+    toast.success("Plantilla base descargada", {
+      description: "plantilla_matricula.csv incluye las columnas estandar requeridas para la importacion.",
+    });
+  }, [triggerDownload]);
 
   const handleProcessImport = useCallback(async () => {
     if (!importFile) return;
@@ -361,14 +389,18 @@ export default function StudentsPage() {
     setIsGeneratingBoletin(true);
     const selectedDiv = MOCK_DIVISIONS.find((d) => d.id === boletinCourse);
     
+    // Polimorfismo por rol: ADMIN -> DOCX editable; DOCENTE/PRECEPTOR/FAMILIA -> PDF cerrado.
+    const role = activeContext?.role || currentRole || "ADMIN";
+    const emitsDocx = role === "ADMIN";
+
     // Show format-specific loading toast
-    toast.loading(getExportToastMessage(exportFormat), { id: "boletin-export" });
+    toast.loading(getExportToastMessage(emitsDocx ? "DOCX" : "PDF"), { id: "boletin-export" });
     
     // Simulate document compilation (2 seconds)
     await new Promise((resolve) => setTimeout(resolve, 2000));
     
-    if (exportFormat === "DOCX") {
-      // Generate DOCX content (simplified mock)
+    if (emitsDocx) {
+      // Genera DOCX (texto plano simulando el documento Word editable)
       const docxContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
@@ -379,29 +411,24 @@ export default function StudentsPage() {
     <w:p><w:r><w:t>Formato: Editable (Uso exclusivo administrativo)</w:t></w:r></w:p>
   </w:body>
 </w:document>`;
-      
-      const blob = new Blob([docxContent], { 
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `Boletines_Oficiales_${selectedDiv?.name?.replace(/\s+/g, "_") || "Lote"}.docx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
+
+      // Fuerza la descarga ANTES de lanzar el toast de exito
+      triggerDownload(
+        "boletines_lote.docx",
+        docxContent,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+
       toast.dismiss("boletin-export");
       toast.success(
         "Documento Word generado",
         {
-          description: `Se exportaron ${selectedDiv?.studentCount || 0} boletines editables para ${selectedDiv?.name}`,
+          description: `Se exportaron ${selectedDiv?.studentCount || 0} boletines editables (boletines_lote.docx) para ${selectedDiv?.name}`,
           duration: 5000,
         }
       );
     } else {
-      // Generate PDF content (immutable)
+      // Genera PDF (formato oficial cerrado e inmutable)
       const pdfContent = `%PDF-1.4
 1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
@@ -432,22 +459,15 @@ trailer << /Size 6 /Root 1 0 R >>
 startxref
 650
 %%EOF`;
-      
-      const blob = new Blob([pdfContent], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `Boletines_Oficiales_${selectedDiv?.name?.replace(/\s+/g, "_") || "Lote"}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
+
+      // Fuerza la descarga ANTES de lanzar el toast de exito
+      triggerDownload("boletines_lote.pdf", pdfContent, "application/pdf");
+
       toast.dismiss("boletin-export");
       toast.success(
         "PDF generado correctamente",
         {
-          description: `Se descargaron ${selectedDiv?.studentCount || 0} boletines oficiales para ${selectedDiv?.name}`,
+          description: `Se descargaron ${selectedDiv?.studentCount || 0} boletines oficiales (boletines_lote.pdf) para ${selectedDiv?.name}`,
           duration: 5000,
         }
       );
@@ -456,7 +476,7 @@ startxref
     setIsGeneratingBoletin(false);
     setIsBoletinDialogOpen(false);
     setBoletinCourse("");
-  }, [boletinCourse, exportFormat]);
+  }, [boletinCourse, activeContext, currentRole, triggerDownload]);
 
   // Validate incoming transfer token
   const handleValidateToken = useCallback(async () => {

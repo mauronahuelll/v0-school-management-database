@@ -18,6 +18,7 @@ import {
   TrendingUp,
   History,
   FileText,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,34 @@ import type {
   AttendanceSubmission,
   LicenseFormData,
 } from "@/lib/types/attendance";
+
+// ============================================
+// NATIVE DOWNLOAD ENGINE (Blob API, sin librerias externas)
+// ============================================
+// Crea un Blob, fuerza el click en un <a> oculto y limpia el DOM.
+function triggerDownload(filename: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Etiqueta legible para el estado de asistencia
+function statusLabel(status: string): string {
+  switch (status) {
+    case "PRESENT": return "Presente";
+    case "ABSENT": return "Ausente";
+    case "TARDY": return "Tarde";
+    case "ON_LICENSE": return "Con Licencia";
+    default: return status;
+  }
+}
 
 // ============================================
 // MOCK DATA - STUDENTS
@@ -252,16 +281,68 @@ async function handleDeactivateLicense(studentId: string): Promise<void> {
 // ============================================
 
 function RRHHAttendancePanel() {
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Exporta el parte diario del personal (CSV) usando el padron de RRHH
+  const handleExportParte = useCallback(async () => {
+    setIsExporting(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const BOM = "\uFEFF";
+    const today = getTodayLocalISO();
+    const headers = ["Legajo/ID", "Apellido", "Nombre", "Rol", "Area", "AusenciasMes", "Fecha"];
+    const rows = MOCK_STAFF.map((s) => {
+      const ausenciasMes = s.absences.filter((a) => isInCurrentMonth(a.date)).length;
+      return [
+        s.id,
+        s.lastName,
+        s.firstName,
+        s.role,
+        s.department,
+        String(ausenciasMes),
+        today,
+      ].map((cell) => `"${cell}"`).join(",");
+    });
+
+    const csvContent = BOM + [headers.join(","), ...rows].join("\n");
+    triggerDownload("parte_asistencia_diaria.csv", csvContent, "text/csv;charset=utf-8;");
+
+    setIsExporting(false);
+    toast.success("Parte diario del personal exportado", {
+      description: `parte_asistencia_diaria.csv (${MOCK_STAFF.length} integrantes del personal).`,
+    });
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
-          Control RRHH - Presentismo del Personal
-        </h1>
-        <p className="text-sm text-white/40 mt-1">
-          Gestion de ausencias, justificaciones y calculo de presentismo por docente
-        </p>
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
+            Control RRHH - Presentismo del Personal
+          </h1>
+          <p className="text-sm text-white/40 mt-1">
+            Gestion de ausencias, justificaciones y calculo de presentismo por docente
+          </p>
+        </div>
+        <Button
+          onClick={handleExportParte}
+          disabled={isExporting}
+          variant="outline"
+          className="border-white/10 text-white/70 hover:text-white hover:bg-white/5 shrink-0"
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="size-4 mr-2 animate-spin" />
+              Procesando...
+            </>
+          ) : (
+            <>
+              <Download className="size-4 mr-2" />
+              Exportar Parte Diario
+            </>
+          )}
+        </Button>
       </header>
 
       {/* Panel Container */}
@@ -300,16 +381,69 @@ function StudentDailyAttendance({
   availableCourses, 
   onCourseChange 
 }: StudentDailyAttendanceProps) {
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Exporta el parte diario del curso (CSV) con los alumnos visibles y su estado actual
+  const handleExportParte = useCallback(async () => {
+    setIsExporting(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const BOM = "\uFEFF";
+    const today = getTodayLocalISO();
+    const headers = ["Legajo", "Apellido", "Nombre", "Estado", "AusenciasTotales", "TardanzasTotales", "Curso", "Fecha"];
+    const cursoLabel = `${selectedCourse.year}° ${selectedCourse.divisionName}`;
+    const rows = students.map((s) =>
+      [
+        s.enrollmentNumber,
+        s.lastName,
+        s.firstName,
+        statusLabel(s.status),
+        String(s.stats.totalAbsences),
+        String(s.stats.totalTardies),
+        cursoLabel,
+        today,
+      ].map((cell) => `"${cell}"`).join(",")
+    );
+
+    const csvContent = BOM + [headers.join(","), ...rows].join("\n");
+    triggerDownload("parte_asistencia_diaria.csv", csvContent, "text/csv;charset=utf-8;");
+
+    setIsExporting(false);
+    toast.success("Parte diario exportado", {
+      description: `parte_asistencia_diaria.csv (${students.length} alumnos de ${cursoLabel}).`,
+    });
+  }, [students, selectedCourse]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
-          Parte Diario de Asistencia
-        </h1>
-        <p className="text-sm text-white/40 mt-1">
-          Toma de lista de alumnos por curso
-        </p>
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
+            Parte Diario de Asistencia
+          </h1>
+          <p className="text-sm text-white/40 mt-1">
+            Toma de lista de alumnos por curso
+          </p>
+        </div>
+        <Button
+          onClick={handleExportParte}
+          disabled={isExporting}
+          variant="outline"
+          className="border-white/10 text-white/70 hover:text-white hover:bg-white/5 shrink-0"
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="size-4 mr-2 animate-spin" />
+              Procesando...
+            </>
+          ) : (
+            <>
+              <Download className="size-4 mr-2" />
+              Exportar Parte Diario
+            </>
+          )}
+        </Button>
       </header>
 
       {/* Student Attendance Component */}

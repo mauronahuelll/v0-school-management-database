@@ -233,6 +233,7 @@ export default function GradesPage() {
   const [valoracionJustificaciones, setValoracionJustificaciones] = useState<Record<string, string>>({});
   const [isSubmittingValoracion, setIsSubmittingValoracion] = useState(false);
   const [isExportingValoracion, setIsExportingValoracion] = useState(false);
+  const [isExportingGrades, setIsExportingGrades] = useState(false);
   
   // Determine grading type: use school setting OR subject default
   const selectedSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId)!;
@@ -607,6 +608,20 @@ export default function GradesPage() {
   }, [valoracionData, valoracionJustificaciones]);
 
   // Export valoracion to CSV
+  // Native Download Engine: crea un Blob, fuerza el click en un <a> oculto y limpia el DOM.
+  const triggerDownload = useCallback((filename: string, content: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
   const handleExportValoracion = useCallback(async () => {
     setIsExportingValoracion(true);
     
@@ -651,6 +666,49 @@ export default function GradesPage() {
     setIsExportingValoracion(false);
     toast.success("Planilla exportada con exito en su dispositivo");
   }, [students, valoracionData, selectedSubject, selectedPeriod]);
+
+  // Exporta la planilla completa de calificaciones (alumnos visibles + notas por evaluacion)
+  const handleExportGrades = useCallback(async () => {
+    setIsExportingGrades(true);
+
+    // Estado de carga ~1s antes de soltar el archivo
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const BOM = "\uFEFF";
+    // Columnas dinamicas: datos del alumno + una columna por evaluacion + promedio
+    const headers = [
+      "Legajo",
+      "Apellido",
+      "Nombre",
+      ...currentAssessments.map((a) => a.name),
+      "Promedio",
+    ];
+    const rows = students.map((student) => {
+      const assessmentCells = currentAssessments.map((assessment) => {
+        const grade = student.grades[assessment.id];
+        if (!grade) return "-";
+        return grade.value !== null && grade.value !== undefined
+          ? String(grade.value)
+          : grade.conceptual ?? "-";
+      });
+      const promedio = student.average !== null ? student.average.toFixed(1) : "-";
+      return [
+        student.enrollmentNumber,
+        student.lastName,
+        student.firstName,
+        ...assessmentCells,
+        promedio,
+      ].map((cell) => `"${cell}"`).join(",");
+    });
+
+    const csvContent = BOM + [headers.join(","), ...rows].join("\n");
+    triggerDownload("planilla_calificaciones.csv", csvContent, "text/csv;charset=utf-8;");
+
+    setIsExportingGrades(false);
+    toast.success("Planilla de calificaciones descargada", {
+      description: `planilla_calificaciones.csv (${students.length} alumnos, ${currentAssessments.length} evaluaciones).`,
+    });
+  }, [students, currentAssessments]);
 
   if (!mounted) return null;
 
@@ -836,17 +894,38 @@ export default function GradesPage() {
                   </div>
                 )}
               </div>
-              {!isTrimesterClosed && (
+              <div className="flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={handleAddColumn}
-                  className="text-[#d0bcff] hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
+                  onClick={handleExportGrades}
+                  disabled={isExportingGrades}
+                  className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
                 >
-                  <Plus className="size-4 mr-1" />
-                  Agregar Evaluacion
+                  {isExportingGrades ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="size-4 mr-2" />
+                      Exportar Planilla
+                    </>
+                  )}
                 </Button>
-              )}
+                {!isTrimesterClosed && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAddColumn}
+                    className="text-[#d0bcff] hover:text-[#d0bcff] hover:bg-[#d0bcff]/10"
+                  >
+                    <Plus className="size-4 mr-1" />
+                    Agregar Evaluacion
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Scrollable Table */}
