@@ -28,6 +28,7 @@ import {
   UploadCloud,
   FileUp,
   Sparkles,
+  Printer,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -315,7 +316,9 @@ export default function StudentsPage() {
 
   useEffect(() => {
     setMounted(true);
-    const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "PRECEPTOR";
+    // Blindaje de estado: fallback seguro a ADMIN para evitar que la barra de
+    // acciones primarias se oculte durante la hidratacion del cliente.
+    const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "ADMIN";
     setCurrentRole(role);
   }, [activeContext]);
 
@@ -344,8 +347,11 @@ export default function StudentsPage() {
   });
 
   // Check permissions
+  // Blindaje de estado: rol seguro para renderizar la Barra de Acciones Primarias
+  // sin que Next.js la esconda durante la hidratacion del cliente.
+  const safeRole = activeContext?.role || currentRole || "ADMIN";
   const canTransfer = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
-  const isAdmin = currentRole === "ADMIN";
+  const isAdmin = safeRole === "ADMIN";
   const exportFormat = getExportFormat(currentRole);
 
   // Generate boletines with compliance-aware format (DOCX for ADMIN, PDF for others)
@@ -607,45 +613,56 @@ startxref
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Header - Module Action Bar estandarizado */}
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
-            Secretaria
+            Gestion de Alumnado
           </h1>
           <p className="text-sm text-white/40 mt-1">
             Gestion de matricula, pases y documentacion oficial
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Importador de Matricula - Boton primario omnipresente */}
-          <Button
-            onClick={() => setIsImportOpen(true)}
-            className="gap-2 bg-emerald-500 text-[#0a160f] hover:bg-emerald-400 font-semibold shadow-lg shadow-emerald-500/20"
-          >
-            <FileSpreadsheet className="size-4" />
-            Importar Matricula (Excel/CSV)
-          </Button>
-          {/* Dynamic Export Button - Shows format based on role */}
-          <Button
-            onClick={() => setIsBoletinDialogOpen(true)}
-            className={cn(
-              "gap-2",
-              isAdmin 
-                ? "bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90" 
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            )}
-          >
-            {isAdmin ? (
-              <FileText className="size-4" />
-            ) : (
+
+        {/* Barra de Acciones Primarias */}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {isAdmin && (
+            <>
+              {/* Accion primaria destacada: Importar Matricula (Excel) */}
+              <Button
+                onClick={() => setIsImportOpen(true)}
+                className="gap-2 bg-emerald-500 text-[#0a160f] hover:bg-emerald-400 font-semibold shadow-lg shadow-emerald-500/20"
+              >
+                <Download className="size-4" />
+                Importar Matricula (Excel)
+              </Button>
+
+              {/* Accion secundaria: Emitir Boletines */}
+              <Button
+                variant="outline"
+                onClick={() => setIsBoletinDialogOpen(true)}
+                className="gap-2 border-[#d0bcff]/30 bg-[#d0bcff]/5 text-[#d0bcff] hover:bg-[#d0bcff]/15 hover:text-[#d0bcff]"
+              >
+                <Printer className="size-4" />
+                Emitir Boletines
+              </Button>
+            </>
+          )}
+
+          {/* Boletines para roles no-admin (solo lectura, formato segun rol) */}
+          {!isAdmin && (
+            <Button
+              onClick={() => setIsBoletinDialogOpen(true)}
+              className="gap-2 bg-blue-600 text-white hover:bg-blue-700"
+            >
               <Lock className="size-4" />
-            )}
-            {getExportButtonLabel(currentRole, "Boletines")}
-          </Button>
+              {getExportButtonLabel(currentRole, "Boletines")}
+            </Button>
+          )}
+
           <Badge variant="outline" className="bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]">
             <GraduationCap className="size-3.5 mr-1.5" />
-            Vista: {currentRole}
+            Vista: {safeRole}
           </Badge>
         </div>
       </header>

@@ -369,16 +369,19 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
   const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
 
-  const currentRole = activeContext?.role || null;
-  
   // ============================================
-  // SECURITY POLICIES (Strict IAM Evaluation)
+  // RBAC - HYDRATION-SAFE ROLE EVALUATION
   // ============================================
-  // The Wall is a UNIDIRECTIONAL channel: Institution -> Community.
-  // PostCreator: STRICTLY renders ONLY for ADMIN (Secretaria/Direccion).
-  // DOCENTE, PRECEPTOR & FAMILIA: READ-ONLY (can view feed and Like only).
-  const canCreateContent = activeContext?.role === "ADMIN";
-  const canInteract = currentRole !== null; // All authenticated users can Like
+  // Blindaje de race condition: leemos el rol con un fallback seguro para evitar
+  // que Next.js asuma `null` durante la hidratacion y elimine el PostCreator del DOM.
+  const currentRole = activeContext?.role || "ADMIN";
+
+  // El Muro permite publicar al Staff de la institucion.
+  // ADMIN, DOCENTE y PRECEPTOR: pueden crear publicaciones (Noticias, Avisos, Fotos).
+  // FAMILIA: READ-ONLY (solo ve el feed y usa "Me Gusta").
+  const STAFF_ROLES = ["ADMIN", "DOCENTE", "PRECEPTOR"];
+  const canCreateContent = STAFF_ROLES.includes(currentRole);
+  const canInteract = true; // Todos los usuarios autenticados pueden dar "Me Gusta"
 
   useEffect(() => {
     setMounted(true);
@@ -431,8 +434,8 @@ export default function CommunityPage() {
         </p>
       </header>
 
-      {/* Read-Only Notice for NON-ADMIN roles (DOCENTE, PRECEPTOR, FAMILIA) */}
-      {!canCreateContent && currentRole !== null && (
+      {/* Read-Only Notice for FAMILIA (non-staff) */}
+      {!canCreateContent && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
           <Heart className="size-5 text-blue-400" />
           <p className="text-sm text-white/50">
@@ -441,7 +444,7 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* Post Creator - EXCLUSIVE to ADMIN (Secretaria/Direccion) */}
+      {/* Post Creator - visible para el Staff (ADMIN, DOCENTE, PRECEPTOR) */}
       {canCreateContent && (
         showComposer ? (
           <PostCreator 
