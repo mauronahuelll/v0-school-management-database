@@ -370,17 +370,17 @@ export default function CommunityPage() {
   const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
 
   // ============================================
-  // RBAC - HYDRATION-SAFE ROLE EVALUATION
+  // RBAC - STRICT BROADCASTING POLICY
   // ============================================
-  // Blindaje de race condition: leemos el rol con un fallback seguro para evitar
-  // que Next.js asuma `null` durante la hidratacion y elimine el PostCreator del DOM.
-  const currentRole = activeContext?.role || "ADMIN";
-
-  // El Muro permite publicar al Staff de la institucion.
-  // ADMIN, DOCENTE y PRECEPTOR: pueden crear publicaciones (Noticias, Avisos, Fotos).
-  // FAMILIA: READ-ONLY (solo ve el feed y usa "Me Gusta").
-  const STAFF_ROLES = ["ADMIN", "DOCENTE", "PRECEPTOR"];
-  const canCreateContent = STAFF_ROLES.includes(currentRole);
+  // El Muro es una pizarra de anuncios institucionales (Broadcasting), NO una red social.
+  // PostCreator: renderiza ESTRICTAMENTE solo para ADMIN (Direccion/Secretaria).
+  // DOCENTE, PRECEPTOR y FAMILIA: READ-ONLY (solo ven el feed y usan "Me Gusta").
+  //
+  // Seguridad: evaluamos el rol REAL del contexto (sin fallback permisivo) para no
+  // exponer el creador a roles no autorizados. El guard `if (!mounted) return null`
+  // (mas abajo) evita el flash de hidratacion en Next.js.
+  const currentRole = activeContext?.role || "FAMILIA";
+  const canCreateContent = activeContext?.role === "ADMIN";
   const canInteract = true; // Todos los usuarios autenticados pueden dar "Me Gusta"
 
   useEffect(() => {
@@ -444,7 +444,7 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/* Post Creator - visible para el Staff (ADMIN, DOCENTE, PRECEPTOR) */}
+      {/* Post Creator - EXCLUSIVO para ADMIN (Broadcasting institucional) */}
       {canCreateContent && (
         showComposer ? (
           <PostCreator 
