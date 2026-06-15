@@ -29,6 +29,10 @@ import {
   UploadCloud,
   FolderArchive,
   FileCheck2,
+  Search,
+  Users,
+  UserPlus,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -343,6 +348,25 @@ const AUDIENCE_OPTIONS = [
   { value: "6-B", label: "6to Ano B", group: "Cursos especificos" },
 ];
 
+// Padron de alumnos para "Seleccion Personalizada" (cross-course)
+type StudentRecord = { id: string; name: string; course: string };
+const MOCK_STUDENT_DIRECTORY: StudentRecord[] = [
+  { id: "a1", name: "Acosta, Martina", course: "1A" },
+  { id: "a2", name: "Benitez, Lucas", course: "1A" },
+  { id: "a3", name: "Cardozo, Tomas", course: "1B" },
+  { id: "a4", name: "Dominguez, Valentina", course: "2A" },
+  { id: "a5", name: "Espinoza, Mateo", course: "2C" },
+  { id: "a6", name: "Figueroa, Camila", course: "2C" },
+  { id: "a7", name: "Gimenez, Bautista", course: "3B" },
+  { id: "a8", name: "Herrera, Julieta", course: "3B" },
+  { id: "a9", name: "Ibarra, Santiago", course: "4A" },
+  { id: "a10", name: "Juarez, Delfina", course: "4B" },
+  { id: "a11", name: "Krause, Thiago", course: "5A" },
+  { id: "a12", name: "Ledesma, Renata", course: "5B" },
+  { id: "a13", name: "Molina, Joaquin", course: "6A" },
+  { id: "a14", name: "Nunez, Abril", course: "6B" },
+];
+
 // ============================================
 // MAIN PAGE COMPONENT
 // ============================================
@@ -362,6 +386,10 @@ export default function CommunicationsPage() {
   const [composeTemplateName, setComposeTemplateName] = useState<string | null>(null);
   const [requireSignedReturn, setRequireSignedReturn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Motor de Audiencia: "full" (curso completo) | "custom" (seleccion cross-course)
+  const [audienceMode, setAudienceMode] = useState<"full" | "custom">("full");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudents, setSelectedStudents] = useState<StudentRecord[]>([]);
   
   // Sign dialog state
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
@@ -378,6 +406,8 @@ export default function CommunicationsPage() {
   const currentRole = activeContext?.role || "ADMIN";
   const isReceiver = currentRole === "FAMILIA";
   const isSender = currentRole === "ADMIN" || currentRole === "DOCENTE" || currentRole === "PRECEPTOR";
+  // Visibilidad asimetrica: solo ADMIN y PRECEPTOR pueden redactar tramites/circulares.
+  const canCompose = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
 
   const communications = useMemo(() => {
     return isReceiver ? MOCK_FAMILIA_COMMUNICATIONS : MOCK_SENDER_COMMUNICATIONS;
@@ -463,12 +493,26 @@ export default function CommunicationsPage() {
     });
   }, []);
 
+  const toggleStudent = useCallback((student: StudentRecord) => {
+    setSelectedStudents((prev) =>
+      prev.some((s) => s.id === student.id)
+        ? prev.filter((s) => s.id !== student.id)
+        : [...prev, student]
+    );
+  }, []);
+
   const handleCompose = useCallback(async () => {
-    if (!composeTitle.trim() || !composeBody.trim() || !composeType || !composeAudience) {
-      toast.error("Por favor completa todos los campos");
+    const hasAudience = audienceMode === "full" ? !!composeAudience : selectedStudents.length > 0;
+    if (!composeTitle.trim() || !composeBody.trim() || !composeType || !hasAudience) {
+      toast.error("Por favor completa todos los campos y define la audiencia");
       return;
     }
-    
+
+    // Resumen del destino segun el modo del Motor de Audiencia
+    const audienceLabel = audienceMode === "full"
+      ? (AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios")
+      : `${selectedStudents.length} alumno(s) seleccionados`;
+
     setIsSubmitting(true);
     await new Promise(resolve => setTimeout(resolve, 2000));
     setIsSubmitting(false);
@@ -478,15 +522,18 @@ export default function CommunicationsPage() {
     setComposeType("");
     setComposeAudience("");
     setComposeTemplateName(null);
+    setAudienceMode("full");
+    setStudentSearch("");
+    setSelectedStudents([]);
     const wasActionable = requireSignedReturn;
     setRequireSignedReturn(false);
-    
+
     toast.success(wasActionable ? "Circular accionable enviada" : "Circular enviada exitosamente", {
       description: wasActionable
-        ? `Se habilito el buzon de devolucion para ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`
-        : `El comunicado fue enviado a ${AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios"}.`,
+        ? `Se habilito el buzon de devolucion para ${audienceLabel}.`
+        : `El comunicado fue enviado a ${audienceLabel}.`,
     });
-  }, [composeTitle, composeBody, composeType, composeAudience, requireSignedReturn]);
+  }, [composeTitle, composeBody, composeType, composeAudience, audienceMode, selectedStudents, requireSignedReturn]);
 
   if (!mounted) return null;
 
@@ -506,14 +553,14 @@ export default function CommunicationsPage() {
           </p>
         </div>
         
-        {isSender && (
+        {canCompose && (
           <Button
             onClick={() => setIsComposeOpen(true)}
             size="lg"
             className="h-12 px-6 gap-2 text-base font-bold bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 shadow-lg shadow-[#d0bcff]/20"
           >
-            <PenSquare className="size-5" />
-            Redactar Nuevo Comunicado / Tramite
+            <Plus className="size-5" />
+            Redactar Nuevo Tramite / Circular
           </Button>
         )}
       </header>
@@ -992,28 +1039,67 @@ export default function CommunicationsPage() {
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-white/50">Tipo</Label>
-                <Select value={composeType} onValueChange={setComposeType}>
-                  <SelectTrigger className="bg-white/[0.02] border-white/10">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1a1a2e] border-white/10">
-                    {TAG_OPTIONS.map((tag) => (
-                      <SelectItem key={tag.value} value={tag.value}>
-                        <div className="flex items-center gap-2">
-                          <tag.icon className="size-4" />
-                          {tag.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-white/50">Destino</Label>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-white/50">Tipo</Label>
+              <Select value={composeType} onValueChange={setComposeType}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue placeholder="Seleccionar..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {TAG_OPTIONS.map((tag) => (
+                    <SelectItem key={tag.value} value={tag.value}>
+                      <div className="flex items-center gap-2">
+                        <tag.icon className="size-4" />
+                        {tag.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Motor de Audiencia: Curso Completo vs Seleccion Personalizada */}
+            <div className="space-y-3 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+              <Label className="text-xs uppercase tracking-wider text-white/50">Motor de Audiencia</Label>
+              <RadioGroup
+                value={audienceMode}
+                onValueChange={(v) => setAudienceMode(v as "full" | "custom")}
+                className="grid grid-cols-2 gap-3"
+              >
+                <Label
+                  htmlFor="audience-full"
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer transition-colors",
+                    audienceMode === "full"
+                      ? "border-[#d0bcff]/50 bg-[#d0bcff]/10"
+                      : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                  )}
+                >
+                  <RadioGroupItem value="full" id="audience-full" className="border-white/30 text-[#d0bcff]" />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Users className="size-4 text-[#d0bcff] shrink-0" />
+                    <span className="text-sm font-medium text-[#e4e1ea] truncate">Curso Completo</span>
+                  </div>
+                </Label>
+                <Label
+                  htmlFor="audience-custom"
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer transition-colors",
+                    audienceMode === "custom"
+                      ? "border-[#d0bcff]/50 bg-[#d0bcff]/10"
+                      : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                  )}
+                >
+                  <RadioGroupItem value="custom" id="audience-custom" className="border-white/30 text-[#d0bcff]" />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <UserPlus className="size-4 text-[#d0bcff] shrink-0" />
+                    <span className="text-sm font-medium text-[#e4e1ea] truncate">Seleccion Personalizada</span>
+                  </div>
+                </Label>
+              </RadioGroup>
+
+              {/* Opcion A: Curso Completo */}
+              {audienceMode === "full" && (
                 <Select value={composeAudience} onValueChange={setComposeAudience}>
                   <SelectTrigger className="bg-white/[0.02] border-white/10">
                     <SelectValue placeholder="Seleccionar curso..." />
@@ -1026,7 +1112,84 @@ export default function CommunicationsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              )}
+
+              {/* Opcion B: Seleccion Personalizada (cross-course) */}
+              {audienceMode === "custom" && (
+                <div className="space-y-3">
+                  {/* Chips de alumnos seleccionados */}
+                  {selectedStudents.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedStudents.map((s) => (
+                        <span
+                          key={s.id}
+                          className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-[#d0bcff]/15 border border-[#d0bcff]/30 text-xs text-[#e4e1ea]"
+                        >
+                          {s.name}
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 border-white/15 text-white/50">
+                            {s.course}
+                          </Badge>
+                          <button
+                            type="button"
+                            onClick={() => toggleStudent(s)}
+                            className="rounded-full p-0.5 text-white/50 hover:text-white hover:bg-white/10"
+                            aria-label={`Quitar ${s.name}`}
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Buscador de alumnos */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/30" />
+                    <Input
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      placeholder="Buscar alumno..."
+                      className="pl-9 bg-white/[0.02] border-white/10"
+                    />
+                  </div>
+
+                  {/* Lista de resultados (multi-seleccion) */}
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-white/5 divide-y divide-white/5">
+                    {MOCK_STUDENT_DIRECTORY
+                      .filter((s) => s.name.toLowerCase().includes(studentSearch.toLowerCase()))
+                      .map((s) => {
+                        const checked = selectedStudents.some((sel) => sel.id === s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => toggleStudent(s)}
+                            className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-white/[0.03] transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={cn(
+                                "flex items-center justify-center size-4 rounded border shrink-0",
+                                checked ? "bg-[#d0bcff] border-[#d0bcff]" : "border-white/20"
+                              )}>
+                                {checked && <Check className="size-3 text-[#1b1b1f]" />}
+                              </span>
+                              <span className="text-sm text-[#e4e1ea] truncate">{s.name}</span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] border-white/10 text-white/50 shrink-0">
+                              {s.course}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    {MOCK_STUDENT_DIRECTORY.filter((s) => s.name.toLowerCase().includes(studentSearch.toLowerCase())).length === 0 && (
+                      <p className="px-3 py-4 text-center text-xs text-white/30">Sin resultados para &quot;{studentSearch}&quot;</p>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/40">
+                    {selectedStudents.length} alumno(s) seleccionados (podes mezclar distintos cursos).
+                  </p>
+                </div>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -1103,7 +1266,7 @@ export default function CommunicationsPage() {
             </Button>
             <Button
               onClick={handleCompose}
-              disabled={isSubmitting || !composeTitle.trim() || !composeBody.trim() || !composeType || !composeAudience}
+              disabled={isSubmitting || !composeTitle.trim() || !composeBody.trim() || !composeType || (audienceMode === "full" ? !composeAudience : selectedStudents.length === 0)}
               className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
             >
               {isSubmitting ? (
