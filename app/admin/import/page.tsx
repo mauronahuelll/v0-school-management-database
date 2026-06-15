@@ -49,18 +49,19 @@ interface StudentRow {
   documento: string;
   fechaNacimiento: string;
   contacto: string;
+  emailTutor1: string;
 }
 
 // Simulated parsed data from an uploaded CSV/Excel file
 const SIMULATED_IMPORT: Omit<StudentRow, "id">[] = [
-  { apellido: "Martinez", nombre: "Juan Pablo", documento: "45.678.901", fechaNacimiento: "2010-03-15", contacto: "padre.martinez@email.com" },
-  { apellido: "Gomez", nombre: "Maria Sol", documento: "46.123.456", fechaNacimiento: "2011-07-22", contacto: "11-4567-8901" },
-  { apellido: "Rodriguez", nombre: "Lucas Martin", documento: "45.987.654", fechaNacimiento: "2010-11-03", contacto: "madre.rodriguez@email.com" },
-  { apellido: "Fernandez", nombre: "Valentina", documento: "47.456.789", fechaNacimiento: "2011-01-30", contacto: "11-2345-6789" },
-  { apellido: "Lopez", nombre: "Mateo", documento: "46.789.012", fechaNacimiento: "2010-09-18", contacto: "familia.lopez@email.com" },
-  { apellido: "Diaz", nombre: "Catalina", documento: "47.234.567", fechaNacimiento: "2011-05-12", contacto: "11-9876-5432" },
-  { apellido: "Sanchez", nombre: "Benjamin", documento: "45.345.678", fechaNacimiento: "2010-12-25", contacto: "tutor.sanchez@email.com" },
-  { apellido: "Romero", nombre: "Isabella", documento: "46.567.890", fechaNacimiento: "2011-08-07", contacto: "11-3456-7890" },
+  { apellido: "Martinez", nombre: "Juan Pablo", documento: "45.678.901", fechaNacimiento: "2010-03-15", contacto: "11-4567-8901", emailTutor1: "padre.martinez@email.com" },
+  { apellido: "Gomez", nombre: "Maria Sol", documento: "46.123.456", fechaNacimiento: "2011-07-22", contacto: "11-4567-8901", emailTutor1: "laura.gomez@email.com" },
+  { apellido: "Rodriguez", nombre: "Lucas Martin", documento: "45.987.654", fechaNacimiento: "2010-11-03", contacto: "11-5678-9012", emailTutor1: "madre.rodriguez@email.com" },
+  { apellido: "Fernandez", nombre: "Valentina", documento: "47.456.789", fechaNacimiento: "2011-01-30", contacto: "11-2345-6789", emailTutor1: "fernandez.flia@email.com" },
+  { apellido: "Lopez", nombre: "Mateo", documento: "46.789.012", fechaNacimiento: "2010-09-18", contacto: "11-6789-0123", emailTutor1: "familia.lopez@email.com" },
+  { apellido: "Diaz", nombre: "Catalina", documento: "47.234.567", fechaNacimiento: "2011-05-12", contacto: "11-9876-5432", emailTutor1: "diaz.tutor@email.com" },
+  { apellido: "Sanchez", nombre: "Benjamin", documento: "45.345.678", fechaNacimiento: "2010-12-25", contacto: "11-3456-7891", emailTutor1: "tutor.sanchez@email.com" },
+  { apellido: "Romero", nombre: "Isabella", documento: "46.567.890", fechaNacimiento: "2011-08-07", contacto: "11-3456-7890", emailTutor1: "romero.familia@email.com" },
 ];
 
 let rowCounter = 0;
@@ -72,6 +73,7 @@ const EDITABLE_FIELDS: (keyof Omit<StudentRow, "id">)[] = [
   "documento",
   "fechaNacimiento",
   "contacto",
+  "emailTutor1",
 ];
 
 export default function AdminImportPage() {
@@ -83,6 +85,7 @@ export default function AdminImportPage() {
   const [targetCourse, setTargetCourse] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [processingStep, setProcessingStep] = useState("");
   const lastRowRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -106,6 +109,7 @@ export default function AdminImportPage() {
       documento: "",
       fechaNacimiento: "",
       contacto: "",
+      emailTutor1: "",
     };
     setRows((prev) => [...prev, newRow]);
     setHasFile(true);
@@ -159,28 +163,61 @@ export default function AdminImportPage() {
       return;
     }
 
+    const count = rows.length;
+    const withEmail = rows.filter((r) => r.emailTutor1.trim()).length;
+
+    // Descriptive multi-step processing sequence (1s per step)
+    const steps = [
+      "Validando datos del alumnado...",
+      `Registrando ${count} legajos en la base de datos...`,
+      `Generando accesos y enviando ${withEmail} invitaciones a familias...`,
+    ];
+
     setIsProcessing(true);
     setProgress(0);
-    const interval = setInterval(() => {
+    setProcessingStep(steps[0]);
+
+    let currentStep = 0;
+    const stepInterval = setInterval(() => {
+      currentStep += 1;
+      if (currentStep < steps.length) {
+        setProcessingStep(steps[currentStep]);
+      }
+    }, 1000);
+
+    // Progress bar advances smoothly across the full ~3s sequence
+    const totalDuration = steps.length * 1000;
+    const tick = 50;
+    const increment = 100 / (totalDuration / tick);
+    const progressInterval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          const count = rows.length;
-          const courseLabel = COURSES.find((c) => c.id === targetCourse)?.label || "";
-          setTimeout(() => {
-            setIsProcessing(false);
-            setHasFile(false);
-            setFileName("");
-            setRows([]);
-            setTargetCourse("");
-            setProgress(0);
-            toast.success(`Matricula procesada. ${count} alumnos asignados a ${courseLabel}.`);
-          }, 300);
+        const next = prev + increment;
+        if (next >= 100) {
+          clearInterval(progressInterval);
           return 100;
         }
-        return prev + 4;
+        return next;
       });
-    }, 50);
+    }, tick);
+
+    // Finalize after the full sequence completes
+    setTimeout(() => {
+      clearInterval(stepInterval);
+      clearInterval(progressInterval);
+      setProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setProcessingStep("");
+        setHasFile(false);
+        setFileName("");
+        setRows([]);
+        setTargetCourse("");
+        setProgress(0);
+        toast.success(
+          "Matriculacion exitosa. Se han enviado las credenciales de acceso a los correos de los tutores responsables."
+        );
+      }, 400);
+    }, totalDuration);
   }, [rows, targetCourse]);
 
   // Reset everything
@@ -374,6 +411,7 @@ export default function AdminImportPage() {
                   <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Documento (DNI) <span className="text-amber-400">*</span></th>
                   <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Fecha Nac.</th>
                   <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Contacto</th>
+                  <th className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Tutor 1 <span className="text-amber-400">*</span></th>
                   <th className="px-3 py-3 w-10"></th>
                 </tr>
               </thead>
@@ -392,7 +430,13 @@ export default function AdminImportPage() {
                         <td key={field} className="px-1 py-1">
                           <input
                             ref={isLastRow && fieldIndex === 0 ? lastRowRef : undefined}
-                            type={field === "fechaNacimiento" ? "date" : "text"}
+                            type={
+                              field === "fechaNacimiento"
+                                ? "date"
+                                : field === "emailTutor1"
+                                ? "email"
+                                : "text"
+                            }
                             value={row[field]}
                             onChange={(e) => handleCellChange(row.id, field, e.target.value)}
                             onKeyDown={(e) => handleCellKeyDown(e, rowIndex, fieldIndex)}
@@ -404,7 +448,9 @@ export default function AdminImportPage() {
                                 : field === "documento"
                                 ? "00.000.000"
                                 : field === "contacto"
-                                ? "Email o telefono"
+                                ? "Telefono"
+                                : field === "emailTutor1"
+                                ? "tutor@email.com"
                                 : ""
                             }
                             className={cn(
@@ -468,7 +514,7 @@ export default function AdminImportPage() {
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Procesando... {progress}%
+                    Procesando...
                   </>
                 ) : (
                   <>
@@ -480,9 +526,13 @@ export default function AdminImportPage() {
             </div>
           </div>
 
-          {/* Progress bar while processing */}
+          {/* Progress bar + descriptive step while processing */}
           {isProcessing && (
-            <div className="px-4 md:px-6 pb-6">
+            <div className="px-4 md:px-6 pb-6 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-[#d0bcff]" aria-live="polite">
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                <span className="font-medium">{processingStep}</span>
+              </div>
               <Progress value={progress} className="h-1.5" />
             </div>
           )}
