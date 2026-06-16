@@ -471,6 +471,15 @@ export default function StudentsPage() {
     // acciones primarias se oculte durante la hidratacion del cliente.
     const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "ADMIN";
     setCurrentRole(role);
+
+    // Deep-linking desde el Centro de Comando del Dashboard
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") === "import") {
+      setIsImportOpen(true);
+    }
+    if (params.get("tab") === "reportes") {
+      setActiveTab("reportes");
+    }
   }, [activeContext]);
 
   // Filter students
