@@ -9,6 +9,7 @@ import {
   Save,
   Calendar,
   Award,
+  UserX,
   CheckCircle2,
   AlertTriangle,
   Shield,
@@ -36,6 +37,7 @@ import {
   Send,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
+import { useSchoolSettings } from "@/lib/context/school-settings-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -846,6 +848,7 @@ function AddRequirementModal({ open, onOpenChange, target, onSave }: AddRequirem
 
 export default function SettingsPage() {
   const { activeContext } = useAuth();
+  const { settings, updateMaxAbsences } = useSchoolSettings();
   const [mounted, setMounted] = useState(false);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   
@@ -1081,6 +1084,46 @@ export default function SettingsPage() {
                   <p className="text-[10px] text-amber-300/70 leading-relaxed">
                     El modelo numerico 1-10 es el estandar en Argentina para nivel secundario. 
                     El conceptual se usa comunmente en nivel inicial.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Politica de Asistencia */}
+            <div className="space-y-4 p-5 bg-white/[0.01] border border-white/5 rounded-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                  <UserX className="w-5 h-5 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Politica de Asistencia</h3>
+                  <p className="text-[10px] text-white/40">Limite de inasistencias del ciclo lectivo</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div className="space-y-2">
+                  <Label htmlFor="max-absences" className="text-xs text-white/60">
+                    Limite maximo de inasistencias permitidas por ciclo
+                  </Label>
+                  <Input
+                    id="max-absences"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={settings.maxAbsences}
+                    onChange={(e) => {
+                      const parsed = Number.parseInt(e.target.value, 10);
+                      updateMaxAbsences(Number.isNaN(parsed) ? 0 : parsed);
+                    }}
+                    className="bg-black/40 border-white/10 h-11"
+                  />
+                </div>
+
+                <div className="p-3 bg-rose-500/5 border border-rose-500/10 rounded-xl">
+                  <p className="text-[10px] text-rose-300/70 leading-relaxed">
+                    Este valor define el umbral a partir del cual el alumno queda en condicion de
+                    riesgo por inasistencias. Se utiliza en los legajos y alertas de toda la institucion.
                   </p>
                 </div>
               </div>

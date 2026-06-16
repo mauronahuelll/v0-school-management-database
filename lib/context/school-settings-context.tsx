@@ -57,6 +57,9 @@ export interface SchoolSettings {
   currentPeriod: string
   periodsPerYear: number
   academicPeriodConfig: AcademicPeriodConfig
+
+  // Attendance policy
+  maxAbsences: number
   
   // Role permissions
   rolePermissions: RolePermission[]
@@ -68,6 +71,7 @@ interface SchoolSettingsContextType {
   updateAcademicYear: (year: number) => void
   updateCurrentPeriod: (period: string) => void
   updateAcademicPeriodConfig: (config: AcademicPeriodConfig) => void
+  updateMaxAbsences: (max: number) => void
   updateRolePermission: (roleId: string, permissions: Partial<RolePermission>) => void
   resetToDefaults: () => void
   isLoading: boolean
@@ -208,6 +212,7 @@ const DEFAULT_SETTINGS: SchoolSettings = {
   currentPeriod: "1T",
   periodsPerYear: 3,
   academicPeriodConfig: DEFAULT_TRIMESTRAL_CONFIG,
+  maxAbsences: 20,
   rolePermissions: DEFAULT_ROLE_PERMISSIONS,
 }
 
@@ -266,6 +271,13 @@ export function SchoolSettingsProvider({
     }))
   }, [])
 
+  const updateMaxAbsences = useCallback((max: number) => {
+    setSettings(prev => ({
+      ...prev,
+      maxAbsences: max,
+    }))
+  }, [])
+
   const updateRolePermission = useCallback((roleId: string, permissions: Partial<RolePermission>) => {
     setSettings(prev => ({
       ...prev,
@@ -293,6 +305,7 @@ export function SchoolSettingsProvider({
     updateAcademicYear,
     updateCurrentPeriod,
     updateAcademicPeriodConfig,
+    updateMaxAbsences,
     updateRolePermission,
     resetToDefaults,
     isLoading,
@@ -303,6 +316,7 @@ export function SchoolSettingsProvider({
     updateAcademicYear,
     updateCurrentPeriod,
     updateAcademicPeriodConfig,
+    updateMaxAbsences,
     updateRolePermission,
     resetToDefaults,
     isLoading,
