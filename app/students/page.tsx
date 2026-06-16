@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Users, 
   Search, 
@@ -39,11 +39,14 @@ import {
   FileType,
   FileSignature,
   ChevronRight,
+  Info,
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -238,6 +241,8 @@ export default function StudentsPage() {
   type ReportScope = "INDIVIDUAL" | "MULTIPLE" | "CURSO" | "INSTITUCION";
   const [reportScope, setReportScope] = useState<ReportScope>("CURSO");
   const [reportCourse, setReportCourse] = useState<string>("");
+  const [reportStudentQuery, setReportStudentQuery] = useState<string>("");
+  const [reportMultipleList, setReportMultipleList] = useState<string>("");
   const [reportDataSets, setReportDataSets] = useState<string[]>(["attendance", "grades"]);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
@@ -398,13 +403,53 @@ export default function StudentsPage() {
     }
   }, [reportScope, reportCourse, students]);
 
+  // Conteo de entidades en la seleccion multiple (DNI/Legajos separados por comas)
+  const reportMultipleCount = useMemo(
+    () =>
+      reportMultipleList
+        .split(/[\n,]+/)
+        .map((t) => t.trim())
+        .filter(Boolean).length,
+    [reportMultipleList]
+  );
+
+  // Valida que el input condicional del alcance este completo
+  const isReportScopeValid = useMemo(() => {
+    switch (reportScope) {
+      case "INDIVIDUAL":
+        return reportStudentQuery.trim().length > 0;
+      case "MULTIPLE":
+        return reportMultipleCount > 0;
+      case "CURSO":
+        return Boolean(reportCourse);
+      case "INSTITUCION":
+        return true;
+      default:
+        return false;
+    }
+  }, [reportScope, reportStudentQuery, reportMultipleCount, reportCourse]);
+
   const handleGenerateReport = useCallback(
     (format: "PDF" | "DOCX") => {
       // Validaciones del embudo: alcance -> datos -> formato
-      if (reportScope === "CURSO" && !reportCourse) {
-        toast.error("Selecciona un curso", {
-          description: "Debes elegir que curso incluir antes de generar el reporte.",
-        });
+      if (!isReportScopeValid) {
+        const messages: Record<ReportScope, { title: string; description: string }> = {
+          INDIVIDUAL: {
+            title: "Busca un alumno",
+            description: "Ingresa el nombre o DNI del alumno a exportar.",
+          },
+          MULTIPLE: {
+            title: "Ingresa al menos un alumno",
+            description: "Escribe los DNI o legajos separados por comas.",
+          },
+          CURSO: {
+            title: "Selecciona un curso",
+            description: "Debes elegir que curso incluir antes de generar el reporte.",
+          },
+          INSTITUCION: { title: "", description: "" },
+        };
+        const msg = messages[reportScope];
+        toast.error(msg.title, { description: msg.description });
         return;
       }
       if (reportDataSets.length === 0) {
@@ -462,7 +507,7 @@ export default function StudentsPage() {
         error: "Hubo un problema al compilar el reporte.",
       });
     },
-    [reportScope, reportCourse, reportDataSets, reportTargetCount, triggerDownload]
+    [reportScope, reportCourse, reportDataSets, reportTargetCount, triggerDownload, isReportScopeValid]
   );
 
   useEffect(() => {
@@ -1341,9 +1386,50 @@ startxref
                   })}
                 </RadioGroup>
 
-                {/* Select condicional para Curso Completo */}
+                {/* Inputs condicionales segun el alcance elegido */}
+                {reportScope === "INDIVIDUAL" && (
+                  <div
+                    key="scope-individual"
+                    className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
+                  >
+                    <Label className="text-xs text-white/50">Buscar alumno</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/30" />
+                      <Input
+                        value={reportStudentQuery}
+                        onChange={(e) => setReportStudentQuery(e.target.value)}
+                        placeholder="Buscar alumno por nombre o DNI..."
+                        className="bg-black/40 border-white/10 pl-9"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {reportScope === "MULTIPLE" && (
+                  <div
+                    key="scope-multiple"
+                    className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
+                  >
+                    <Label className="text-xs text-white/50">Seleccion multiple de alumnos</Label>
+                    <Textarea
+                      value={reportMultipleList}
+                      onChange={(e) => setReportMultipleList(e.target.value)}
+                      placeholder="Ingrese DNI o Legajos separados por comas..."
+                      rows={3}
+                      className="bg-black/40 border-white/10 resize-none"
+                    />
+                    <p className="text-[11px] text-white/40">
+                      {reportMultipleCount} entidad{reportMultipleCount === 1 ? "" : "es"} detectada
+                      {reportMultipleCount === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                )}
+
                 {reportScope === "CURSO" && (
-                  <div className="space-y-2 pt-1">
+                  <div
+                    key="scope-curso"
+                    className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
+                  >
                     <Label className="text-xs text-white/50">Selecciona el curso a exportar</Label>
                     <Select value={reportCourse} onValueChange={setReportCourse}>
                       <SelectTrigger className="bg-black/40 border-white/10">
@@ -1358,6 +1444,19 @@ startxref
                       </SelectContent>
                     </Select>
                   </div>
+                )}
+
+                {reportScope === "INSTITUCION" && (
+                  <Alert
+                    key="scope-institucion"
+                    className="bg-[#d0bcff]/[0.06] border-[#d0bcff]/20 text-[#e4e1ea] animate-in fade-in slide-in-from-top-2 duration-300"
+                  >
+                    <Info className="size-4 text-[#d0bcff]" />
+                    <AlertTitle className="text-sm text-[#e4e1ea]">Alcance institucional</AlertTitle>
+                    <AlertDescription className="text-white/50 text-xs">
+                      Se compilara la informacion de toda la matricula activa.
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
 
@@ -1441,8 +1540,8 @@ startxref
                 <div className="space-y-3">
                   <Button
                     onClick={() => handleGenerateReport("PDF")}
-                    disabled={isGeneratingReport}
-                    className="w-full h-14 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 justify-start gap-3"
+                    disabled={isGeneratingReport || !isReportScopeValid || reportDataSets.length === 0}
+                    className="w-full h-14 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 justify-start gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {isGeneratingReport ? (
                       <Spinner className="size-5" />
@@ -1458,8 +1557,8 @@ startxref
 
                   <Button
                     onClick={() => handleGenerateReport("DOCX")}
-                    disabled={isGeneratingReport}
-                    className="w-full h-14 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 justify-start gap-3"
+                    disabled={isGeneratingReport || !isReportScopeValid || reportDataSets.length === 0}
+                    className="w-full h-14 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 justify-start gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {isGeneratingReport ? (
                       <Spinner className="size-5" />

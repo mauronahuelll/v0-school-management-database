@@ -8,6 +8,7 @@ import {
   TrendingUp, Clock, FileText, ShieldAlert,
   User, Mail, Phone, MapPin
 } from "lucide-react"
+import { StudentComplementaryData } from "@/components/student/student-complementary-data"
 
 // Datos del estudiante
 const ESTUDIANTE = {
@@ -257,6 +258,16 @@ export default function StudentProfilePage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Modulo de Responsabilidad Legal: autorizacion de retiro + firma digital */}
+        {activeTab === "datos" && (
+          <div className="mt-6">
+            <StudentComplementaryData
+              studentName={`${ESTUDIANTE.nombre} ${ESTUDIANTE.apellido}`}
+              userRole={role ?? undefined}
+            />
           </div>
         )}
       </motion.div>

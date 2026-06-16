@@ -96,6 +96,7 @@ const DELEGATED_FIELDS: DelegatedField[] = [
   },
   { id: "cf_alergias", label: "Alergias / Condiciones Medicas", type: "TEXTO", required: false, placeholder: "Ej: Penicilina, alimentarias..." },
   { id: "cf_medico_cabecera", label: "Medico de Cabecera", type: "TELEFONO", required: false, placeholder: "Ej: +54 11 ..." },
+  { id: "cf_contacto_emergencia", label: "Contacto de Emergencia", type: "TELEFONO", required: true, placeholder: "Nombre y telefono ante urgencias" },
 ];
 
 const PICKUP_OPTIONS: { value: PickupResponsible; label: string; description: string; icon: typeof Bus }[] = [
@@ -112,7 +113,17 @@ const DOC_TYPES = ["DNI", "LC", "LE", "CI", "Pasaporte"];
 // ============================================================================
 
 export function StudentComplementaryData({ studentName, userRole }: StudentComplementaryDataProps) {
-  const canEdit = userRole === "FAMILIA";
+  const isFamily = userRole === "FAMILIA";
+
+  // Firma digital
+  const [signature, setSignature] = useState<SignatureRecord>({ signed: false });
+  const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Solo la familia puede editar, y unicamente mientras el documento NO este firmado.
+  // Una vez sellado digitalmente, el formulario queda en modo solo lectura (bloqueado).
+  const canEdit = isFamily && !signature.signed;
 
   // Estado de campos delegados
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({
@@ -131,12 +142,6 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
     relationship: "",
     phone: "",
   });
-
-  // Firma digital
-  const [signature, setSignature] = useState<SignatureRecord>({ signed: false });
-  const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
-  const [pin, setPin] = useState("");
-  const [isValidating, setIsValidating] = useState(false);
 
   const handleFieldChange = useCallback((id: string, value: string) => {
     setFieldValues((prev) => ({ ...prev, [id]: value }));
@@ -199,7 +204,7 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
           {!canEdit && (
             <Badge variant="outline" className="text-[10px] bg-white/5 text-muted-foreground border-white/10">
               <Lock className="size-3 mr-1" />
-              Solo lectura
+              {isFamily && signature.signed ? "Bloqueado · Firmado" : "Solo lectura"}
             </Badge>
           )}
         </header>
