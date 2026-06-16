@@ -9,6 +9,7 @@ import {
   Save,
   Calendar,
   Award,
+  UserX,
   CheckCircle2,
   AlertTriangle,
   Shield,
@@ -31,8 +32,12 @@ import {
   User,
   Columns3,
   Asterisk,
+  Mail,
+  Heart,
+  Send,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
+import { useSchoolSettings } from "@/lib/context/school-settings-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -95,7 +100,7 @@ interface EnrollmentField {
   type: EnrollmentFieldType;
   required: boolean;
   isFixed: boolean; // Fixed system fields cannot be edited or deleted
-  icon?: "name" | "id" | "date" | "phone";
+  icon?: "name" | "id" | "date" | "phone" | "email" | "relation";
 }
 
 // ============================================================================
@@ -183,6 +188,9 @@ const FIXED_ENROLLMENT_FIELDS: EnrollmentField[] = [
   { id: "fx_dni", label: "DNI", type: "NUMERO", required: true, isFixed: true, icon: "id" },
   { id: "fx_nacimiento", label: "Fecha de Nacimiento", type: "FECHA", required: true, isFixed: true, icon: "date" },
   { id: "fx_contacto", label: "Contacto", type: "TELEFONO", required: true, isFixed: true, icon: "phone" },
+  { id: "fx_email_tutor1", label: "Email Tutor 1", type: "EMAIL", required: true, isFixed: true, icon: "email" },
+  { id: "fx_vinculo_tutor1", label: "Vinculo Tutor 1 (Padre/Madre/Tutor)", type: "SELECCION", required: true, isFixed: true, icon: "relation" },
+  { id: "fx_email_tutor2", label: "Email Tutor 2 (Opcional)", type: "EMAIL", required: false, isFixed: true, icon: "email" },
 ];
 
 const INITIAL_CUSTOM_FIELDS: EnrollmentField[] = [
@@ -511,6 +519,8 @@ const FIXED_FIELD_ICONS: Record<string, React.ReactNode> = {
   id: <IdCard className="size-4 text-white/50" />,
   date: <Cake className="size-4 text-white/50" />,
   phone: <Phone className="size-4 text-white/50" />,
+  email: <Mail className="size-4 text-white/50" />,
+  relation: <Heart className="size-4 text-white/50" />,
 };
 
 interface EnrollmentFieldRowProps {
@@ -838,6 +848,7 @@ function AddRequirementModal({ open, onOpenChange, target, onSave }: AddRequirem
 
 export default function SettingsPage() {
   const { activeContext } = useAuth();
+  const { settings, updateMaxAbsences } = useSchoolSettings();
   const [mounted, setMounted] = useState(false);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   
@@ -1073,6 +1084,46 @@ export default function SettingsPage() {
                   <p className="text-[10px] text-amber-300/70 leading-relaxed">
                     El modelo numerico 1-10 es el estandar en Argentina para nivel secundario. 
                     El conceptual se usa comunmente en nivel inicial.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Politica de Asistencia */}
+            <div className="space-y-4 p-5 bg-white/[0.01] border border-white/5 rounded-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                  <UserX className="w-5 h-5 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Politica de Asistencia</h3>
+                  <p className="text-[10px] text-white/40">Limite de inasistencias del ciclo lectivo</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div className="space-y-2">
+                  <Label htmlFor="max-absences" className="text-xs text-white/60">
+                    Limite maximo de inasistencias permitidas por ciclo
+                  </Label>
+                  <Input
+                    id="max-absences"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={settings.maxAbsences}
+                    onChange={(e) => {
+                      const parsed = Number.parseInt(e.target.value, 10);
+                      updateMaxAbsences(Number.isNaN(parsed) ? 0 : parsed);
+                    }}
+                    className="bg-black/40 border-white/10 h-11"
+                  />
+                </div>
+
+                <div className="p-3 bg-rose-500/5 border border-rose-500/10 rounded-xl">
+                  <p className="text-[10px] text-rose-300/70 leading-relaxed">
+                    Este valor define el umbral a partir del cual el alumno queda en condicion de
+                    riesgo por inasistencias. Se utiliza en los legajos y alertas de toda la institucion.
                   </p>
                 </div>
               </div>
@@ -1337,6 +1388,19 @@ export default function SettingsPage() {
                     {FIXED_ENROLLMENT_FIELDS.length} inmutables
                   </span>
                 </div>
+
+                {/* Onboarding Familiar - Alert informativo */}
+                <div
+                  role="note"
+                  className="mb-4 p-3 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-xl flex items-start gap-3"
+                >
+                  <Send className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-emerald-300/80 leading-relaxed">
+                    El sistema utilizara estos correos electronicos para enviar automaticamente las invitaciones
+                    de acceso al portal familiar (&quot;Sequency Family&quot;) una vez que el alumno sea matriculado.
+                  </p>
+                </div>
+
                 <div className="space-y-2">
                   {FIXED_ENROLLMENT_FIELDS.map((field) => (
                     <EnrollmentFieldRow

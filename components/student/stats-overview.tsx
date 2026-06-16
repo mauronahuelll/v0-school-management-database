@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { roundToDecimals } from "@/lib/types/attendance";
+import { useSchoolSettings } from "@/lib/context/school-settings-context";
 import type { StudentStats } from "@/lib/types/student";
 
 interface StatsOverviewProps {
@@ -23,8 +24,11 @@ interface StatsOverviewProps {
 }
 
 export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps) {
-  const absencePercentage = (stats.attendance.totalAbsences / stats.attendance.absenceLimit) * 100;
-  const isAbsenceWarning = absencePercentage >= 60;
+  const { settings } = useSchoolSettings();
+  // Limite dinamico configurado por la institucion (fallback al del legajo)
+  const absenceLimit = settings.maxAbsences || stats.attendance.absenceLimit;
+  const absencePercentage = (stats.attendance.totalAbsences / absenceLimit) * 100;
+  const isAbsenceWarning = absencePercentage >= 50;
   const isAbsenceCritical = absencePercentage >= 80;
 
   return (
@@ -151,7 +155,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
                 {roundToDecimals(stats.attendance.totalAbsences)}
               </span>
               <span className="text-lg text-muted-foreground">
-                /{stats.attendance.absenceLimit}
+                /{absenceLimit}
               </span>
             </div>
 

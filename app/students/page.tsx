@@ -29,7 +29,20 @@ import {
   FileUp,
   Sparkles,
   Printer,
+  BarChart3,
+  Building2,
+  UserRound,
+  UsersRound,
+  ListChecks,
+  ClipboardCheck,
+  HeartHandshake,
+  FileType,
+  FileSignature,
+  ChevronRight,
 } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -167,6 +180,16 @@ const MOCK_STUDENTS: Student[] = [
 ];
 
 // ============================================
+// CENTRO DE REPORTES - Catalogo de conjuntos de datos
+// ============================================
+const REPORT_DATA_SETS: { id: string; label: string; description: string; icon: typeof BarChart3 }[] = [
+  { id: "attendance", label: "Historial de Ausentismo", description: "Inasistencias, tardanzas y justificativos", icon: BarChart3 },
+  { id: "grades", label: "Calificaciones (Boletin)", description: "Notas por materia y promedios", icon: FileText },
+  { id: "conduct", label: "Actas de Convivencia", description: "Sanciones, observaciones y acuerdos", icon: ClipboardCheck },
+  { id: "family", label: "Datos Filiatorios / Familiares", description: "Tutores, contactos y red familiar", icon: HeartHandshake },
+];
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -208,6 +231,21 @@ export default function StudentsPage() {
 
   // Pases state
   const [activeTab, setActiveTab] = useState("alumnos");
+
+  // ============================================
+  // CENTRO DE REPORTES (Batch Report Builder)
+  // ============================================
+  type ReportScope = "INDIVIDUAL" | "MULTIPLE" | "CURSO" | "INSTITUCION";
+  const [reportScope, setReportScope] = useState<ReportScope>("CURSO");
+  const [reportCourse, setReportCourse] = useState<string>("");
+  const [reportDataSets, setReportDataSets] = useState<string[]>(["attendance", "grades"]);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
+  const toggleDataSet = useCallback((id: string) => {
+    setReportDataSets((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+    );
+  }, []);
   const [incomingToken, setIncomingToken] = useState("");
   const [isValidatingToken, setIsValidatingToken] = useState(false);
   const [isTokenDialogOpen, setIsTokenDialogOpen] = useState(false);
@@ -342,12 +380,106 @@ export default function StudentsPage() {
     });
   }, [importFile]);
 
+  // Calcula la cantidad de legajos alcanzados segun el alcance elegido
+  const reportTargetCount = useCallback(() => {
+    switch (reportScope) {
+      case "INDIVIDUAL":
+        return 1;
+      case "MULTIPLE":
+        return Math.max(students.length, 1);
+      case "CURSO": {
+        const div = MOCK_DIVISIONS.find((d) => d.id === reportCourse);
+        return div?.studentCount ?? 0;
+      }
+      case "INSTITUCION":
+        return MOCK_STUDENTS.length + MOCK_PRIMARY_STUDENTS.length;
+      default:
+        return 0;
+    }
+  }, [reportScope, reportCourse, students]);
+
+  const handleGenerateReport = useCallback(
+    (format: "PDF" | "DOCX") => {
+      // Validaciones del embudo: alcance -> datos -> formato
+      if (reportScope === "CURSO" && !reportCourse) {
+        toast.error("Selecciona un curso", {
+          description: "Debes elegir que curso incluir antes de generar el reporte.",
+        });
+        return;
+      }
+      if (reportDataSets.length === 0) {
+        toast.error("Selecciona al menos un conjunto de datos", {
+          description: "Tilda los modulos que quieres incluir en el reporte.",
+        });
+        return;
+      }
+
+      const count = reportTargetCount();
+      const ext = format === "PDF" ? "pdf" : "docx";
+      const mime =
+        format === "PDF"
+          ? "application/pdf"
+          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+      setIsGeneratingReport(true);
+
+      const run = new Promise<void>((resolve) => {
+        // Simula las fases del pipeline de compilacion del reporte
+        window.setTimeout(() => {
+          const scopeLabel: Record<ReportScope, string> = {
+            INDIVIDUAL: "Alumno Individual",
+            MULTIPLE: "Seleccion Multiple",
+            CURSO: MOCK_DIVISIONS.find((d) => d.id === reportCourse)?.name ?? "Curso",
+            INSTITUCION: "Toda la Institucion",
+          };
+          const dataLabels = reportDataSets
+            .map((id) => REPORT_DATA_SETS.find((d) => d.id === id)?.label ?? id)
+            .join(", ");
+
+          // Cuerpo del documento generado (simulacion de payload compilado)
+          const body = [
+            "SEQUENCY - Reporte Institucional",
+            "==================================",
+            `Formato: ${format}`,
+            `Alcance: ${scopeLabel[reportScope]}`,
+            `Legajos procesados: ${count}`,
+            `Conjuntos de datos: ${dataLabels}`,
+            `Generado: ${new Date().toLocaleString("es-AR")}`,
+            "",
+            "Este documento fue compilado automaticamente por el Motor de Reportes por Lotes.",
+          ].join("\n");
+
+          triggerDownload(`reporte_institucional.${ext}`, body, mime);
+          resolve();
+        }, 2200);
+      }).finally(() => {
+        setIsGeneratingReport(false);
+      });
+
+      toast.promise(run, {
+        loading: `Recopilando datos de ${count} legajo${count === 1 ? "" : "s"}... Compilando reporte...`,
+        success: "Descarga iniciada exitosamente.",
+        error: "Hubo un problema al compilar el reporte.",
+      });
+    },
+    [reportScope, reportCourse, reportDataSets, reportTargetCount, triggerDownload]
+  );
+
   useEffect(() => {
     setMounted(true);
     // Blindaje de estado: fallback seguro a ADMIN para evitar que la barra de
     // acciones primarias se oculte durante la hidratacion del cliente.
     const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "ADMIN";
     setCurrentRole(role);
+
+    // Deep-linking desde el Centro de Comando del Dashboard
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") === "import") {
+      setIsImportOpen(true);
+    }
+    if (params.get("tab") === "reportes") {
+      setActiveTab("reportes");
+    }
   }, [activeContext]);
 
   // Filter students
@@ -704,6 +836,15 @@ startxref
             >
               <ArrowRightLeft className="size-4 mr-2" />
               Pases Inter-Escolares
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger
+              value="reportes"
+              className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] rounded-lg"
+            >
+              <FileSignature className="size-4 mr-2" />
+              Generador de Reportes
             </TabsTrigger>
           )}
         </TabsList>
@@ -1129,6 +1270,213 @@ startxref
                     <p className="text-sm text-white/40">No hay alumnos pendientes de pase</p>
                   </div>
                 )}
+              </div>
+            </div>
+          </TabsContent>
+        )}
+
+        {/* Generador de Reportes Tab Content - Batch Report Builder */}
+        {isAdmin && (
+          <TabsContent value="reportes" className="mt-6 space-y-6">
+            {/* Encabezado del embudo */}
+            <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md p-6">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-[#d0bcff]/10">
+                  <FileSignature className="size-5 text-[#d0bcff]" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[#e4e1ea]">Centro de Reportes Personalizados</h3>
+                  <p className="text-xs text-white/40 max-w-2xl mt-0.5">
+                    Construye reportes por lotes en 3 pasos: define <span className="text-white/70">a quien</span> incluir,{" "}
+                    <span className="text-white/70">que datos</span> compilar y en <span className="text-white/70">que formato</span> exportar.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* PASO 1: Alcance */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#d0bcff]/15 border border-[#d0bcff]/25 flex items-center justify-center text-sm font-bold text-[#d0bcff]">
+                    1
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-[#e4e1ea] text-sm">Alcance</h4>
+                    <p className="text-[11px] text-white/40">A quien incluir</p>
+                  </div>
+                </div>
+
+                <RadioGroup
+                  value={reportScope}
+                  onValueChange={(v) => setReportScope(v as ReportScope)}
+                  className="space-y-2"
+                >
+                  {[
+                    { value: "INDIVIDUAL", label: "Alumno Individual", icon: UserRound },
+                    { value: "MULTIPLE", label: "Seleccion Multiple", icon: UsersRound },
+                    { value: "CURSO", label: "Curso Completo", icon: GraduationCap },
+                    { value: "INSTITUCION", label: "Toda la Institucion", icon: Building2 },
+                  ].map((opt) => {
+                    const Icon = opt.icon;
+                    const active = reportScope === opt.value;
+                    return (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`scope-${opt.value}`}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all",
+                          active
+                            ? "border-[#d0bcff]/40 bg-[#d0bcff]/10"
+                            : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"
+                        )}
+                      >
+                        <RadioGroupItem value={opt.value} id={`scope-${opt.value}`} />
+                        <Icon className={cn("size-4", active ? "text-[#d0bcff]" : "text-white/40")} />
+                        <span className={cn("text-sm", active ? "text-[#e4e1ea]" : "text-white/60")}>
+                          {opt.label}
+                        </span>
+                      </Label>
+                    );
+                  })}
+                </RadioGroup>
+
+                {/* Select condicional para Curso Completo */}
+                {reportScope === "CURSO" && (
+                  <div className="space-y-2 pt-1">
+                    <Label className="text-xs text-white/50">Selecciona el curso a exportar</Label>
+                    <Select value={reportCourse} onValueChange={setReportCourse}>
+                      <SelectTrigger className="bg-black/40 border-white/10">
+                        <SelectValue placeholder="Elegir curso / division..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MOCK_DIVISIONS.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name} ({d.studentCount} alumnos)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* PASO 2: Conjunto de Datos */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#d0bcff]/15 border border-[#d0bcff]/25 flex items-center justify-center text-sm font-bold text-[#d0bcff]">
+                    2
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-[#e4e1ea] text-sm">Conjunto de Datos</h4>
+                    <p className="text-[11px] text-white/40">Que informacion compilar</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {REPORT_DATA_SETS.map((ds) => {
+                    const Icon = ds.icon;
+                    const checked = reportDataSets.includes(ds.id);
+                    return (
+                      <Label
+                        key={ds.id}
+                        htmlFor={`ds-${ds.id}`}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-all",
+                          checked
+                            ? "border-emerald-500/30 bg-emerald-500/[0.06]"
+                            : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"
+                        )}
+                      >
+                        <Checkbox
+                          id={`ds-${ds.id}`}
+                          checked={checked}
+                          onCheckedChange={() => toggleDataSet(ds.id)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex items-start gap-2.5">
+                          <Icon className={cn("size-4 mt-0.5 shrink-0", checked ? "text-emerald-400" : "text-white/40")} />
+                          <div>
+                            <p className={cn("text-sm font-medium", checked ? "text-[#e4e1ea]" : "text-white/70")}>
+                              {ds.label}
+                            </p>
+                            <p className="text-[11px] text-white/40">{ds.description}</p>
+                          </div>
+                        </div>
+                      </Label>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-white/40 pt-1">
+                  <ListChecks className="size-3.5" />
+                  {reportDataSets.length} modulo{reportDataSets.length === 1 ? "" : "s"} seleccionado{reportDataSets.length === 1 ? "" : "s"}
+                </div>
+              </div>
+
+              {/* PASO 3: Formato de Salida */}
+              <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#d0bcff]/15 border border-[#d0bcff]/25 flex items-center justify-center text-sm font-bold text-[#d0bcff]">
+                    3
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-[#e4e1ea] text-sm">Formato de Salida</h4>
+                    <p className="text-[11px] text-white/40">Como exportar</p>
+                  </div>
+                </div>
+
+                {/* Resumen del embudo */}
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/40">Legajos alcanzados</span>
+                    <span className="font-semibold text-[#d0bcff]">{reportTargetCount()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/40">Modulos de datos</span>
+                    <span className="font-semibold text-[#e4e1ea]">{reportDataSets.length}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => handleGenerateReport("PDF")}
+                    disabled={isGeneratingReport}
+                    className="w-full h-14 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 justify-start gap-3"
+                  >
+                    {isGeneratingReport ? (
+                      <Spinner className="size-5" />
+                    ) : (
+                      <FileType className="size-5" />
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold text-sm">Generar PDF Cerrado</span>
+                      <span className="text-[11px] opacity-70">Documento no editable, listo para archivo</span>
+                    </div>
+                    <ChevronRight className="size-4 ml-auto opacity-50" />
+                  </Button>
+
+                  <Button
+                    onClick={() => handleGenerateReport("DOCX")}
+                    disabled={isGeneratingReport}
+                    className="w-full h-14 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 justify-start gap-3"
+                  >
+                    {isGeneratingReport ? (
+                      <Spinner className="size-5" />
+                    ) : (
+                      <FileText className="size-5" />
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold text-sm">Generar DOCX Editable</span>
+                      <span className="text-[11px] opacity-70">Documento Word para editar y reimprimir</span>
+                    </div>
+                    <ChevronRight className="size-4 ml-auto opacity-50" />
+                  </Button>
+                </div>
+
+                <p className="text-[11px] text-white/30 text-center leading-relaxed">
+                  El motor recopilara los datos seleccionados y compilara el documento de forma asincronica.
+                </p>
               </div>
             </div>
           </TabsContent>

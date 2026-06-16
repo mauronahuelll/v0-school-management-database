@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/context/auth-context"
 import { motion } from "framer-motion"
 import { 
@@ -9,8 +10,10 @@ import {
   Bell, FileText, RefreshCw, AlertTriangle,
   CheckCircle2, UserX, ClipboardCheck, Phone,
   MessageSquare, Inbox, Sparkles, ArrowRight,
-  Stethoscope, FileWarning, GraduationCap
+  Stethoscope, FileWarning, GraduationCap,
+  Upload, FileSpreadsheet, Megaphone, ShieldCheck
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -431,15 +434,58 @@ function ZeroInboxState() {
   );
 }
 
+function QuickActionCard({
+  icon: Icon,
+  title,
+  description,
+  accent,
+  onClick,
+}: {
+  icon: typeof Upload;
+  title: string;
+  description: string;
+  accent: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative text-left p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]",
+        "transition-all duration-200 hover:bg-white/[0.04] hover:-translate-y-0.5",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d0bcff]/40",
+        accent
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] transition-colors group-hover:bg-white/[0.06]"
+          style={{ color: "var(--qa-color)" }}
+        >
+          <Icon className="size-5" />
+        </div>
+        <ArrowRight className="size-4 text-white/20 transition-all group-hover:text-white/50 group-hover:translate-x-0.5" />
+      </div>
+      <div className="mt-4 space-y-1">
+        <h4 className="text-sm font-semibold text-[#e4e1ea]">{title}</h4>
+        <p className="text-xs text-white/40 leading-relaxed">{description}</p>
+      </div>
+    </button>
+  );
+}
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
 export default function DashboardPage() {
   const { activeContext } = useAuth()
+  const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [today, setToday] = useState("")
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isAuditing, setIsAuditing] = useState(false)
 
   const role = activeContext?.role || null
   const schoolId = activeContext?.schoolId || "inst-1"
@@ -463,6 +509,62 @@ export default function DashboardPage() {
   const hasAdminActions = ADMIN_ACTIONS_DOCUMENTACION.length > 0 || ADMIN_ACTIONS_CONVIVENCIA.length > 0;
   const hasPreceptorActions = PRECEPTOR_ACTIONS_LISTA.length > 0 || PRECEPTOR_ACTIONS_AUSENTES.length > 0;
   const hasDocenteActions = DOCENTE_ACTIONS.length > 0;
+
+  // ============================================
+  // CENTRO DE COMANDO - Quick Actions (ADMIN)
+  // ============================================
+  const handleImportPadron = useCallback(() => {
+    // Deep-link a la pestaña de matricula con el modal de importacion abierto
+    router.push("/students?action=import");
+  }, [router]);
+
+  const handleOpenReportBuilder = useCallback(() => {
+    // Deep-link a la pestaña del Generador de Reportes (Report Builder)
+    router.push("/students?tab=reportes");
+  }, [router]);
+
+  const handleComposeCircular = useCallback(() => {
+    // Deep-link al modulo de comunicaciones con el modal de redaccion abierto
+    router.push("/communications?action=compose");
+  }, [router]);
+
+  const handleAuditDownload = useCallback(() => {
+    setIsAuditing(true);
+    const run = new Promise<void>((resolve) => {
+      window.setTimeout(() => {
+        const body = [
+          "SEQUENCY - Auditoria de Compliance RRHH",
+          "==========================================",
+          `Generado: ${new Date().toLocaleString("es-AR")}`,
+          "",
+          "DOCUMENTACION FALTANTE DEL PERSONAL",
+          "- 5 docentes con Apto Medico vencido",
+          "- 3 docentes sin DD.JJ. de Cargos",
+          "- 2 docentes sin constancia de CUIL actualizada",
+          "",
+          "Nivel de cumplimiento institucional: 71%",
+          "Documento generado automaticamente por el Centro de Comando.",
+        ].join("\n");
+
+        const blob = new Blob([body], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "auditoria_rrhh.pdf";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        resolve();
+      }, 1800);
+    }).finally(() => setIsAuditing(false));
+
+    toast.promise(run, {
+      loading: "Auditando documentacion del personal... Compilando reporte...",
+      success: "Descarga iniciada: auditoria_rrhh.pdf",
+      error: "No se pudo generar la auditoria.",
+    });
+  }, []);
 
   if (!mounted) {
     return (
@@ -559,6 +661,59 @@ export default function DashboardPage() {
             {ADMIN_METRICS.map((metric, i) => (
               <CriticalMetricCard key={i} metric={metric} />
             ))}
+          </div>
+
+          {/* ============================================ */}
+          {/* CENTRO DE COMANDO - Acciones Rapidas (ADMIN) */}
+          {/* ============================================ */}
+          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="p-2 rounded-lg bg-[#d0bcff]/10 border border-[#d0bcff]/20">
+                <Sparkles className="size-4 text-[#d0bcff]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#e4e1ea]">Acciones Rapidas Institucionales</h3>
+                <p className="text-[11px] text-white/40">Centro de comando operativo</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div style={{ ["--qa-color" as string]: "#4de082" }}>
+                <QuickActionCard
+                  icon={Upload}
+                  title="Importacion Masiva"
+                  description="Cargar padron de alumnos (Excel/CSV)"
+                  accent="hover:border-[#4de082]/30"
+                  onClick={handleImportPadron}
+                />
+              </div>
+              <div style={{ ["--qa-color" as string]: "#d0bcff" }}>
+                <QuickActionCard
+                  icon={FileSpreadsheet}
+                  title="Generador de Reportes"
+                  description="Exportar matriculas, notas y ausentismo por lotes"
+                  accent="hover:border-[#d0bcff]/30"
+                  onClick={handleOpenReportBuilder}
+                />
+              </div>
+              <div style={{ ["--qa-color" as string]: "#54c7ec" }}>
+                <QuickActionCard
+                  icon={Megaphone}
+                  title="Comunicacion Institucional"
+                  description="Redactar circular o aviso para la comunidad"
+                  accent="hover:border-[#54c7ec]/30"
+                  onClick={handleComposeCircular}
+                />
+              </div>
+              <div style={{ ["--qa-color" as string]: "#fbbf24" }}>
+                <QuickActionCard
+                  icon={isAuditing ? RefreshCw : ShieldCheck}
+                  title="Auditoria de Compliance"
+                  description="Descargar reporte de documentacion faltante del personal"
+                  accent="hover:border-amber-400/30"
+                  onClick={isAuditing ? () => {} : handleAuditDownload}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Action Inbox */}

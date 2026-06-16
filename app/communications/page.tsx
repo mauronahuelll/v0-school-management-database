@@ -422,6 +422,12 @@ export default function CommunicationsPage() {
     if (communications.length > 0) {
       setSelectedId(communications[0].id);
     }
+
+    // Deep-linking desde el Centro de Comando del Dashboard
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") === "compose" && canCompose) {
+      setIsComposeOpen(true);
+    }
   }, [communications]);
 
   const handleSelectCommunication = useCallback((id: string) => {
