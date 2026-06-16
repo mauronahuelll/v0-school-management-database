@@ -21,7 +21,8 @@ import {
   X,
   Paperclip,
   Megaphone,
-  Lock,
+  PenLine,
+  ShieldCheck,
   Sparkles,
   Image as ImageIcon,
   Download,
@@ -42,6 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -393,7 +395,8 @@ export default function CommunicationsPage() {
   
   // Sign dialog state
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
-  const [signPin, setSignPin] = useState("");
+  const [signConsent, setSignConsent] = useState(false);
+  const [signName, setSignName] = useState("");
   const [isSigning, setIsSigning] = useState(false);
 
   // Actionable circulars - return upload state (FAMILIA)
@@ -440,8 +443,8 @@ export default function CommunicationsPage() {
   }, []);
 
   const handleSign = useCallback(async () => {
-    if (signPin.length !== 4) {
-      toast.error("El PIN debe tener 4 digitos");
+    if (!signConsent || signName.trim().length === 0) {
+      toast.error("Debes aceptar los terminos y firmar con tu nombre completo");
       return;
     }
     
@@ -449,12 +452,11 @@ export default function CommunicationsPage() {
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsSigning(false);
     setIsSignDialogOpen(false);
-    setSignPin("");
+    setSignConsent(false);
+    setSignName("");
     
-    toast.success("Notificacion firmada correctamente", {
-      description: "El comunicado ha sido notificado legalmente.",
-    });
-  }, [signPin]);
+    toast.success("Documento sellado criptograficamente y archivado.");
+  }, [signConsent, signName]);
 
   const handleDownloadTemplate = useCallback((name: string) => {
     toast.success("Descargando plantilla", {
@@ -959,34 +961,64 @@ export default function CommunicationsPage() {
         </div>
       </div>
 
-      {/* Sign Dialog (FAMILIA) */}
+      {/* Sign Dialog (FAMILIA) - E-Signature */}
       <Dialog open={isSignDialogOpen} onOpenChange={setIsSignDialogOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-[#131319] border-white/10">
+        <DialogContent className="sm:max-w-[440px] bg-white/5 backdrop-blur-xl border-white/10 shadow-[0_0_40px_rgba(168,85,247,0.18)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
-              <Lock className="size-5 text-[#d0bcff]" />
-              Firma Digital
+              <PenLine className="size-5 text-[#d0bcff]" />
+              Consentimiento y Firma Digital
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              Ingresa tu PIN de 4 digitos para confirmar la recepcion del comunicado.
+              Firma electronicamente para confirmar la recepcion del comunicado.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-6">
-            <Label className="text-xs uppercase tracking-wider text-white/50 mb-3 block">
-              PIN de Firma
-            </Label>
-            <Input
-              type="password"
-              maxLength={4}
-              value={signPin}
-              onChange={(e) => setSignPin(e.target.value.replace(/\D/g, ""))}
-              placeholder="****"
-              className="h-14 text-center text-2xl tracking-[0.5em] bg-white/[0.02] border-white/10 font-mono"
-            />
-            <p className="text-[10px] text-white/30 text-center mt-2">
-              Este PIN actua como firma digital con validez legal
-            </p>
+          <div className="py-2 space-y-4">
+            {/* Advertencia legal */}
+            <div className="rounded-xl bg-black/30 border border-white/10 p-3">
+              <p className="text-[11px] leading-relaxed text-white/60">
+                Declaro bajo juramento que los datos ingresados son correctos y que he sido legalmente
+                notificado del presente comunicado, asumiendo la responsabilidad legal correspondiente.
+                Comprendo que esta firma electronica tiene plena validez legal.
+              </p>
+            </div>
+
+            {/* Checkbox de consentimiento obligatorio */}
+            <label
+              htmlFor="esign-consent-comm"
+              className="flex items-start gap-3 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20 p-3 cursor-pointer hover:bg-[#d0bcff]/10 transition-colors"
+            >
+              <Checkbox
+                id="esign-consent-comm"
+                checked={signConsent}
+                onCheckedChange={(v) => setSignConsent(v === true)}
+                disabled={isSigning}
+                className="mt-0.5 border-white/30 data-[state=checked]:bg-[#d0bcff] data-[state=checked]:border-[#d0bcff] data-[state=checked]:text-[#1b1b1f]"
+              />
+              <span className="text-xs font-medium text-[#e4e1ea] leading-snug">
+                Acepto los terminos y firmo digitalmente
+              </span>
+            </label>
+
+            {/* Firma manuscrita */}
+            <div className="space-y-1.5">
+              <Label htmlFor="esign-name-comm" className="text-xs uppercase tracking-wider text-white/50">
+                Nombre y Apellido Completo
+              </Label>
+              <Input
+                id="esign-name-comm"
+                value={signName}
+                onChange={(e) => setSignName(e.target.value)}
+                disabled={isSigning}
+                placeholder="Escriba su nombre completo como firma"
+                autoComplete="off"
+                className="h-11 bg-white/[0.02] border-white/10 font-serif italic text-base placeholder:not-italic placeholder:font-sans placeholder:text-sm"
+              />
+              <p className="text-[10px] text-white/30 text-center">
+                Esta firma electronica tiene validez legal
+              </p>
+            </div>
           </div>
           
           <DialogFooter>
@@ -994,7 +1026,8 @@ export default function CommunicationsPage() {
               variant="outline"
               onClick={() => {
                 setIsSignDialogOpen(false);
-                setSignPin("");
+                setSignConsent(false);
+                setSignName("");
               }}
               className="border-white/10 text-white/70"
             >
@@ -1002,18 +1035,18 @@ export default function CommunicationsPage() {
             </Button>
             <Button
               onClick={handleSign}
-              disabled={signPin.length !== 4 || isSigning}
-              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
+              disabled={!signConsent || signName.trim().length === 0 || isSigning}
+              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2 disabled:opacity-40"
             >
               {isSigning ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Firmando...
+                  Sellando...
                 </>
               ) : (
                 <>
-                  <CheckCheck className="size-4" />
-                  Firmar
+                  <ShieldCheck className="size-4" />
+                  Confirmar y Sellar Documento
                 </>
               )}
             </Button>

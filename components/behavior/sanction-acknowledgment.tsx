@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -12,11 +12,12 @@ import {
   AlertCircle,
   MessageSquareWarning,
   Download,
-  Lock,
+  PenLine,
   Hash,
   Clock,
   User,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,6 +27,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 // Types matching the backend
@@ -68,64 +72,6 @@ const SEVERITY_CONFIG = {
   5: { label: "Muy Grave", color: "bg-red-700/30 text-red-200 border-red-700/30" },
 } as const;
 
-// PIN Input Component
-function PinInput({ 
-  value, 
-  onChange, 
-  disabled 
-}: { 
-  value: string; 
-  onChange: (val: string) => void;
-  disabled?: boolean;
-}) {
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const handleChange = (index: number, digit: string) => {
-    if (!/^\d?$/.test(digit)) return;
-    
-    const newValue = value.split("");
-    newValue[index] = digit;
-    const result = newValue.join("").slice(0, 4);
-    onChange(result);
-
-    // Auto-focus next input
-    if (digit && index < 3) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !value[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  return (
-    <div className="flex justify-center gap-3">
-      {[0, 1, 2, 3].map((index) => (
-        <input
-          key={index}
-          ref={(el) => { inputRefs.current[index] = el; }}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          value={value[index] || ""}
-          onChange={(e) => handleChange(index, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(index, e)}
-          disabled={disabled}
-          className={cn(
-            "w-14 h-16 text-center text-2xl font-mono font-bold rounded-xl",
-            "bg-white/[0.02] border-2 border-white/10",
-            "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
-            "transition-all text-foreground",
-            disabled && "opacity-50 cursor-not-allowed"
-          )}
-        />
-      ))}
-    </div>
-  );
-}
-
 // Generate a fake SHA-256 hash
 function generateFakeHash(): string {
   const chars = "0123456789abcdef";
@@ -144,7 +90,8 @@ export function SanctionAcknowledgment({
   const [viewState, setViewState] = useState<ViewState>("details");
   const [isLoading, setIsLoading] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
-  const [pin, setPin] = useState("");
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [signatureName, setSignatureName] = useState("");
   const [signatureData, setSignatureData] = useState<{
     verificationId?: string;
     documentHash?: string;
@@ -157,13 +104,16 @@ export function SanctionAcknowledgment({
   const severity = record.sanction?.severity || 1;
   const severityConfig = SEVERITY_CONFIG[severity];
 
+  const canSubmitSignature = consentAccepted && signatureName.trim().length > 0;
+
   const handleStartSignature = useCallback(() => {
-    setPin("");
+    setConsentAccepted(false);
+    setSignatureName("");
     setViewState("pin-entry");
   }, []);
 
   const handlePinComplete = useCallback(async () => {
-    if (pin.length !== 4) return;
+    if (!consentAccepted || signatureName.trim().length === 0) return;
 
     setViewState("processing");
     setIsLoading(true);
@@ -187,6 +137,7 @@ export function SanctionAcknowledgment({
           ipAddress: fakeIP,
         });
         setViewState("success");
+        toast.success("Documento sellado criptograficamente y archivado.");
       } else {
         setSignatureData({ error: "Error al procesar la firma digital" });
         setViewState("error");
@@ -199,7 +150,7 @@ export function SanctionAcknowledgment({
     } finally {
       setIsLoading(false);
     }
-  }, [pin, record.id, onAcknowledge]);
+  }, [consentAccepted, signatureName, record.id, onAcknowledge]);
 
   const handleDispute = useCallback(async () => {
     if (disputeReason.trim().length < 10) return;
@@ -233,13 +184,6 @@ export function SanctionAcknowledgment({
     a.click();
     URL.revokeObjectURL(url);
   }, [record, signatureData]);
-
-  // Auto-submit when PIN is complete
-  useEffect(() => {
-    if (pin.length === 4 && viewState === "pin-entry") {
-      handlePinComplete();
-    }
-  }, [pin, viewState, handlePinComplete]);
 
   // Already acknowledged
   if (status === "ACKNOWLEDGED") {
@@ -369,54 +313,91 @@ export function SanctionAcknowledgment({
           </motion.div>
         )}
 
-        {/* PIN ENTRY VIEW */}
+        {/* E-SIGNATURE VIEW */}
         {viewState === "pin-entry" && (
           <motion.div
             key="pin-entry"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="space-y-6 py-4"
+            className="space-y-5 py-4"
           >
-            {/* Security Icon */}
+            {/* Signature Icon */}
             <div className="flex justify-center">
-              <div className="p-5 rounded-full bg-primary/10 border border-primary/20">
-                <Lock className="h-10 w-10 text-primary" />
+              <div className="p-5 rounded-full bg-primary/10 border border-primary/20 shadow-[0_0_25px_rgba(168,85,247,0.20)]">
+                <PenLine className="h-10 w-10 text-primary" />
               </div>
             </div>
 
             <div className="text-center">
               <h3 className="text-lg font-bold text-foreground">
-                PIN de Seguridad
+                Consentimiento y Firma Digital
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Ingrese su codigo de 4 digitos para confirmar su identidad
+                Confirme su identidad mediante firma electronica
               </p>
             </div>
 
-            {/* PIN Input */}
-            <PinInput 
-              value={pin} 
-              onChange={setPin} 
-              disabled={isLoading}
-            />
-
             {/* Legal Notice */}
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
               <div className="flex items-start gap-2">
                 <FileCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <p className="text-xs leading-relaxed text-foreground/80">
-                  Al ingresar su PIN, declaro haber sido <strong>legalmente notificado</strong> de la presente comunicacion. 
-                  Este acuse de recibo tiene validez legal conforme al Art. 284 del Codigo Civil y Comercial de la Nacion.
+                <p className="text-[11px] leading-relaxed text-foreground/70">
+                  Declaro bajo juramento que los datos ingresados son correctos y que he sido{" "}
+                  <strong className="text-foreground/90">legalmente notificado</strong> de la presente
+                  comunicacion, asumiendo la responsabilidad legal correspondiente. Este acuse de recibo
+                  tiene validez legal conforme al Art. 284 del Codigo Civil y Comercial de la Nacion.
                 </p>
               </div>
             </div>
+
+            {/* Mandatory consent checkbox */}
+            <label
+              htmlFor="esign-consent-sanction"
+              className="flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 p-3 cursor-pointer hover:bg-primary/10 transition-colors"
+            >
+              <Checkbox
+                id="esign-consent-sanction"
+                checked={consentAccepted}
+                onCheckedChange={(v) => setConsentAccepted(v === true)}
+                disabled={isLoading}
+                className="mt-0.5 border-white/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+              <span className="text-xs font-medium text-foreground leading-snug">
+                Acepto los terminos y firmo digitalmente
+              </span>
+            </label>
+
+            {/* Handwritten-style signature input */}
+            <div className="space-y-1.5">
+              <Label htmlFor="esign-name-sanction" className="text-xs text-white/60">
+                Nombre y Apellido Completo <span className="text-[#ffb4ab]">*</span>
+              </Label>
+              <Input
+                id="esign-name-sanction"
+                value={signatureName}
+                onChange={(e) => setSignatureName(e.target.value)}
+                disabled={isLoading}
+                placeholder="Escriba su nombre completo como firma"
+                autoComplete="off"
+                className="bg-black/40 border-white/15 h-11 font-serif italic text-base placeholder:not-italic placeholder:font-sans placeholder:text-sm"
+              />
+            </div>
+
+            <Button
+              onClick={handlePinComplete}
+              disabled={!canSubmitSignature || isLoading}
+              className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 gap-2 disabled:opacity-40"
+            >
+              <Shield className="h-4 w-4" />
+              Confirmar y Sellar Documento
+            </Button>
 
             <Button
               variant="ghost"
               onClick={() => setViewState("details")}
               disabled={isLoading}
-              className="w-full h-12 text-muted-foreground"
+              className="w-full h-11 text-muted-foreground"
             >
               Cancelar
             </Button>
