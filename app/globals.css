@@ -20,7 +20,7 @@
   --popover-foreground: #1a1a1f;
   
   /* Primary: Electric Purple */
-  --primary: #6d3bd7;
+  --primary: #9333ea;
   --primary-foreground: #ffffff;
   
   /* Secondary */
@@ -101,32 +101,32 @@
 }
 
 .dark {
-  /* === GALACTIC BLACK MODE (Dark) ===
-     The premium dark tech aesthetic */
-  --background: #131319;
-  --foreground: #e4e1ea;
+  /* === GALACTIC DARK MODE (Dark) ===
+     Electric Purple brand identity over deep blue-black */
+  --background: #0a0a0f;
+  --foreground: #ececf2;
   
-  --card: #1f1f26;
-  --card-foreground: #e4e1ea;
+  --card: rgba(255, 255, 255, 0.03);
+  --card-foreground: #ececf2;
   
-  --popover: #1f1f26;
-  --popover-foreground: #e4e1ea;
+  --popover: #14121c;
+  --popover-foreground: #ececf2;
   
-  /* Primary: Electric Purple */
-  --primary: #d0bcff;
-  --primary-foreground: #3c0091;
+  /* Primary: Vibrant Electric Purple (purple-500/fuchsia) */
+  --primary: #a855f7;
+  --primary-foreground: #ffffff;
   
   /* Secondary */
-  --secondary: #2a2930;
-  --secondary-foreground: #cbc3d7;
+  --secondary: rgba(255, 255, 255, 0.05);
+  --secondary-foreground: #d8d4e2;
   
   /* Muted */
-  --muted: #35343b;
-  --muted-foreground: #958ea0;
+  --muted: rgba(255, 255, 255, 0.04);
+  --muted-foreground: #9b95a8;
   
   /* Accent */
-  --accent: #2a2930;
-  --accent-foreground: #e4e1ea;
+  --accent: rgba(168, 85, 247, 0.12);
+  --accent-foreground: #ececf2;
   
   /* Destructive: Terracotta */
   --destructive: #ffb4ab;
@@ -137,26 +137,26 @@
   --success-foreground: #003919;
   
   /* Borders & Inputs */
-  --border: rgba(255, 255, 255, 0.05);
-  --input: rgba(255, 255, 255, 0.02);
-  --ring: #d0bcff;
+  --border: rgba(255, 255, 255, 0.10);
+  --input: rgba(255, 255, 255, 0.05);
+  --ring: #a855f7;
   
   /* Charts */
-  --chart-1: #d0bcff;
+  --chart-1: #a855f7;
   --chart-2: #4de082;
   --chart-3: #ffb3b0;
-  --chart-4: #a078ff;
+  --chart-4: #d946ef;
   --chart-5: #00b55d;
   
   /* Sidebar - Glassmorphism */
-  --sidebar: rgba(31, 31, 38, 0.4);
-  --sidebar-foreground: #e4e1ea;
-  --sidebar-primary: #d0bcff;
-  --sidebar-primary-foreground: #3c0091;
-  --sidebar-accent: rgba(208, 188, 255, 0.08);
-  --sidebar-accent-foreground: #e4e1ea;
-  --sidebar-border: rgba(255, 255, 255, 0.05);
-  --sidebar-ring: #d0bcff;
+  --sidebar: rgba(255, 255, 255, 0.03);
+  --sidebar-foreground: #ececf2;
+  --sidebar-primary: #a855f7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(168, 85, 247, 0.12);
+  --sidebar-accent-foreground: #ececf2;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #a855f7;
   
   /* Sequency Status Colors - Dark Mode */
   --status-present: #4de082;
@@ -176,20 +176,20 @@
   --status-license-soft: rgba(149, 142, 160, 0.12);
   
   /* Glass effect - Dark mode Galactic */
-  --glass-bg: rgba(31, 31, 38, 0.4);
-  --glass-border: rgba(255, 255, 255, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.10);
   
   /* Surface containers - Material 3 inspired */
-  --surface: #131319;
-  --surface-dim: #131319;
-  --surface-container: #1f1f26;
-  --surface-container-low: #1b1b22;
-  --surface-container-high: #2a2930;
-  --surface-container-highest: #35343b;
+  --surface: #0a0a0f;
+  --surface-dim: #0a0a0f;
+  --surface-container: rgba(255, 255, 255, 0.03);
+  --surface-container-low: rgba(255, 255, 255, 0.02);
+  --surface-container-high: rgba(255, 255, 255, 0.06);
+  --surface-container-highest: rgba(255, 255, 255, 0.09);
   
   /* On-surface variants */
-  --on-surface: #e4e1ea;
-  --on-surface-variant: #cbc3d7;
+  --on-surface: #ececf2;
+  --on-surface-variant: #c4bed2;
 }
 
 @theme inline {
@@ -286,15 +286,24 @@
     letter-spacing: -0.01em;
     overflow-x: hidden;
   }
+  
+  /* Galactic ambient backdrop in dark mode */
+  .dark body {
+    background-color: #0a0a0f;
+    background-image:
+      radial-gradient(55% 45% at 12% -5%, rgba(147, 51, 234, 0.10) 0%, transparent 60%),
+      radial-gradient(45% 45% at 105% 105%, rgba(217, 70, 239, 0.06) 0%, transparent 55%);
+    background-attachment: fixed;
+  }
 }
 
 @layer utilities {
   /* === GLASSMORPHISM - Galactic Tech Style === */
   .glass-panel {
-    background: rgba(31, 31, 38, 0.4);
+    background: rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
   }
   
   .light .glass-panel,
@@ -304,21 +313,51 @@
   }
   
   .glass-strong {
-    background: rgba(31, 31, 38, 0.6);
+    background: rgba(20, 18, 28, 0.6);
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
   }
   
   .dark .glass-strong {
-    box-shadow: 0 0 40px rgba(208, 188, 255, 0.05);
+    box-shadow: 0 0 40px rgba(168, 85, 247, 0.10);
   }
   
   .glass-subtle {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+  }
+  
+  /* === BRAND IDENTITY - Electric Purple === */
+  /* Subtle purple elevation glow for primary cards */
+  .glow-purple {
+    box-shadow: 0 0 15px rgba(147, 51, 234, 0.15);
+  }
+  
+  .glow-purple-strong {
+    box-shadow: 0 0 30px rgba(168, 85, 247, 0.25);
+  }
+  
+  /* Electric purple -> fuchsia brand gradient */
+  .brand-gradient {
+    background-image: linear-gradient(135deg, #9333ea 0%, #d946ef 100%);
+  }
+  
+  .brand-gradient-text {
+    background-image: linear-gradient(135deg, #c084fc 0%, #e879f9 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  
+  /* Ambient galactic radial backdrop */
+  .galactic-bg {
+    background-color: #0a0a0f;
+    background-image:
+      radial-gradient(60% 50% at 15% 0%, rgba(147, 51, 234, 0.10) 0%, transparent 60%),
+      radial-gradient(50% 50% at 100% 100%, rgba(217, 70, 239, 0.07) 0%, transparent 55%);
   }
   
   /* === TYPOGRAPHY SYSTEM === */
@@ -513,10 +552,10 @@
 /* === ANIMATIONS === */
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 5px rgba(208, 188, 255, 0.3);
+    box-shadow: 0 0 5px rgba(168, 85, 247, 0.3);
   }
   50% {
-    box-shadow: 0 0 20px rgba(208, 188, 255, 0.5);
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.55);
   }
 }
 

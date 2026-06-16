@@ -37,11 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // ============================================================================
 // TYPES
@@ -115,11 +111,14 @@ const DOC_TYPES = ["DNI", "LC", "LE", "CI", "Pasaporte"];
 export function StudentComplementaryData({ studentName, userRole }: StudentComplementaryDataProps) {
   const isFamily = userRole === "FAMILIA";
 
-  // Firma digital
+  // Firma digital (E-Signature estilo DocuSign)
   const [signature, setSignature] = useState<SignatureRecord>({ signed: false });
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
-  const [pin, setPin] = useState("");
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [signatureName, setSignatureName] = useState("");
   const [isValidating, setIsValidating] = useState(false);
+
+  const canSubmitSignature = consentAccepted && signatureName.trim().length > 0;
 
   // Solo la familia puede editar, y unicamente mientras el documento NO este firmado.
   // Una vez sellado digitalmente, el formulario queda en modo solo lectura (bloqueado).
@@ -163,14 +162,15 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
 
   // Boton principal: obliga a abrir el dialog de firma
   const handleOpenSignature = useCallback(() => {
-    setPin("");
+    setConsentAccepted(false);
+    setSignatureName("");
     setIsSignDialogOpen(true);
   }, []);
 
   const handleValidateSignature = useCallback(() => {
-    if (pin.length !== 4) return;
+    if (!canSubmitSignature) return;
     setIsValidating(true);
-    // Simula validacion del PIN familiar
+    // Sella el documento con la firma electronica del responsable
     setTimeout(() => {
       const now = new Date();
       const formatted = now.toLocaleDateString("es-AR", {
@@ -181,9 +181,9 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
       setSignature({ signed: true, signedAt: formatted });
       setIsValidating(false);
       setIsSignDialogOpen(false);
-      toast.success("Documento legal actualizado.");
+      toast.success("Documento sellado criptograficamente y archivado.");
     }, 700);
-  }, [pin]);
+  }, [canSubmitSignature]);
 
   return (
     <div className="space-y-6">
@@ -462,7 +462,7 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
                 <p className="text-sm font-semibold text-foreground">Firma de Responsabilidad</p>
                 <p className="text-[11px] text-muted-foreground max-w-md leading-relaxed">
                   Al firmar, declaras que la informacion es correcta y autorizas el regimen de
-                  retiro seleccionado. Requiere validacion con el PIN familiar.
+                  retiro seleccionado. Requiere consentimiento legal y firma electronica.
                 </p>
               </div>
               <Button
@@ -478,37 +478,72 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
         </div>
       </section>
 
-      {/* ===================== Dialog de Firma con OTP ===================== */}
+      {/* ===================== Dialog de Firma Electronica (E-Signature) ===================== */}
       <Dialog open={isSignDialogOpen} onOpenChange={setIsSignDialogOpen}>
-        <DialogContent className="bg-[#131319] border-white/10 sm:max-w-md">
+        <DialogContent className="bg-white/5 backdrop-blur-xl border-white/10 sm:max-w-md shadow-[0_0_40px_rgba(168,85,247,0.18)]">
           <DialogHeader>
-            <div className="size-11 rounded-full bg-[#4de082]/15 border border-[#4de082]/30 flex items-center justify-center mx-auto mb-2">
-              <Lock className="size-5 text-[#4de082]" />
+            <div className="size-11 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center mx-auto mb-2">
+              <PenLine className="size-5 text-primary" />
             </div>
-            <DialogTitle className="text-center">Validar firma digital</DialogTitle>
+            <DialogTitle className="text-center">Consentimiento y Firma Digital</DialogTitle>
             <DialogDescription className="text-center">
-              Ingresa el PIN de 4 digitos de la familia para firmar la autorizacion de retiro.
+              Firma electronicamente la autorizacion de retiro de {studentName}.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex justify-center py-4">
-            <InputOTP maxLength={4} value={pin} onChange={setPin} disabled={isValidating}>
-              <InputOTPGroup className="gap-2">
-                <InputOTPSlot index={0} className="size-12 text-lg bg-black/40 border-white/15" />
-                <InputOTPSlot index={1} className="size-12 text-lg bg-black/40 border-white/15" />
-                <InputOTPSlot index={2} className="size-12 text-lg bg-black/40 border-white/15" />
-                <InputOTPSlot index={3} className="size-12 text-lg bg-black/40 border-white/15" />
-              </InputOTPGroup>
-            </InputOTP>
+          <div className="space-y-4 py-2">
+            {/* Advertencia legal */}
+            <div className="rounded-xl bg-black/30 border border-white/10 p-3">
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Declaro bajo juramento que los datos ingresados son correctos y completos, y asumo la
+                responsabilidad legal correspondiente sobre el regimen de retiro y las personas
+                autorizadas declaradas. Comprendo que esta firma electronica tiene plena validez legal
+                conforme a la normativa vigente.
+              </p>
+            </div>
+
+            {/* Checkbox de consentimiento obligatorio */}
+            <label
+              htmlFor="esign-consent"
+              className="flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 p-3 cursor-pointer hover:bg-primary/10 transition-colors"
+            >
+              <Checkbox
+                id="esign-consent"
+                checked={consentAccepted}
+                onCheckedChange={(v) => setConsentAccepted(v === true)}
+                disabled={isValidating}
+                className="mt-0.5 border-white/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+              <span className="text-xs font-medium text-foreground leading-snug">
+                Acepto los terminos y firmo digitalmente
+              </span>
+            </label>
+
+            {/* Firma manuscrita (texto) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="esign-name" className="text-xs text-white/60">
+                Nombre y Apellido Completo <span className="text-[#ffb4ab]">*</span>
+              </Label>
+              <Input
+                id="esign-name"
+                value={signatureName}
+                onChange={(e) => setSignatureName(e.target.value)}
+                disabled={isValidating}
+                placeholder="Escriba su nombre completo como firma"
+                className="bg-black/40 border-white/15 h-11 font-serif italic text-base placeholder:not-italic placeholder:font-sans placeholder:text-sm"
+                autoComplete="off"
+              />
+            </div>
           </div>
 
           <DialogFooter className="flex-col sm:flex-col gap-2">
             <Button
               onClick={handleValidateSignature}
-              disabled={pin.length !== 4 || isValidating}
-              className="w-full bg-[#4de082] text-[#0a1f0d] hover:bg-[#4de082]/90"
+              disabled={!canSubmitSignature || isValidating}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2 disabled:opacity-40"
             >
-              {isValidating ? "Validando..." : "Confirmar y firmar"}
+              <ShieldCheck className="size-4" />
+              {isValidating ? "Sellando documento..." : "Confirmar y Sellar Documento"}
             </Button>
             <p className="text-[10px] text-muted-foreground text-center">
               Esta accion queda registrada como firma digital con valor legal.
