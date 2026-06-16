@@ -181,15 +181,17 @@ export function AppShell({ children }: AppShellProps) {
     <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-background">
       
       {/* MOBILE TOP HEADER (visible only on small screens) */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-background/95 backdrop-blur-xl border-b border-white/5">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-background/95 backdrop-blur-xl border-b border-white/10">
         {/* School & Role Compact */}
         <button 
           onClick={() => setContextSelectorOpen(true)}
           className="flex items-center gap-2 hover:bg-white/5 rounded-lg px-2 py-1 transition-colors"
         >
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
-            <RoleIcon className="w-4 h-4 text-primary" />
-          </div>
+          <img
+            src="/sequency-isotype.png"
+            alt="Sequency"
+            className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(168,85,247,0.45)]"
+          />
           <div className="min-w-0 text-left">
             <p className="text-xs font-bold text-foreground truncate max-w-[120px]">{schoolName || "Sequency"}</p>
             <p className="text-[9px] text-primary uppercase tracking-widest font-bold">{role}</p>
@@ -442,12 +444,27 @@ export function AppShell({ children }: AppShellProps) {
       </Sheet>
 
       {/* DESKTOP SIDEBAR (hidden on mobile, visible md+) */}
-      <aside className="hidden md:flex w-[15%] min-w-[240px] flex-col glass-panel border-r border-white/5 z-20">
+      <aside className="hidden md:flex w-[15%] min-w-[240px] flex-col glass-panel border-r border-white/10 z-20">
+        {/* Brand Isotype */}
+        <div className="px-4 pt-4 pb-3 flex items-center gap-2.5">
+          <div className="relative w-9 h-9 shrink-0">
+            <img
+              src="/sequency-isotype.png"
+              alt="Sequency"
+              className="w-full h-full object-contain drop-shadow-[0_0_10px_rgba(168,85,247,0.45)]"
+            />
+          </div>
+          <div className="leading-tight">
+            <p className="text-sm font-bold tracking-tight brand-gradient-text">Sequency</p>
+            <p className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Hub Académico</p>
+          </div>
+        </div>
+
         {/* School & Role Header - Clickable for context switch */}
-        <div className="p-4 border-b border-white/5">
+        <div className="p-4 border-b border-white/10">
           <button 
             onClick={() => setContextSelectorOpen(true)}
-            className="w-full flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-colors"
+            className="w-full flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/5 transition-colors"
           >
             <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 shrink-0">
               <RoleIcon className="w-4 h-4 text-primary" />
