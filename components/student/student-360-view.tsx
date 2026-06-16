@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, History, FileText, BookOpen, Users, ShieldAlert } from "lucide-react";
+import { ArrowLeft, User, History, FileText, BookOpen, Users, ShieldAlert, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { EventTimeline } from "./event-timeline";
 import { MedicalContactCard } from "./medical-contact-card";
 import { StudentTrayectoria } from "./student-trayectoria";
 import { StudentFamilyNetwork } from "./student-family-network";
+import { StudentComplementaryData } from "./student-complementary-data";
 import type { Student360Data } from "@/lib/types/student";
 import { useActiveRole } from "@/lib/context/auth-context";
 import { toast } from "sonner";
@@ -104,6 +105,13 @@ export function Student360View({
               )}
             </TabsTrigger>
             <TabsTrigger
+              value="complementarios"
+              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+            >
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Datos Complementarios
+            </TabsTrigger>
+            <TabsTrigger
               value="historial"
               className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
             >
@@ -148,6 +156,14 @@ export function Student360View({
               studentName={`${data.profile.firstName} ${data.profile.lastName}`}
               userRole={role ?? undefined}
               canEdit={true}
+            />
+          </TabsContent>
+
+          {/* Datos Complementarios Tab - Onboarding Familiar */}
+          <TabsContent value="complementarios" className="mt-6">
+            <StudentComplementaryData
+              studentName={`${data.profile.firstName} ${data.profile.lastName}`}
+              userRole={role ?? undefined}
             />
           </TabsContent>
 
