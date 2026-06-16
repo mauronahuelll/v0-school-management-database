@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
 import { ContextSelector } from "@/components/auth/context-selector"
-import { LogOut, Terminal, ChevronUp, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell } from "lucide-react"
+import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
@@ -64,19 +64,13 @@ export function AppShell({ children }: AppShellProps) {
   
   const pathname = usePathname()
   const router = useRouter()
-  const [consoleOpen, setConsoleOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [contextSelectorOpen, setContextSelectorOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [alertsOpen, setAlertsOpen] = useState(false)
-  const [logs, setLogs] = useState<string[]>([
-    "[SYS] Initializing Sequency Core v4.2.0...",
-    "[OK] Socket connected to node_AR_BUE_01",
-  ])
   
   // Derived values from activeContext
   const role = activeContext?.role ?? null
-  const schoolId = activeContext?.schoolId ?? null
   const schoolName = activeContext?.schoolName ?? null
   const userName = user?.name ?? ""
   
@@ -94,14 +88,9 @@ export function AppShell({ children }: AppShellProps) {
     return user !== null && availableContexts.length > 0 && activeContext === null
   }, [user, availableContexts, activeContext])
 
-  // Keyboard shortcut (Ctrl + Q) for dev console
+  // Keyboard shortcut (Cmd+K or Ctrl+K) for global search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "q") {
-        e.preventDefault()
-        setConsoleOpen((prev) => !prev)
-      }
-      // Cmd+K or Ctrl+K for global search
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault()
         setSearchOpen((prev) => !prev)
@@ -110,14 +99,6 @@ export function AppShell({ children }: AppShellProps) {
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
-
-  // Add route change logs
-  useEffect(() => {
-    if (user && activeContext) {
-      const time = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-      setLogs((prev) => [...prev.slice(-8), `[${time}] Route: ${pathname}`])
-    }
-  }, [pathname, user, activeContext])
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -211,12 +192,16 @@ export function AppShell({ children }: AppShellProps) {
             <Search className="w-5 h-5" />
           </button>
           
-          {/* Dev Console Toggle (Mobile) */}
+          {/* Alerts Toggle (Mobile) */}
           <button
-            onClick={() => setConsoleOpen(!consoleOpen)}
-            className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setAlertsOpen(true)}
+            className="relative p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Abrir alertas operativas"
           >
-            <Terminal className="w-5 h-5" />
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1 right-1 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+              {role === "ADMIN" ? "3" : role === "PRECEPTOR" ? "2" : role === "DOCENTE" ? "1" : "2"}
+            </span>
           </button>
           
           {/* Hamburger Menu */}
@@ -510,21 +495,35 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         <div className="p-4 border-t border-white/5 space-y-3">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center text-xs font-bold text-foreground">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center text-xs font-bold text-foreground shrink-0">
               {userName.split(" ").map(n => n[0]).join("").slice(0, 2)}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{userName}</p>
               <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
             </div>
+            {/* Right-aligned actions: strict flex container, no absolute/z conflicts */}
+            <div className="flex items-center gap-4 ml-auto">
+              <button
+                onClick={() => setAlertsOpen(true)}
+                className="relative p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-primary transition-colors"
+                aria-label="Abrir alertas operativas"
+              >
+                <Bell className="w-4 h-4" />
+                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+                  {role === "ADMIN" ? "3" : role === "PRECEPTOR" ? "2" : role === "DOCENTE" ? "1" : "2"}
+                </span>
+              </button>
+              <button
+                onClick={logout}
+                className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                aria-label="Cerrar sesion"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <button 
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs text-destructive hover:bg-destructive/10 rounded-lg transition-colors border border-transparent hover:border-destructive/20"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Cerrar Sesion
-          </button>
         </div>
       </aside>
 
@@ -600,19 +599,6 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </main>
 
-      {/* FLOATING ALERTS TRIGGER (operative alerts now live in a Sheet, not the layout) */}
-      <button
-        onClick={() => setAlertsOpen(true)}
-        className="fixed bottom-4 left-4 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-white/10 hover:border-primary/30 hover:bg-white/5 transition-all shadow-2xl group"
-        aria-label="Abrir alertas operativas"
-      >
-        <Bell className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-        <span className="text-xs font-medium text-foreground hidden sm:inline">Alertas</span>
-        <span className="flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
-          {role === "ADMIN" ? "3" : role === "PRECEPTOR" ? "2" : role === "DOCENTE" ? "1" : "2"}
-        </span>
-      </button>
-
       {/* OPERATIVE ALERTS SHEET (replaces the old static right utility panel) */}
       <Sheet open={alertsOpen} onOpenChange={setAlertsOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md p-0 bg-background border-l border-white/5 flex flex-col">
@@ -682,47 +668,6 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* DEV CONSOLE (Floating - works on all screens) */}
-      <div 
-        className={`fixed bottom-4 right-4 w-72 md:w-80 bg-black/95 backdrop-blur-xl border border-primary/30 rounded-xl shadow-2xl z-50 transition-transform duration-300 ${
-          consoleOpen ? "translate-y-0" : "translate-y-[calc(100%-48px)]"
-        }`}
-      >
-        <div 
-          className="flex items-center justify-between p-3 border-b border-white/10 cursor-pointer"
-          onClick={() => setConsoleOpen(!consoleOpen)}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-            <Terminal className="w-4 h-4 text-primary" />
-            <span className="text-[10px] font-mono text-primary font-bold tracking-widest uppercase">Dev Console</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline text-[10px] text-muted-foreground font-mono bg-white/5 px-2 py-0.5 rounded">Ctrl+Q</span>
-            {consoleOpen ? <ChevronDown className="w-4 h-4 text-white/50" /> : <ChevronUp className="w-4 h-4 text-white/50" />}
-          </div>
-        </div>
-        
-        {consoleOpen && (
-          <div className="p-4 font-mono text-[11px] flex flex-col gap-3 h-48 overflow-y-auto scrollbar-galactic text-muted-foreground">
-            <div className="space-y-1">
-              {logs.map((log, i) => (
-                <p key={i} className={log.includes("[OK]") ? "text-secondary" : log.includes("[WAR]") ? "text-tertiary" : "text-white/60"}>
-                  {log}
-                </p>
-              ))}
-              <p className="text-secondary">[AUTH] user: {user?.email}</p>
-              <p className="text-secondary">[AUTH] context: {activeContext?.id}</p>
-              <p className="text-secondary">[AUTH] role: {role}</p>
-              <p className="text-secondary">[AUTH] school: {schoolId}</p>
-              <p className="text-secondary">[AUTH] level: {activeContext?.level}</p>
-              <p className="text-white/40">[AUTH] contexts: {availableContexts.length} available</p>
-            </div>
-            <p className="text-white/30 mt-auto">root@sequency:~$ <span className="animate-pulse">_</span></p>
-          </div>
-        )}
-      </div>
 
       {/* Toast Notifications */}
       <Toaster
