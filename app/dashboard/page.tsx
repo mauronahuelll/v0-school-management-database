@@ -40,12 +40,23 @@ interface ActionItem {
   href?: string;
 }
 
+interface DrillDownRow {
+  name: string;
+  detail: string;
+  badge?: string;
+}
+
 interface CriticalMetric {
   label: string;
   value: string | number;
   subtext: string;
   icon: typeof Users;
   status: "critical" | "warning" | "ok";
+  drillDown?: {
+    title: string;
+    description: string;
+    rows: DrillDownRow[];
+  };
 }
 
 // ============================================
@@ -53,26 +64,59 @@ interface CriticalMetric {
 // ============================================
 
 const ADMIN_METRICS: CriticalMetric[] = [
-  { 
-    label: "Ausentismo Docente Hoy", 
-    value: "2", 
-    subtext: "de 14 docentes (14.3%)", 
-    icon: UserX, 
-    status: "warning" 
+  {
+    label: "Ausentismo Docente Hoy",
+    value: "2",
+    subtext: "de 14 docentes (14.3%)",
+    icon: UserX,
+    status: "warning",
+    drillDown: {
+      title: "Docentes Ausentes Hoy",
+      description: "Registro de inasistencias del personal al 16/06/2026",
+      rows: [
+        { name: "Prof. Carlos Perez", detail: "Matematica — 4to A y 5to B", badge: "Sin Cobertura" },
+        { name: "Prof. Ana Gomez", detail: "Historia — 3er A y 4to B", badge: "Cobertura Gestionada" },
+      ],
+    },
   },
-  { 
-    label: "Alumnos en Riesgo", 
-    value: "8", 
-    subtext: "Desercion / Academico", 
-    icon: AlertTriangle, 
-    status: "critical" 
+  {
+    label: "Alumnos en Riesgo",
+    value: "8",
+    subtext: "Desercion / Academico",
+    icon: AlertTriangle,
+    status: "critical",
+    drillDown: {
+      title: "Alumnos en Situacion de Riesgo",
+      description: "Casos activos por desercion y rendimiento academico critico",
+      rows: [
+        { name: "Lautaro Sanchez", detail: "4to A — 8 inasistencias este mes", badge: "Desercion" },
+        { name: "Valentina Torres", detail: "5to B — Promedio 3.2 en 4 materias", badge: "Academico" },
+        { name: "Ignacio Romero", detail: "3er A — Sin presentarse 3 dias seguidos", badge: "Desercion" },
+        { name: "Sofia Mendez", detail: "6to A — TED en Matematica y Fisica", badge: "Academico" },
+        { name: "Bruno Herrera", detail: "4to B — Contacto familiar sin respuesta", badge: "Desercion" },
+        { name: "Camila Rios", detail: "5to A — 5 aplazos primer trimestre", badge: "Academico" },
+        { name: "Tomas Vega", detail: "3er B — Conducta reiterada + ausentismo", badge: "Mixto" },
+        { name: "Julieta Blanco", detail: "6to B — En proceso de cambio de escuela", badge: "Desercion" },
+      ],
+    },
   },
-  { 
-    label: "Compliance RRHH", 
-    value: "71%", 
-    subtext: "DD.JJ. y documentacion al dia", 
-    icon: FileText, 
-    status: "warning" 
+  {
+    label: "Compliance RRHH",
+    value: "71%",
+    subtext: "DD.JJ. y documentacion al dia",
+    icon: FileText,
+    status: "warning",
+    drillDown: {
+      title: "Incumplimientos de Documentacion",
+      description: "Personal con documentacion vencida o pendiente de presentacion",
+      rows: [
+        { name: "Prof. Roberto Diaz", detail: "Apto Medico vencido — Feb 2026", badge: "Apto Medico" },
+        { name: "Prof. Laura Suarez", detail: "Apto Medico vencido — Ene 2026", badge: "Apto Medico" },
+        { name: "Lic. Martin Campos", detail: "Sin DD.JJ. de Cargos 2026", badge: "DD.JJ." },
+        { name: "Prof. Elena Vargas", detail: "Sin DD.JJ. de Cargos 2026", badge: "DD.JJ." },
+        { name: "Prof. Diego Castro", detail: "Constancia CUIL desactualizada", badge: "CUIL" },
+      ],
+    },
   },
 ];
 
@@ -137,26 +181,58 @@ const ADMIN_ACTIONS_CONVIVENCIA: ActionItem[] = [
 // ============================================
 
 const PRECEPTOR_METRICS: CriticalMetric[] = [
-  { 
-    label: "Toma de Lista Diaria", 
-    value: "2/4", 
-    subtext: "Cursos completados hoy", 
-    icon: ClipboardCheck, 
-    status: "warning" 
+  {
+    label: "Toma de Lista Diaria",
+    value: "2/4",
+    subtext: "Cursos completados hoy",
+    icon: ClipboardCheck,
+    status: "warning",
+    drillDown: {
+      title: "Estado de Listas por Curso",
+      description: "Registro de toma de asistencia del dia de hoy",
+      rows: [
+        { name: "3er Ano A", detail: "Lista tomada a las 08:05", badge: "Completo" },
+        { name: "4to Ano A", detail: "Lista tomada a las 08:10", badge: "Completo" },
+        { name: "4to Ano B", detail: "Sin registrar asistencia", badge: "Pendiente" },
+        { name: "5to Ano B", detail: "Sin registrar asistencia", badge: "Pendiente" },
+      ],
+    },
   },
-  { 
-    label: "Justificaciones Pendientes", 
-    value: "6", 
-    subtext: "Ausencias sin justificar", 
-    icon: FileWarning, 
-    status: "warning" 
+  {
+    label: "Justificaciones Pendientes",
+    value: "6",
+    subtext: "Ausencias sin justificar",
+    icon: FileWarning,
+    status: "warning",
+    drillDown: {
+      title: "Ausencias sin Justificar",
+      description: "Alumnos con inasistencias que requieren justificativo",
+      rows: [
+        { name: "Lautaro Sanchez (4to A)", detail: "3er dia consecutivo sin justificacion", badge: "Critico" },
+        { name: "Valentina Castro (4to B)", detail: "Ausencia del 13/06 sin justificar", badge: "Pendiente" },
+        { name: "Marcos Diaz (5to A)", detail: "Justificativo medico en revision", badge: "En Proceso" },
+        { name: "Lucia Fernandez (3er A)", detail: "Ausencia del 12/06 sin justificar", badge: "Pendiente" },
+        { name: "Tomas Vega (5to B)", detail: "2 ausencias esta semana", badge: "Pendiente" },
+        { name: "Camila Lopez (4to A)", detail: "Ausencia del 11/06 sin justificar", badge: "Pendiente" },
+      ],
+    },
   },
-  { 
-    label: "Comunicaciones sin Acuse", 
-    value: "4", 
-    subtext: "Enviadas hace +48hs", 
-    icon: MessageSquare, 
-    status: "ok" 
+  {
+    label: "Comunicaciones sin Acuse",
+    value: "4",
+    subtext: "Enviadas hace +48hs",
+    icon: MessageSquare,
+    status: "ok",
+    drillDown: {
+      title: "Comunicaciones sin Acuse de Recibo",
+      description: "Notificaciones enviadas hace mas de 48 hs sin confirmacion de lectura",
+      rows: [
+        { name: "Familia Sanchez (Lautaro)", detail: "Notif. de ausentismo reiterado — 13/06", badge: "+48hs" },
+        { name: "Familia Castro (Valentina)", detail: "Circular de acto escolar — 12/06", badge: "+48hs" },
+        { name: "Familia Vega (Tomas)", detail: "Citacion a reunion de padres — 11/06", badge: "+72hs" },
+        { name: "Familia Mendez (Sofia)", detail: "Informe de rendimiento academico — 10/06", badge: "+96hs" },
+      ],
+    },
   },
 ];
 
@@ -216,26 +292,55 @@ const PRECEPTOR_ACTIONS_AUSENTES: ActionItem[] = [
 // ============================================
 
 const DOCENTE_METRICS: CriticalMetric[] = [
-  { 
-    label: "Calificaciones Pendientes", 
-    value: "38", 
-    subtext: "de 74 alumnos totales", 
-    icon: BookOpen, 
-    status: "warning" 
+  {
+    label: "Calificaciones Pendientes",
+    value: "38",
+    subtext: "de 74 alumnos totales",
+    icon: BookOpen,
+    status: "warning",
+    drillDown: {
+      title: "Calificaciones Pendientes por Materia",
+      description: "Alumnos sin nota registrada para el 1er Trimestre 2026",
+      rows: [
+        { name: "Matematica IV — 4to B", detail: "18 alumnos sin nota", badge: "18 pendientes" },
+        { name: "Algebra Lineal — 5to A", detail: "12 alumnos sin nota", badge: "12 pendientes" },
+        { name: "Calculo — 6to A", detail: "8 alumnos sin nota", badge: "8 pendientes" },
+      ],
+    },
   },
-  { 
-    label: "Dias al Cierre", 
-    value: "12", 
-    subtext: "1er Trimestre 2026", 
-    icon: Calendar, 
-    status: "ok" 
+  {
+    label: "Dias al Cierre",
+    value: "12",
+    subtext: "1er Trimestre 2026",
+    icon: Calendar,
+    status: "ok",
+    drillDown: {
+      title: "Cronograma de Cierre Trimestral",
+      description: "Fechas clave del 1er Trimestre 2026",
+      rows: [
+        { name: "Cierre de notas", detail: "28 de junio de 2026", badge: "12 dias" },
+        { name: "Actas de TED", detail: "30 de junio de 2026", badge: "14 dias" },
+        { name: "Entrega de boletin", detail: "5 de julio de 2026", badge: "19 dias" },
+      ],
+    },
   },
-  { 
-    label: "Recuperatorios Pendientes", 
-    value: "5", 
-    subtext: "Alumnos con TED", 
-    icon: AlertTriangle, 
-    status: "warning" 
+  {
+    label: "Recuperatorios Pendientes",
+    value: "5",
+    subtext: "Alumnos con TED",
+    icon: AlertTriangle,
+    status: "warning",
+    drillDown: {
+      title: "Alumnos con Trabajo de Elaboracion Domiciliaria",
+      description: "Requieren instancia de recuperatorio antes del cierre",
+      rows: [
+        { name: "Bruno Herrera (5to A)", detail: "TED en Matematica IV — sin entregar", badge: "Critico" },
+        { name: "Lucia Fernandez (4to B)", detail: "TED en Matematica IV — entregado parcial", badge: "En Revision" },
+        { name: "Franco Morales (5to A)", detail: "TED en Algebra Lineal — sin entregar", badge: "Critico" },
+        { name: "Julieta Blanco (6to A)", detail: "TED en Calculo — sin entregar", badge: "Critico" },
+        { name: "Agustina Paz (4to B)", detail: "TED en Matematica IV — entregado", badge: "Para Corregir" },
+      ],
+    },
   },
 ];
 
@@ -308,7 +413,13 @@ const DATA_POR_ESCUELA: Record<string, {
 // COMPONENTS
 // ============================================
 
-function CriticalMetricCard({ metric }: { metric: CriticalMetric }) {
+function CriticalMetricCard({
+  metric,
+  onClick,
+}: {
+  metric: CriticalMetric;
+  onClick?: () => void;
+}) {
   const Icon = metric.icon;
   const statusColors = {
     critical: "text-red-400 bg-red-500/10 border-red-500/20",
@@ -320,21 +431,64 @@ function CriticalMetricCard({ metric }: { metric: CriticalMetric }) {
     warning: "text-amber-400",
     ok: "text-[#4de082]",
   };
+  const hoverBorder = {
+    critical: "hover:border-red-500/30",
+    warning: "hover:border-amber-500/30",
+    ok: "hover:border-[#4de082]/30",
+  };
 
-  return (
-    <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+  const isClickable = !!onClick && !!metric.drillDown;
+
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-white/50 uppercase tracking-wider font-medium">
           {metric.label}
         </span>
-        <div className={cn("p-2 rounded-lg border", statusColors[metric.status])}>
-          <Icon className="size-4" />
+        <div className="flex items-center gap-2">
+          {isClickable && (
+            <span className="text-[9px] text-white/30 uppercase tracking-widest hidden group-hover:block transition-all">
+              Ver detalle
+            </span>
+          )}
+          <div className={cn("p-2 rounded-lg border transition-colors", statusColors[metric.status])}>
+            <Icon className="size-4" />
+          </div>
         </div>
       </div>
       <p className={cn("text-3xl font-bold tracking-tight", valueColors[metric.status])}>
         {metric.value}
       </p>
       <p className="text-[11px] text-white/40">{metric.subtext}</p>
+      {isClickable && (
+        <div className="flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <ArrowRight className="size-3 text-white/30" />
+          <span className="text-[10px] text-white/30">Ver detalle completo</span>
+        </div>
+      )}
+    </>
+  );
+
+  if (isClickable) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "group w-full text-left p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3",
+          "transition-all duration-200 hover:bg-white/[0.04] hover:-translate-y-0.5",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d0bcff]/40",
+          hoverBorder[metric.status]
+        )}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+      {content}
     </div>
   );
 }
@@ -489,7 +643,17 @@ export default function DashboardPage() {
 
   const role = activeContext?.role || null
   const schoolId = activeContext?.schoolId || "inst-1"
-  
+
+  // Drill-down Sheet state
+  const [drillDownOpen, setDrillDownOpen] = useState(false)
+  const [drillDownData, setDrillDownData] = useState<CriticalMetric["drillDown"] | null>(null)
+
+  const openDrillDown = useCallback((metric: CriticalMetric) => {
+    if (!metric.drillDown) return
+    setDrillDownData(metric.drillDown)
+    setDrillDownOpen(true)
+  }, [])
+
   const alertsCount = getAlertsCount(role)
   const showAlertsButton = role !== "FAMILIA"
 
@@ -659,7 +823,7 @@ export default function DashboardPage() {
           {/* Critical Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {ADMIN_METRICS.map((metric, i) => (
-              <CriticalMetricCard key={i} metric={metric} />
+              <CriticalMetricCard key={i} metric={metric} onClick={() => openDrillDown(metric)} />
             ))}
           </div>
 
@@ -749,7 +913,7 @@ export default function DashboardPage() {
           {/* Critical Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {PRECEPTOR_METRICS.map((metric, i) => (
-              <CriticalMetricCard key={i} metric={metric} />
+              <CriticalMetricCard key={i} metric={metric} onClick={() => openDrillDown(metric)} />
             ))}
           </div>
 
@@ -786,7 +950,7 @@ export default function DashboardPage() {
           {/* Critical Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {DOCENTE_METRICS.map((metric, i) => (
-              <CriticalMetricCard key={i} metric={metric} />
+              <CriticalMetricCard key={i} metric={metric} onClick={() => openDrillDown(metric)} />
             ))}
           </div>
 
@@ -878,6 +1042,81 @@ export default function DashboardPage() {
           </div>
         </motion.div>
       )}
+
+      {/* ============================================ */}
+      {/* DRILL-DOWN SHEET — KPI Detail               */}
+      {/* ============================================ */}
+      <Sheet open={drillDownOpen} onOpenChange={setDrillDownOpen}>
+        <SheetContent
+          side="right"
+          className="w-[400px] sm:w-[480px] bg-[#131319] border-white/10 p-0 overflow-hidden flex flex-col"
+        >
+          {drillDownData && (
+            <>
+              <SheetHeader className="px-6 py-5 border-b border-white/5 shrink-0">
+                <SheetTitle className="text-[#e4e1ea] text-base font-bold">
+                  {drillDownData.title}
+                </SheetTitle>
+                <p className="text-xs text-white/40 mt-1 leading-relaxed">
+                  {drillDownData.description}
+                </p>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+                {drillDownData.rows.map((row, idx) => {
+                  const badgeStatus =
+                    /critico|urgente|sin cobertura|sin entregar/i.test(row.badge ?? "")
+                      ? "critical"
+                      : /pendiente|sin registrar|sin justific/i.test(row.badge ?? "")
+                      ? "warning"
+                      : "neutral";
+
+                  const badgeColors = {
+                    critical: "bg-red-500/10 text-red-400 border-red-500/20",
+                    warning: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                    neutral: "bg-white/[0.04] text-white/50 border-white/10",
+                  };
+
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-start justify-between gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.04] transition-all"
+                    >
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="size-2 rounded-full bg-white/20 mt-2 shrink-0" />
+                        <div className="space-y-0.5 min-w-0">
+                          <p className="text-sm font-medium text-[#e4e1ea] truncate">
+                            {row.name}
+                          </p>
+                          <p className="text-xs text-white/40 leading-relaxed">
+                            {row.detail}
+                          </p>
+                        </div>
+                      </div>
+                      {row.badge && (
+                        <span
+                          className={cn(
+                            "shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-lg border whitespace-nowrap",
+                            badgeColors[badgeStatus]
+                          )}
+                        >
+                          {row.badge}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="px-6 py-4 border-t border-white/5 shrink-0">
+                <p className="text-[10px] text-white/25 text-center font-mono">
+                  {drillDownData.rows.length} registro{drillDownData.rows.length !== 1 ? "s" : ""} encontrado{drillDownData.rows.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

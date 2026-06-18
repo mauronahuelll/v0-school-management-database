@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
 import { ContextSelector } from "@/components/auth/context-selector"
-import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell } from "lucide-react"
+import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell, Upload, FileBarChart2, Settings, Megaphone } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
@@ -336,13 +336,13 @@ export function AppShell({ children }: AppShellProps) {
               <Calendar className="mr-2 h-4 w-4 text-[#ffb93d]" />
               <span>Ir a Calendario</span>
             </CommandItem>
-            
-            {/* Comunidad - Available to ALL roles */}
+
+            {/* Muro Escolar - Available to ALL roles */}
             <CommandItem onSelect={() => { setSearchOpen(false); router.push("/community") }}>
-              <Users className="mr-2 h-4 w-4 text-[#4de082]" />
-              <span>Comunidad</span>
+              <Megaphone className="mr-2 h-4 w-4 text-[#4de082]" />
+              <span>Muro Escolar</span>
             </CommandItem>
-            
+
             {/* Legajo del Hijo - Only for FAMILIA */}
             {role === "FAMILIA" && (
               <CommandItem onSelect={() => { setSearchOpen(false); router.push("/family-wall") }}>
@@ -350,7 +350,7 @@ export function AppShell({ children }: AppShellProps) {
                 <span>Muro Familiar</span>
               </CommandItem>
             )}
-            
+
             {/* Emitir Sancion - Only for ADMIN and PRECEPTOR */}
             {(role === "ADMIN" || role === "PRECEPTOR") && (
               <CommandItem onSelect={() => { setSearchOpen(false); router.push("/behavior") }}>
@@ -358,7 +358,7 @@ export function AppShell({ children }: AppShellProps) {
                 <span>Emitir Sancion</span>
               </CommandItem>
             )}
-            
+
             {/* Cargar Calificaciones - For ADMIN, DOCENTE, PRECEPTOR */}
             {role !== "FAMILIA" && (
               <CommandItem onSelect={() => { setSearchOpen(false); router.push("/grades") }}>
@@ -366,13 +366,26 @@ export function AppShell({ children }: AppShellProps) {
                 <span>Cargar Calificaciones</span>
               </CommandItem>
             )}
-            
-            {/* Ajustes - Only for ADMIN */}
+
+            {/* NUEVOS ENLACES RAPIDOS - Only for ADMIN */}
             {role === "ADMIN" && (
-              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/settings") }}>
-                <Home className="mr-2 h-4 w-4 text-[#ffb93d]" />
-                <span>Ajustes</span>
-              </CommandItem>
+              <>
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students?action=import") }}>
+                  <Upload className="mr-2 h-4 w-4 text-[#4de082]" />
+                  <span>Importar Matricula</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">Secretaria</span>
+                </CommandItem>
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students?tab=reportes") }}>
+                  <FileBarChart2 className="mr-2 h-4 w-4 text-[#63a4ff]" />
+                  <span>Generador de Reportes</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">Secretaria</span>
+                </CommandItem>
+                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/settings") }}>
+                  <Settings className="mr-2 h-4 w-4 text-[#ffb93d]" />
+                  <span>Configuracion de Institucion</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">Ajustes</span>
+                </CommandItem>
+              </>
             )}
           </CommandGroup>
         </CommandList>
