@@ -35,6 +35,9 @@ import {
   Mail,
   Heart,
   Send,
+  BookOpen,
+  ChevronDown,
+  Search,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
 import { useSchoolSettings } from "@/lib/context/school-settings-context";
@@ -54,6 +57,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 // ============================================================================
 // TYPES
@@ -206,6 +210,265 @@ const FIELD_TYPE_LABELS: Record<EnrollmentFieldType, string> = {
   EMAIL: "Email",
   SELECCION: "Seleccion",
 };
+
+// ============================================================================
+// PLAN DE ESTUDIOS — TYPES & DATA
+// ============================================================================
+
+type SubjectType = "CURRICULAR" | "EXTRACURRICULAR";
+
+interface Subject {
+  id: string;
+  name: string;
+  type: SubjectType;
+  courses: string[]; // course ids
+}
+
+const AVAILABLE_COURSES = [
+  { id: "1A", label: "1° A", year: 1 },
+  { id: "1B", label: "1° B", year: 1 },
+  { id: "1C", label: "1° C", year: 1 },
+  { id: "2A", label: "2° A", year: 2 },
+  { id: "2B", label: "2° B", year: 2 },
+  { id: "3A", label: "3° A", year: 3 },
+  { id: "3B", label: "3° B", year: 3 },
+  { id: "4A", label: "4° A", year: 4 },
+  { id: "4B", label: "4° B", year: 4 },
+  { id: "5A", label: "5° A", year: 5 },
+  { id: "5B", label: "5° B", year: 5 },
+  { id: "6A", label: "6° A", year: 6 },
+  { id: "6B", label: "6° B", year: 6 },
+];
+
+const INITIAL_SUBJECTS: Subject[] = [
+  { id: "sub_1",  name: "Matematica",                 type: "CURRICULAR",      courses: ["1A","1B","1C","2A","2B","3A","3B","4A","4B","5A","5B","6A","6B"] },
+  { id: "sub_2",  name: "Lengua y Literatura",         type: "CURRICULAR",      courses: ["1A","1B","1C","2A","2B","3A","3B","4A","4B","5A","5B","6A","6B"] },
+  { id: "sub_3",  name: "Historia",                   type: "CURRICULAR",      courses: ["2A","2B","3A","3B","4A","4B","5A","5B"] },
+  { id: "sub_4",  name: "Geografia",                  type: "CURRICULAR",      courses: ["1A","1B","1C","2A","2B","3A","3B"] },
+  { id: "sub_5",  name: "Biologia",                   type: "CURRICULAR",      courses: ["2A","2B","3A","3B","4A","4B"] },
+  { id: "sub_6",  name: "Fisica",                     type: "CURRICULAR",      courses: ["4A","4B","5A","5B","6A","6B"] },
+  { id: "sub_7",  name: "Quimica",                    type: "CURRICULAR",      courses: ["4A","4B","5A","5B","6A","6B"] },
+  { id: "sub_8",  name: "Educacion Fisica",            type: "CURRICULAR",      courses: ["1A","1B","1C","2A","2B","3A","3B","4A","4B","5A","5B","6A","6B"] },
+  { id: "sub_9",  name: "Ingles",                     type: "CURRICULAR",      courses: ["1A","1B","1C","2A","2B","3A","3B","4A","4B","5A","5B","6A","6B"] },
+  { id: "sub_10", name: "Formacion Etica y Ciudadana", type: "CURRICULAR",      courses: ["1A","1B","1C","2A","2B","3A"] },
+  { id: "sub_11", name: "Taller de Teatro",            type: "EXTRACURRICULAR", courses: ["3A","3B","4A","4B"] },
+  { id: "sub_12", name: "Robotica e IA",               type: "EXTRACURRICULAR", courses: ["5A","5B","6A","6B"] },
+];
+
+// ============================================================================
+// SUBJECT MODAL (Create / Edit)
+// ============================================================================
+
+interface SubjectModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  subject: Subject | null; // null = create mode
+  onSave: (data: Omit<Subject, "id">) => void;
+}
+
+function SubjectModal({ open, onOpenChange, subject, onSave }: SubjectModalProps) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<SubjectType>("CURRICULAR");
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Populate form when editing
+  useEffect(() => {
+    if (open) {
+      setName(subject?.name ?? "");
+      setType(subject?.type ?? "CURRICULAR");
+      setSelectedCourses(subject?.courses ?? []);
+    }
+  }, [open, subject]);
+
+  const isEditing = subject !== null;
+
+  const toggleCourse = (courseId: string) => {
+    setSelectedCourses(prev =>
+      prev.includes(courseId) ? prev.filter(c => c !== courseId) : [...prev, courseId]
+    );
+  };
+
+  const toggleYear = (year: number) => {
+    const yearCourses = AVAILABLE_COURSES.filter(c => c.year === year).map(c => c.id);
+    const allSelected = yearCourses.every(id => selectedCourses.includes(id));
+    if (allSelected) {
+      setSelectedCourses(prev => prev.filter(id => !yearCourses.includes(id)));
+    } else {
+      setSelectedCourses(prev => [...new Set([...prev, ...yearCourses])]);
+    }
+  };
+
+  const resetForm = () => {
+    setName("");
+    setType("CURRICULAR");
+    setSelectedCourses([]);
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error("Ingresa el nombre de la asignatura");
+      return;
+    }
+    if (selectedCourses.length === 0) {
+      toast.error("Selecciona al menos un curso donde se dicta la asignatura");
+      return;
+    }
+    setIsSaving(true);
+    await new Promise(resolve => setTimeout(resolve, 900));
+    onSave({ name: name.trim(), type, courses: selectedCourses });
+    setIsSaving(false);
+    resetForm();
+    onOpenChange(false);
+    toast.success(isEditing ? "Asignatura actualizada" : "Asignatura creada y asignada al plan de estudios");
+  };
+
+  // Group courses by year for the checkbox grid
+  const years = [...new Set(AVAILABLE_COURSES.map(c => c.year))];
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="bg-[#131319] border-white/10 max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <BookOpen className="size-5 text-blue-400" />
+            {isEditing ? "Editar Asignatura" : "Nueva Asignatura"}
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            {isEditing
+              ? "Modifica el nombre, tipo y los cursos donde se dicta esta materia."
+              : "Define una nueva asignatura y selecciona en que cursos se dicta."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-2">
+          {/* Name */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Nombre de la Asignatura</Label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ej: Algebra Lineal, Taller de Programacion..."
+              className="bg-white/[0.02] border-white/10 h-11"
+            />
+          </div>
+
+          {/* Type */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Tipo de Asignatura</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["CURRICULAR", "EXTRACURRICULAR"] as SubjectType[]).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setType(t)}
+                  className={cn(
+                    "p-3 rounded-xl border text-sm font-medium transition-all text-left",
+                    type === t
+                      ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                      : "bg-white/[0.02] border-white/5 text-white/50 hover:border-white/10"
+                  )}
+                >
+                  <span className="block text-xs font-mono mb-0.5 opacity-60">
+                    {t === "CURRICULAR" ? "PLAN OFICIAL" : "OPCIONAL"}
+                  </span>
+                  {t === "CURRICULAR" ? "Curricular" : "Extracurricular"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Courses checkboxes grouped by year */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-white/60">Cursos donde se dicta</Label>
+              <span className="text-[10px] text-white/30 font-mono">
+                {selectedCourses.length} de {AVAILABLE_COURSES.length} cursos
+              </span>
+            </div>
+
+            <div className="space-y-3 p-3 bg-white/[0.01] border border-white/5 rounded-xl max-h-52 overflow-y-auto">
+              {years.map(year => {
+                const yearCourses = AVAILABLE_COURSES.filter(c => c.year === year);
+                const allSelected = yearCourses.every(c => selectedCourses.includes(c.id));
+                const someSelected = yearCourses.some(c => selectedCourses.includes(c.id));
+
+                return (
+                  <div key={year}>
+                    {/* Year row toggle */}
+                    <button
+                      type="button"
+                      onClick={() => toggleYear(year)}
+                      className="flex items-center gap-2 w-full text-left mb-1.5 group"
+                    >
+                      <div className={cn(
+                        "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                        allSelected
+                          ? "bg-blue-500 border-blue-500"
+                          : someSelected
+                          ? "bg-blue-500/30 border-blue-500/50"
+                          : "bg-transparent border-white/20 group-hover:border-white/40"
+                      )}>
+                        {(allSelected || someSelected) && (
+                          <CheckCircle2 className={cn("size-2.5", allSelected ? "text-white" : "text-blue-300")} />
+                        )}
+                      </div>
+                      <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">
+                        {year}° Ano
+                      </span>
+                    </button>
+
+                    {/* Individual courses */}
+                    <div className="grid grid-cols-4 gap-1.5 ml-6">
+                      {yearCourses.map(course => (
+                        <button
+                          key={course.id}
+                          type="button"
+                          onClick={() => toggleCourse(course.id)}
+                          className={cn(
+                            "px-2 py-1.5 rounded-lg border text-xs font-medium transition-all",
+                            selectedCourses.includes(course.id)
+                              ? "bg-blue-500/15 border-blue-500/40 text-blue-300"
+                              : "bg-white/[0.02] border-white/5 text-white/40 hover:border-white/15 hover:text-white/60"
+                          )}
+                        >
+                          {course.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !name.trim() || selectedCourses.length === 0}
+            className="bg-blue-600 hover:bg-blue-500"
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Plus className="size-4 mr-2" />
+                {isEditing ? "Guardar Cambios" : "Crear Asignatura"}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // ============================================================================
 // ACCESS DENIED COMPONENT
@@ -920,7 +1183,41 @@ export default function SettingsPage() {
     toast.success("Requisito eliminado del esquema institucional");
   }, []);
 
-  // ── Enrollment fields (Campos de Matricula) ──────────────────────
+  // ── Plan de Estudios (Asignaturas) ───────────────────────────────
+  const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
+  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [subjectSearch, setSubjectSearch] = useState("");
+
+  const handleOpenCreateSubject = useCallback(() => {
+    setEditingSubject(null);
+    setSubjectModalOpen(true);
+  }, []);
+
+  const handleOpenEditSubject = useCallback((subject: Subject) => {
+    setEditingSubject(subject);
+    setSubjectModalOpen(true);
+  }, []);
+
+  const handleSaveSubject = useCallback((data: Omit<Subject, "id">) => {
+    if (editingSubject) {
+      setSubjects(prev => prev.map(s => s.id === editingSubject.id ? { ...s, ...data } : s));
+    } else {
+      setSubjects(prev => [...prev, { ...data, id: `sub_${Date.now()}` }]);
+    }
+    setEditingSubject(null);
+  }, [editingSubject]);
+
+  const handleDeleteSubject = useCallback((id: string) => {
+    setSubjects(prev => prev.filter(s => s.id !== id));
+    toast.success("Asignatura eliminada del plan de estudios");
+  }, []);
+
+  const filteredSubjects = subjects.filter(s =>
+    s.name.toLowerCase().includes(subjectSearch.toLowerCase())
+  );
+
+  // ── Enrollment fields (Campos de Matricula) ───────────────────────────────
   const [customFields, setCustomFields] = useState<EnrollmentField[]>(INITIAL_CUSTOM_FIELDS);
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
 
@@ -1014,6 +1311,13 @@ export default function SettingsPage() {
             >
               <Columns3 className="w-4 h-4 mr-2" />
               Campos de Matricula
+            </TabsTrigger>
+            <TabsTrigger
+              value="asignaturas"
+              className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-300 rounded-xl px-4 py-2 text-sm"
+            >
+              <BookOpen className="w-4 h-4 mr-2" />
+              Plan de Estudios
             </TabsTrigger>
           </TabsList>
 
@@ -1451,6 +1755,175 @@ export default function SettingsPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Tab 6: Plan de Estudios */}
+          <TabsContent value="asignaturas" className="space-y-6">
+            {/* Info banner */}
+            <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-start gap-3">
+              <BookOpen className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-300/70 leading-relaxed">
+                Define el catalogo de asignaturas de la institucion. Cada materia puede asignarse 
+                a uno o varios cursos. Los docentes veran unicamente las materias de sus cursos al 
+                cargar calificaciones y asistencia.
+              </p>
+            </div>
+
+            {/* Header: search + create button */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/30" />
+                <input
+                  type="text"
+                  value={subjectSearch}
+                  onChange={e => setSubjectSearch(e.target.value)}
+                  placeholder="Buscar asignatura..."
+                  className="w-full pl-9 pr-3 h-10 rounded-xl bg-white/[0.02] border border-white/10 text-sm text-[#e4e1ea] placeholder:text-white/30 focus:outline-none focus:border-blue-500/40 transition-colors"
+                />
+              </div>
+              <Button
+                onClick={handleOpenCreateSubject}
+                className="bg-blue-600 hover:bg-blue-500 text-white shrink-0"
+              >
+                <Plus className="size-4 mr-2" />
+                Nueva Asignatura
+              </Button>
+            </div>
+
+            {/* Summary chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-white/50">
+                {subjects.length} asignaturas totales
+              </span>
+              <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[11px] font-mono text-blue-400">
+                {subjects.filter(s => s.type === "CURRICULAR").length} curriculares
+              </span>
+              <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-mono text-amber-400">
+                {subjects.filter(s => s.type === "EXTRACURRICULAR").length} extracurriculares
+              </span>
+            </div>
+
+            {/* Table */}
+            <div className="border border-white/5 rounded-2xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-white/[0.02] border-b border-white/5">
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                      Asignatura
+                    </th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                      Tipo
+                    </th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                      Cursos Asignados
+                    </th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold text-white/50 uppercase tracking-wider w-24">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredSubjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-14 text-center text-sm text-white/30">
+                        {subjectSearch
+                          ? `Sin resultados para "${subjectSearch}"`
+                          : "No hay asignaturas. Crea la primera con el boton de arriba."}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSubjects.map(subject => (
+                      <tr key={subject.id} className="hover:bg-white/[0.02] transition-colors group">
+                        {/* Name */}
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                              <BookOpen className="size-4 text-blue-400" />
+                            </div>
+                            <span className="text-sm font-medium text-[#e4e1ea]">
+                              {subject.name}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Type badge */}
+                        <td className="px-4 py-4">
+                          {subject.type === "CURRICULAR" ? (
+                            <Badge className="bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/10 font-mono text-[10px]">
+                              Curricular
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/10 font-mono text-[10px]">
+                              Extracurricular
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* Course pills */}
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {subject.courses.length > 8 ? (
+                              <>
+                                {subject.courses.slice(0, 6).map(courseId => {
+                                  const course = AVAILABLE_COURSES.find(c => c.id === courseId);
+                                  return course ? (
+                                    <Badge
+                                      key={courseId}
+                                      className="bg-white/5 text-white/60 border border-white/10 hover:bg-white/5 font-mono text-[10px] px-1.5 py-0"
+                                    >
+                                      {course.label}
+                                    </Badge>
+                                  ) : null;
+                                })}
+                                <Badge className="bg-white/5 text-white/40 border border-white/10 hover:bg-white/5 font-mono text-[10px] px-1.5 py-0">
+                                  +{subject.courses.length - 6} mas
+                                </Badge>
+                              </>
+                            ) : (
+                              subject.courses.map(courseId => {
+                                const course = AVAILABLE_COURSES.find(c => c.id === courseId);
+                                return course ? (
+                                  <Badge
+                                    key={courseId}
+                                    className="bg-white/5 text-white/60 border border-white/10 hover:bg-white/5 font-mono text-[10px] px-1.5 py-0"
+                                  >
+                                    {course.label}
+                                  </Badge>
+                                ) : null;
+                              })
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditSubject(subject)}
+                              className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5"
+                              aria-label="Editar asignatura"
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteSubject(subject.id)}
+                              className="h-8 w-8 p-0 text-red-400/50 hover:text-red-400 hover:bg-red-500/10"
+                              aria-label="Eliminar asignatura"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1495,6 +1968,14 @@ export default function SettingsPage() {
         open={isAddFieldOpen}
         onOpenChange={setIsAddFieldOpen}
         onSave={handleAddField}
+      />
+
+      {/* Subject Modal (Create / Edit) */}
+      <SubjectModal
+        open={subjectModalOpen}
+        onOpenChange={setSubjectModalOpen}
+        subject={editingSubject}
+        onSave={handleSaveSubject}
       />
     </div>
   );
