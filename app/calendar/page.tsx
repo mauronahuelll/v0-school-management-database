@@ -7,7 +7,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { 
   ShieldAlert, 
@@ -31,6 +30,7 @@ import { toast } from "sonner";
 import { parseLocalDateString } from "@/lib/utils/date-utils";
 import { cn } from "@/lib/utils";
 import { formatDateToLocalISO } from "@/lib/utils/date-utils";
+import { MonthGrid, type DayEvent } from "@/components/calendar/month-grid";
 
 // ============================================
 // COMPLIANCE: Document Export Format Logic
@@ -180,6 +180,8 @@ export default function CalendarPage() {
   // Calendar state
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [markedDays, setMarkedDays] = useState<MarkedDay[]>([]);
+  // Visible month for the full-width monthly grid
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date(2026, 4, 1));
   
   // Admin config state - synced from context
   const [periodSystem, setPeriodSystem] = useState<AcademicPeriodType>(settings.academicPeriodConfig.type);
@@ -237,22 +239,87 @@ export default function CalendarPage() {
     return [...MOCK_CHILD_EVENTS].sort((a, b) => a.date.localeCompare(b.date));
   }, [currentRole]);
 
-  // Check if a date is within any accreditation period
-  const isInAccreditationPeriod = useCallback((dateStr: string) => {
-    return accreditationPeriods.some(period => 
-      dateStr >= period.startDate && dateStr <= period.endDate
-    );
-  }, [accreditationPeriods]);
-
   // Check if a date is in receso
   const isInReceso = useCallback((dateStr: string) => {
     return dateStr >= recesoStart && dateStr <= recesoEnd;
   }, [recesoStart, recesoEnd]);
 
-  // Get custom event for a date
-  const getCustomEventForDate = useCallback((dateStr: string) => {
-    return customEvents.find(e => e.date === dateStr);
-  }, [customEvents]);
+  // ========================================
+  // Month Navigation (Full-Width Grid)
+  // ========================================
+  const handlePrevMonth = useCallback(() => {
+    setVisibleMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    setVisibleMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }, []);
+
+  const handleGoToday = useCallback(() => {
+    const now = new Date();
+    setVisibleMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+  }, []);
+
+  // ========================================
+  // Aggregate all event pills for a given calendar day
+  // ========================================
+  const getEventsForDate = useCallback((dateStr: string): DayEvent[] => {
+    const pills: DayEvent[] = [];
+
+    // National holidays + marked days
+    markedDays
+      .filter(d => d.date === dateStr && d.type === "FERIADO")
+      .forEach(d => pills.push({
+        id: `feriado-${dateStr}`,
+        label: d.label,
+        className: "bg-[#ff6b6b]/20 text-[#ff6b6b] border-[#ff6b6b]/30",
+      }));
+
+    // Winter recess
+    if (isInReceso(dateStr)) {
+      pills.push({
+        id: `receso-${dateStr}`,
+        label: "Receso",
+        className: "bg-[#ffb93d]/20 text-[#ffb93d] border-[#ffb93d]/30",
+      });
+    }
+
+    // Accreditation periods
+    accreditationPeriods
+      .filter(p => p.startDate && p.endDate && dateStr >= p.startDate && dateStr <= p.endDate)
+      .forEach(p => pills.push({
+        id: `acred-${p.id}-${dateStr}`,
+        label: p.label || "Acreditacion",
+        className: "bg-[#d0bcff]/20 text-[#d0bcff] border-[#d0bcff]/30",
+      }));
+
+    // Custom events (Jornadas, Feriados Locales, Suspensiones)
+    customEvents
+      .filter(e => e.date === dateStr)
+      .forEach(e => {
+        const config = CUSTOM_EVENT_CONFIG[e.type];
+        pills.push({
+          id: e.id,
+          label: e.title,
+          className: cn(config.bgColor, config.color, config.borderColor),
+        });
+      });
+
+    // Teacher evaluations (Docente sees own, Familia sees child's)
+    const evalEvents = currentRole === "FAMILIA" ? childEvents : myTeacherEvents;
+    evalEvents
+      .filter(e => e.date === dateStr)
+      .forEach(e => {
+        const config = TEACHER_EVENT_CONFIG[e.type];
+        pills.push({
+          id: e.id,
+          label: e.title,
+          className: cn(config.bgColor, config.color, "border-white/10"),
+        });
+      });
+
+    return pills;
+  }, [markedDays, isInReceso, accreditationPeriods, customEvents, currentRole, childEvents, myTeacherEvents]);
 
   // ========================================
   // Handlers
@@ -459,7 +526,7 @@ startxref
   // RENDER
   // ========================================
   return (
-    <div className="space-y-6 text-[#e4e1ea]">
+    <div className="min-h-[calc(100vh-4rem)] w-full flex flex-col gap-6 text-[#e4e1ea]">
       {/* HEADER DE LA PAGINA */}
       <header className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-white/[0.01] border border-white/[0.05] rounded-3xl backdrop-blur-md">
         <div>
@@ -725,41 +792,17 @@ startxref
 
           {/* CALENDARIO VISUAL (COLUMNA DERECHA - 2 PARTES) */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl flex justify-center backdrop-blur-md">
-              <Calendar 
-                mode="single" 
-                selected={selectedDate}
-                onSelect={(date) => {
-                  setSelectedDate(date);
-                  if (date) {
-                    handleOpenCustomEventDialog(date);
-                  }
-                }}
-                className="rounded-md border-none scale-110 font-sans"
-                modifiers={{
-                  accreditation: (date) => {
-                    const dateStr = formatDateToLocalISO(date);
-                    return isInAccreditationPeriod(dateStr);
-                  },
-                  receso: (date) => {
-                    const dateStr = formatDateToLocalISO(date);
-                    return isInReceso(dateStr);
-                  },
-                  feriado: (date) => {
-                    const dateStr = formatDateToLocalISO(date);
-                    return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
-                  },
-                  customEvent: (date) => {
-                    const dateStr = formatDateToLocalISO(date);
-                    return customEvents.some(e => e.date === dateStr);
-                  },
-                }}
-                modifiersStyles={{
-                  accreditation: { backgroundColor: "rgba(208, 188, 255, 0.2)", color: "#d0bcff" },
-                  receso: { backgroundColor: "rgba(255, 185, 61, 0.2)", color: "#ffb93d" },
-                  feriado: { backgroundColor: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
-                  customEvent: { backgroundColor: "rgba(99, 164, 255, 0.2)", color: "#63a4ff" },
-                }}
+            <div className="p-4 md:p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-md">
+              <MonthGrid
+                monthDate={visibleMonth}
+                onPrevMonth={handlePrevMonth}
+                onNextMonth={handleNextMonth}
+                onToday={handleGoToday}
+                getEventsForDate={getEventsForDate}
+                onDayClick={(date) => handleOpenCustomEventDialog(date)}
+                onNewEvent={() => handleOpenCustomEventDialog()}
+                canCreate
+                newEventLabel="Nuevo Evento/Feriado"
               />
             </div>
             
@@ -809,40 +852,29 @@ startxref
         </div>
       ) : (
         /* VISTA PARA OTROS ROLES (DOCENTE, PRECEPTOR, FAMILIA) */
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl flex flex-col items-center backdrop-blur-md">
-            <Calendar 
-              mode="single" 
-              selected={selectedDate}
-              onSelect={(date) => {
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+          <div className="lg:col-span-2 p-4 md:p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-md">
+            <MonthGrid
+              monthDate={visibleMonth}
+              onPrevMonth={handlePrevMonth}
+              onNextMonth={handleNextMonth}
+              onToday={handleGoToday}
+              getEventsForDate={getEventsForDate}
+              onDayClick={(date) => {
                 setSelectedDate(date);
-                if (currentRole === "DOCENTE" && date) {
+                if (currentRole === "DOCENTE") {
                   setNewTeacherEvent({ type: "EXAMEN", title: "", course: "", notes: "" });
                   setTeacherEventDialogOpen(true);
                 }
               }}
-              className="border-none"
-              modifiers={{
-                accreditation: (date) => {
-                  const dateStr = formatDateToLocalISO(date);
-                  return isInAccreditationPeriod(dateStr);
-                },
-                receso: (date) => {
-                  const dateStr = formatDateToLocalISO(date);
-                  return isInReceso(dateStr);
-                },
-                feriado: (date) => {
-                  const dateStr = formatDateToLocalISO(date);
-                  return markedDays.some(d => d.date === dateStr && d.type === "FERIADO");
-                },
-              }}
-              modifiersStyles={{
-                accreditation: { backgroundColor: "rgba(208, 188, 255, 0.2)", color: "#d0bcff" },
-                receso: { backgroundColor: "rgba(255, 185, 61, 0.2)", color: "#ffb93d" },
-                feriado: { backgroundColor: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
-              }}
+              onNewEvent={currentRole === "DOCENTE" ? () => {
+                setNewTeacherEvent({ type: "EXAMEN", title: "", course: "", notes: "" });
+                setTeacherEventDialogOpen(true);
+              } : undefined}
+              canCreate={currentRole === "DOCENTE"}
+              newEventLabel="Agendar Evaluacion"
             />
-            
+
             {/* Leyenda para no-admin */}
             <div className="flex flex-wrap items-center justify-center gap-4 mt-4 pt-4 border-t border-white/5 w-full">
               <div className="flex items-center gap-1.5">
