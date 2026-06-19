@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/context/auth-context'
 import { SchoolSettingsProvider } from '@/lib/context/school-settings-context'
+import { StaffFieldsProvider } from '@/lib/context/staff-fields-context'
 import { AppShell } from '@/components/layout/app-shell'
 import './globals.css'
 
@@ -63,9 +64,11 @@ export default function RootLayout({
         >
           <AuthProvider>
             <SchoolSettingsProvider>
-              <AppShell>
-                {children}
-              </AppShell>
+              <StaffFieldsProvider>
+                <AppShell>
+                  {children}
+                </AppShell>
+              </StaffFieldsProvider>
             </SchoolSettingsProvider>
           </AuthProvider>
         </ThemeProvider>

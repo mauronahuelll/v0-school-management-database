@@ -38,6 +38,12 @@ import {
   BookOpen,
   ChevronDown,
   Search,
+  UserCog,
+  Type,
+  AlignLeft,
+  Hash,
+  ToggleLeft,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
 import { useSchoolSettings } from "@/lib/context/school-settings-context";
@@ -58,6 +64,13 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  useStaffFields,
+  type StaffField,
+  type StaffFieldType,
+  STAFF_FIELD_TYPE_LABELS,
+} from "@/lib/context/staff-fields-context";
 
 // ============================================================================
 // TYPES
@@ -1217,6 +1230,66 @@ export default function SettingsPage() {
     s.name.toLowerCase().includes(subjectSearch.toLowerCase())
   );
 
+  // ── Campos de Personal (atributos dinamicos del perfil del staff) ─────────
+  const { staffFields, addStaffField, updateStaffField, deleteStaffField } = useStaffFields();
+  const [isStaffFieldModalOpen, setIsStaffFieldModalOpen] = useState(false);
+  const [editingStaffField, setEditingStaffField] = useState<StaffField | null>(null);
+  const [staffFieldForm, setStaffFieldForm] = useState<{
+    label: string;
+    type: StaffFieldType;
+    required: boolean;
+    placeholder: string;
+  }>({ label: "", type: "TEXTO", required: false, placeholder: "" });
+  const [isSavingStaffField, setIsSavingStaffField] = useState(false);
+
+  const handleOpenStaffFieldModal = useCallback((field?: StaffField) => {
+    if (field) {
+      setEditingStaffField(field);
+      setStaffFieldForm({
+        label: field.label,
+        type: field.type,
+        required: field.required,
+        placeholder: field.placeholder ?? "",
+      });
+    } else {
+      setEditingStaffField(null);
+      setStaffFieldForm({ label: "", type: "TEXTO", required: false, placeholder: "" });
+    }
+    setIsStaffFieldModalOpen(true);
+  }, []);
+
+  const handleSaveStaffField = useCallback(async () => {
+    if (!staffFieldForm.label.trim()) {
+      toast.error("Ingresa el nombre del campo");
+      return;
+    }
+    setIsSavingStaffField(true);
+    await new Promise(r => setTimeout(r, 600));
+    const payload = {
+      label: staffFieldForm.label.trim(),
+      type: staffFieldForm.type,
+      required: staffFieldForm.required,
+      placeholder: staffFieldForm.placeholder.trim() || undefined,
+    };
+    if (editingStaffField) {
+      updateStaffField(editingStaffField.id, payload);
+      toast.success("Campo de personal actualizado");
+    } else {
+      addStaffField(payload);
+      toast.success("Campo de personal creado", {
+        description: "Ya aparecera en los perfiles del staff",
+      });
+    }
+    setIsSavingStaffField(false);
+    setIsStaffFieldModalOpen(false);
+    setEditingStaffField(null);
+  }, [staffFieldForm, editingStaffField, addStaffField, updateStaffField]);
+
+  const handleDeleteStaffField = useCallback((id: string, label: string) => {
+    deleteStaffField(id);
+    toast.success(`Campo "${label}" eliminado del perfil de personal`);
+  }, [deleteStaffField]);
+
   // ── Enrollment fields (Campos de Matricula) ───────────────────────────────
   const [customFields, setCustomFields] = useState<EnrollmentField[]>(INITIAL_CUSTOM_FIELDS);
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
@@ -1318,6 +1391,13 @@ export default function SettingsPage() {
             >
               <BookOpen className="w-4 h-4 mr-2" />
               Plan de Estudios
+            </TabsTrigger>
+            <TabsTrigger
+              value="campos-personal"
+              className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300 rounded-xl px-4 py-2 text-sm"
+            >
+              <UserCog className="w-4 h-4 mr-2" />
+              Campos de Personal
             </TabsTrigger>
           </TabsList>
 
@@ -1924,6 +2004,124 @@ export default function SettingsPage() {
               </table>
             </div>
           </TabsContent>
+
+          {/* Tab 7: Campos de Personal */}
+          <TabsContent value="campos-personal" className="space-y-6">
+            {/* Info banner */}
+            <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-start gap-3">
+              <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-emerald-300/70 leading-relaxed">
+                Define los campos de informacion complementaria que apareceran en los perfiles
+                de todo el personal (ADMIN, DOCENTE, PRECEPTOR). Los campos marcados como
+                obligatorios generaran alertas hasta que el usuario los complete.
+              </p>
+            </div>
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[#e4e1ea]">Campos Definidos</h3>
+                <p className="text-xs text-white/40 mt-0.5">
+                  {staffFields.length} campo{staffFields.length !== 1 ? "s" : ""} activo{staffFields.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <Button
+                onClick={() => handleOpenStaffFieldModal()}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
+              >
+                <Plus className="size-4 mr-2" />
+                Nuevo Campo
+              </Button>
+            </div>
+
+            {/* Table */}
+            {staffFields.length === 0 ? (
+              <div className="py-16 text-center text-sm text-white/30 border border-dashed border-white/10 rounded-2xl">
+                No hay campos definidos. Crea el primero con el boton de arriba.
+              </div>
+            ) : (
+              <div className="border border-white/5 rounded-2xl overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-white/[0.02] border-b border-white/5">
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">Campo</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">Tipo</th>
+                      <th className="px-4 py-3 text-center text-[10px] font-semibold text-white/50 uppercase tracking-wider">Obligatorio</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider hidden md:table-cell">Placeholder</th>
+                      <th className="px-4 py-3 text-center text-[10px] font-semibold text-white/50 uppercase tracking-wider w-20">Acc.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {staffFields.map(field => {
+                      const typeIcons: Record<StaffFieldType, React.ReactNode> = {
+                        TEXTO:       <Type className="size-3.5 text-blue-400" />,
+                        TEXTO_LARGO: <AlignLeft className="size-3.5 text-purple-400" />,
+                        NUMERO:      <Hash className="size-3.5 text-amber-400" />,
+                        FECHA:       <CalendarClock className="size-3.5 text-emerald-400" />,
+                        TELEFONO:    <Phone className="size-3.5 text-teal-400" />,
+                        EMAIL:       <Mail className="size-3.5 text-rose-400" />,
+                      };
+                      return (
+                        <tr key={field.id} className="group hover:bg-white/[0.015] transition-colors">
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="size-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center shrink-0">
+                                {typeIcons[field.type]}
+                              </div>
+                              <span className="text-sm font-medium text-[#e4e1ea]">{field.label}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="text-xs text-white/50">
+                              {STAFF_FIELD_TYPE_LABELS[field.type]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            {field.required ? (
+                              <Badge className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/10 text-[10px] font-mono">
+                                Obligatorio
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-white/5 text-white/40 border border-white/10 hover:bg-white/5 text-[10px] font-mono">
+                                Opcional
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 hidden md:table-cell">
+                            <span className="text-xs text-white/30 truncate max-w-[160px] block">
+                              {field.placeholder || "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            <div className="flex items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenStaffFieldModal(field)}
+                                className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5"
+                                aria-label="Editar campo"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteStaffField(field.id, field.label)}
+                                className="h-8 w-8 p-0 text-red-400/50 hover:text-red-400 hover:bg-red-500/10"
+                                aria-label="Eliminar campo"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1977,6 +2175,112 @@ export default function SettingsPage() {
         subject={editingSubject}
         onSave={handleSaveSubject}
       />
+
+      {/* Staff Field Modal (Create / Edit) */}
+      <Dialog
+        open={isStaffFieldModalOpen}
+        onOpenChange={(o) => {
+          if (!o) { setIsStaffFieldModalOpen(false); setEditingStaffField(null); }
+        }}
+      >
+        <DialogContent className="sm:max-w-[460px] bg-[#131319] border-white/10 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5">
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <UserCog className="size-5 text-emerald-400" />
+              {editingStaffField ? "Editar Campo de Personal" : "Nuevo Campo de Personal"}
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Este campo aparecera en la seccion &ldquo;Informacion Complementaria&rdquo; del perfil de cada miembro del staff.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* Label */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">
+                Nombre del Campo <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                value={staffFieldForm.label}
+                onChange={e => setStaffFieldForm(p => ({ ...p, label: e.target.value }))}
+                placeholder="Ej: CBU, Talle de uniforme, Alergias..."
+                className="bg-white/[0.02] border-white/10 h-11"
+              />
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">Tipo de dato</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.entries(STAFF_FIELD_TYPE_LABELS) as [StaffFieldType, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setStaffFieldForm(p => ({ ...p, type: key }))}
+                    className={cn(
+                      "py-2 px-2 rounded-xl border text-xs font-medium text-center transition-all",
+                      staffFieldForm.type === key
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                        : "bg-white/[0.02] border-white/5 text-white/50 hover:border-white/15"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Placeholder */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">
+                Texto de ayuda (placeholder)
+                <span className="ml-1 text-white/30 normal-case">(opcional)</span>
+              </Label>
+              <Input
+                value={staffFieldForm.placeholder}
+                onChange={e => setStaffFieldForm(p => ({ ...p, placeholder: e.target.value }))}
+                placeholder="Ej: Ingresa tu CBU de 22 digitos..."
+                className="bg-white/[0.02] border-white/10 h-11"
+              />
+            </div>
+
+            {/* Required toggle */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-[#e4e1ea]">Campo obligatorio</p>
+                <p className="text-xs text-white/40">
+                  El usuario vera una alerta hasta completarlo
+                </p>
+              </div>
+              <Switch
+                checked={staffFieldForm.required}
+                onCheckedChange={v => setStaffFieldForm(p => ({ ...p, required: v }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
+            <Button
+              variant="outline"
+              onClick={() => { setIsStaffFieldModalOpen(false); setEditingStaffField(null); }}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveStaffField}
+              disabled={isSavingStaffField || !staffFieldForm.label.trim()}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
+            >
+              {isSavingStaffField ? (
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>
+              ) : (
+                <><CheckCircle2 className="size-4" />{editingStaffField ? "Guardar Cambios" : "Crear Campo"}</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
