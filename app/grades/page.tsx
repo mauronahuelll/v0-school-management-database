@@ -216,10 +216,31 @@ export default function GradesPage() {
   const { settings, getAvailablePeriods } = useSchoolSettings();
   const schoolGradingType = settings.gradingScale.type;
   const availablePeriods = getAvailablePeriods();
-  
+
   // Selection states
   const [selectedSubjectId, setSelectedSubjectId] = useState(MOCK_SUBJECTS[0].id);
   const [selectedPeriodId, setSelectedPeriodId] = useState(settings.currentPeriod);
+
+  // Cuando el administrador cambia el academicPeriodLayout desde Configuracion,
+  // nos aseguramos de que selectedPeriodId apunte a un periodo que realmente existe.
+  // Si el ID actual ya no esta en la nueva lista, caemos al primer periodo disponible.
+  useEffect(() => {
+    const ids = availablePeriods.map(p => p.id);
+    if (!ids.includes(selectedPeriodId)) {
+      setSelectedPeriodId(ids[0] ?? "");
+    }
+  }, [availablePeriods, selectedPeriodId]);
+
+  // Etiqueta legible del ciclo lectivo activo (para UI badges, botones, dialogs)
+  const periodLayoutLabel = useMemo(() => {
+    const map: Record<string, string> = {
+      TRIMESTRAL:    "Trimestral",
+      CUATRIMESTRAL: "Cuatrimestral",
+      BIMESTRAL:     "Bimestral",
+      SEMESTRAL:     "Semestral",
+    };
+    return map[settings.academicPeriodLayout] ?? settings.academicPeriodLayout;
+  }, [settings.academicPeriodLayout]);
   
   // DYNAMIC COLUMNS STATE
   const [numericAssessments, setNumericAssessments] = useState<AssessmentConfig[]>(INITIAL_ASSESSMENTS_NUMERIC);
@@ -904,7 +925,7 @@ export default function GradesPage() {
 
           {/* Badge de ciclo lectivo activo */}
           <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/8 text-white/40">
-            {settings.academicPeriodLayout} · {periodColumns.length} periodo{periodColumns.length !== 1 ? "s" : ""}
+            {periodLayoutLabel} · {availablePeriods.length} periodo{availablePeriods.length !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -1206,7 +1227,7 @@ export default function GradesPage() {
               color="text-[#d0bcff]"
             />
             <StatCard
-              label={`Periodos (${settings.academicPeriodLayout})`}
+              label={`Periodos (${periodLayoutLabel})`}
               value={periodColumns.length}
               color="text-emerald-400"
             />
