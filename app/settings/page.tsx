@@ -46,7 +46,12 @@ import {
   Info,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
-import { useSchoolSettings } from "@/lib/context/school-settings-context";
+import {
+  useSchoolSettings,
+  ACADEMIC_PERIOD_PRESETS,
+  type AcademicPeriodLayout,
+} from "@/lib/context/school-settings-context";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -1124,12 +1129,11 @@ function AddRequirementModal({ open, onOpenChange, target, onSave }: AddRequirem
 
 export default function SettingsPage() {
   const { activeContext } = useAuth();
-  const { settings, updateMaxAbsences } = useSchoolSettings();
+  const { settings, updateMaxAbsences, updateAcademicPeriodLayout } = useSchoolSettings();
   const [mounted, setMounted] = useState(false);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   
   // Form states
-  const [academicFormat, setAcademicFormat] = useState("trimestral");
   const [gradingModel, setGradingModel] = useState("numerico");
   const [enablePreliminary, setEnablePreliminary] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -1404,36 +1408,100 @@ export default function SettingsPage() {
           {/* Tab 1: Regimen Academico */}
           <TabsContent value="regimen" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Formato del Ano */}
+              {/* Division del Ciclo Lectivo */}
               <div className="space-y-4 p-5 bg-white/[0.01] border border-white/5 rounded-2xl">
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-1">
                   <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Formato del Ano Lectivo</h3>
-                    <p className="text-[10px] text-white/40">Division temporal del ciclo escolar</p>
+                    <h3 className="text-sm font-bold text-white">Division del Ciclo Lectivo</h3>
+                    <p className="text-[10px] text-white/40">Estructura de periodos de evaluacion del ano</p>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs text-white/60">Regimen de Periodos</Label>
-                  <Select value={academicFormat} onValueChange={setAcademicFormat}>
-                    <SelectTrigger className="bg-black/40 border-white/10 h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bimestral">Bimestral (4 periodos)</SelectItem>
-                      <SelectItem value="trimestral">Trimestral (3 periodos) - Recomendado</SelectItem>
-                      <SelectItem value="cuatrimestral">Cuatrimestral (2 periodos)</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                {/* RadioGroup visual de opciones */}
+                <RadioGroup
+                  value={settings.academicPeriodLayout}
+                  onValueChange={(v) => {
+                    updateAcademicPeriodLayout(v as AcademicPeriodLayout);
+                    toast.success("Estructura del ciclo lectivo actualizada.", {
+                      description: `Periodos configurados: ${ACADEMIC_PERIOD_PRESETS[v as AcademicPeriodLayout].periods.map(p => p.shortName).join(" · ")}`,
+                    });
+                  }}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {(
+                    [
+                      { value: "BIMESTRAL",    label: "Bimestral",    count: 4, desc: "4 periodos" },
+                      { value: "TRIMESTRAL",   label: "Trimestral",   count: 3, desc: "3 periodos · Recomendado" },
+                      { value: "CUATRIMESTRAL",label: "Cuatrimestral",count: 2, desc: "2 periodos" },
+                      { value: "SEMESTRAL",    label: "Semestral",    count: 2, desc: "2 semestres" },
+                    ] as { value: AcademicPeriodLayout; label: string; count: number; desc: string }[]
+                  ).map((opt) => {
+                    const isActive = settings.academicPeriodLayout === opt.value;
+                    return (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`layout-${opt.value}`}
+                        className={cn(
+                          "relative flex flex-col gap-1 rounded-xl border-2 px-4 py-3 cursor-pointer transition-all",
+                          isActive
+                            ? "border-blue-500/60 bg-blue-500/8"
+                            : "border-white/8 bg-white/[0.01] hover:border-white/15 hover:bg-white/[0.02]"
+                        )}
+                      >
+                        <RadioGroupItem
+                          value={opt.value}
+                          id={`layout-${opt.value}`}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className={cn(
+                            "text-sm font-semibold",
+                            isActive ? "text-blue-300" : "text-white/70"
+                          )}>
+                            {opt.label}
+                          </span>
+                          {/* Dot de seleccion */}
+                          <span className={cn(
+                            "size-2 rounded-full transition-all",
+                            isActive ? "bg-blue-400" : "bg-white/15"
+                          )} />
+                        </div>
+                        <span className="text-[10px] text-white/40">{opt.desc}</span>
+                      </Label>
+                    );
+                  })}
+                </RadioGroup>
+
+                {/* Preview de periodos activos */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] uppercase tracking-wider text-white/35 font-medium">
+                    Periodos activos
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {settings.academicPeriodConfig.periods.map((p) => (
+                      <span
+                        key={p.id}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-lg bg-blue-500/8 border border-blue-500/15 text-blue-300/80"
+                      >
+                        <span className="font-semibold">{p.shortName}</span>
+                        <span className="text-white/25">·</span>
+                        <span className="text-white/40">
+                          {new Date(p.startDate).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                          {" — "}
+                          {new Date(p.endDate).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                
+
                 <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                   <p className="text-[10px] text-blue-300/70 leading-relaxed">
-                    El regimen seleccionado define los cortes de calificaciones y la estructura 
-                    de los boletines que se generan para las familias.
+                    El regimen seleccionado define los cortes de calificaciones y la estructura
+                    de los boletines generados para las familias. El cambio se aplica de forma inmediata.
                   </p>
                 </div>
               </div>
