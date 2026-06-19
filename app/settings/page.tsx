@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   ShieldAlert, 
   Settings, 
@@ -46,6 +46,7 @@ import {
   Info,
   AlertCircle,
   Check,
+  LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
 import {
@@ -267,6 +268,23 @@ const AVAILABLE_COURSES = [
   { id: "6B", label: "6° B", year: 6, division: "B" },
 ];
 
+// ── Estructura Académica (Años + Divisiones dinámicas) ───────────────────────
+interface AcademicYear {
+  id: string;         // "year_1", "year_2", ...
+  year: number;       // 1–N
+  label: string;      // "1er Año", "2do Año", etc.
+  divisions: string[]; // ["A", "B", "C"] — editable
+}
+
+const INITIAL_ACADEMIC_STRUCTURE: AcademicYear[] = [
+  { id: "year_1", year: 1, label: "1er Año",  divisions: ["A", "B", "C"] },
+  { id: "year_2", year: 2, label: "2do Año",  divisions: ["A", "B"] },
+  { id: "year_3", year: 3, label: "3er Año",  divisions: ["A", "B"] },
+  { id: "year_4", year: 4, label: "4to Año",  divisions: ["A", "B"] },
+  { id: "year_5", year: 5, label: "5to Año",  divisions: ["A", "B"] },
+  { id: "year_6", year: 6, label: "6to Año",  divisions: ["A", "B"] },
+];
+
 const INITIAL_SUBJECTS: Subject[] = [
   { id: "sub_1",  name: "Matematica",                 type: "CURRICULAR",      academicYear: 1, courses: ["1A","1B","1C"] },
   { id: "sub_2",  name: "Matematica",                 type: "CURRICULAR",      academicYear: 2, courses: ["2A","2B"] },
@@ -288,6 +306,326 @@ const INITIAL_SUBJECTS: Subject[] = [
 // ============================================================================
 // SUBJECT MODAL (Create / Edit)
 // ============================================================================
+
+// ============================================================================
+// DIVISIONS MODAL — Gestor de divisiones (Tag Input) por Año Académico
+// ============================================================================
+
+interface DivisionsModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  year: AcademicYear | null;
+  onSave: (yearId: string, divisions: string[]) => void;
+}
+
+function DivisionsModal({ open, onOpenChange, year, onSave }: DivisionsModalProps) {
+  const [tags, setTags] = useState<string[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && year) {
+      setTags([...year.divisions]);
+      setInputValue("");
+    }
+  }, [open, year]);
+
+  const addTag = (raw: string) => {
+    const val = raw.trim().toUpperCase();
+    if (!val) return;
+    if (tags.includes(val)) {
+      toast.error(`La división "${val}" ya existe en este año`);
+      return;
+    }
+    setTags(prev => [...prev, val]);
+    setInputValue("");
+  };
+
+  const removeTag = (tag: string) => {
+    setTags(prev => prev.filter(t => t !== tag));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(inputValue);
+    } else if (e.key === "Backspace" && inputValue === "" && tags.length > 0) {
+      setTags(prev => prev.slice(0, -1));
+    }
+  };
+
+  const resetForm = () => {
+    setTags([]);
+    setInputValue("");
+  };
+
+  const handleSave = async () => {
+    if (tags.length === 0) {
+      toast.error("Debe haber al menos una división activa");
+      return;
+    }
+    if (!year) return;
+    setIsSaving(true);
+    await new Promise(r => setTimeout(r, 700));
+    onSave(year.id, tags);
+    setIsSaving(false);
+    resetForm();
+    onOpenChange(false);
+    toast.success(`Divisiones de ${year.label} actualizadas`, {
+      description: `Divisiones activas: ${tags.join(", ")}`,
+    });
+  };
+
+  if (!year) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="bg-[#0e0e16] border-white/10 max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <LayoutGrid className="size-5 text-[#d0bcff]" />
+            Administrar Divisiones — {year.label}
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            Escribe una letra o nombre y presiona <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 text-[10px] font-mono">Enter</kbd> para agregar. Haz clic en <span className="font-mono">✕</span> para quitar una división.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {/* Info banner */}
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+            <AlertCircle className="size-4 text-[#d0bcff] shrink-0 mt-0.5" />
+            <p className="text-[11px] text-[#d0bcff]/70 leading-relaxed">
+              Los cambios afectan la <span className="font-semibold text-[#d0bcff]">asignación de asignaturas</span> y los <span className="font-semibold text-[#d0bcff]">Certificados Analíticos</span>. Renombrar una división no migra datos históricos automáticamente.
+            </p>
+          </div>
+
+          {/* Tag Input */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">
+              Divisiones activas para {year.label}
+            </Label>
+
+            {/* Contenedor tipo CRM tag-input */}
+            <div
+              className="min-h-[80px] p-3 rounded-xl border border-white/10 bg-black/30 focus-within:border-[#d0bcff]/40 focus-within:ring-1 focus-within:ring-[#d0bcff]/15 transition-all cursor-text flex flex-wrap gap-2 items-start"
+              onClick={() => inputRef.current?.focus()}
+            >
+              {tags.map(tag => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-lg bg-[#d0bcff]/12 border border-[#d0bcff]/25 text-[#d0bcff] text-sm font-semibold leading-none select-none"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                    className="size-4 rounded flex items-center justify-center hover:bg-[#d0bcff]/20 transition-colors ml-0.5"
+                    aria-label={`Quitar división ${tag}`}
+                  >
+                    <X className="size-3 text-[#d0bcff]/70" />
+                  </button>
+                </span>
+              ))}
+
+              {/* Input transparente integrado */}
+              <input
+                ref={inputRef}
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                onBlur={() => { if (inputValue.trim()) addTag(inputValue); }}
+                placeholder={tags.length === 0 ? "Ej: A, B, Humanidades — presiona Enter para agregar" : "Agregar división..."}
+                className="flex-1 min-w-[160px] bg-transparent border-none outline-none text-sm text-[#e4e1ea] placeholder:text-white/20 py-1"
+              />
+            </div>
+
+            <p className="text-[10px] text-white/35 font-mono pl-1">
+              {tags.length} división{tags.length !== 1 ? "es" : ""} activa{tags.length !== 1 ? "s" : ""}
+              {tags.length > 0 && ` · ${tags.join(", ")}`}
+            </p>
+          </div>
+
+          {/* Sugerencias rápidas */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/40">Agregar rápido</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {["A", "B", "C", "D", "E", "T.M.", "T.T.", "Humanidades", "Técnica", "Arte"].map(sug => {
+                const isAdded = tags.includes(sug.toUpperCase());
+                return (
+                  <button
+                    key={sug}
+                    type="button"
+                    onClick={() => isAdded ? removeTag(sug.toUpperCase()) : addTag(sug)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg border text-xs font-medium transition-all",
+                      isAdded
+                        ? "bg-[#d0bcff]/12 border-[#d0bcff]/30 text-[#d0bcff]/70 line-through"
+                        : "bg-white/[0.03] border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                    )}
+                  >
+                    {isAdded ? <><Check className="size-3 inline mr-1" />{sug}</> : `+ ${sug}`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || tags.length === 0}
+            className="bg-[#d0bcff] text-[#0e0e16] hover:bg-[#d0bcff]/90 font-semibold"
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-[#0e0e16]/30 border-t-[#0e0e16] rounded-full animate-spin mr-2" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Check className="size-4 mr-2" />
+                Guardar Divisiones
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
+// NEW ACADEMIC YEAR MODAL — Crear un año académico extra (7mo Año, etc.)
+// ============================================================================
+
+interface NewYearModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingYears: number[];
+  onSave: (year: Omit<AcademicYear, "id">) => void;
+}
+
+function NewYearModal({ open, onOpenChange, existingYears, onSave }: NewYearModalProps) {
+  const [yearNumber, setYearNumber] = useState<number>(existingYears.length + 1);
+  const [customLabel, setCustomLabel] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      const next = Math.max(...existingYears, 0) + 1;
+      setYearNumber(next);
+      setCustomLabel("");
+    }
+  }, [open, existingYears]);
+
+  const effectiveLabel = customLabel.trim() || YEAR_ORDINALS[yearNumber] || `${yearNumber}° Año`;
+
+  const handleSave = async () => {
+    if (existingYears.includes(yearNumber)) {
+      toast.error(`El ${effectiveLabel} ya existe en la estructura académica`);
+      return;
+    }
+    setIsSaving(true);
+    await new Promise(r => setTimeout(r, 700));
+    onSave({ year: yearNumber, label: effectiveLabel, divisions: ["A"] });
+    setIsSaving(false);
+    onOpenChange(false);
+    toast.success(`${effectiveLabel} creado`, {
+      description: "Ya puedes asignarle divisiones y asignaturas.",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-[#0e0e16] border-white/10 max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <GraduationCap className="size-5 text-emerald-400" />
+            Nuevo Año Académico
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            Amplía la estructura del colegio. Útil para escuelas técnicas con 7° año o instituciones en expansión.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Número de Año</Label>
+            <div className="flex items-center gap-2">
+              {[...Array(8)].map((_, i) => {
+                const n = i + 1;
+                const taken = existingYears.includes(n);
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => !taken && setYearNumber(n)}
+                    disabled={taken}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl border text-sm font-bold transition-all",
+                      taken
+                        ? "bg-white/[0.02] border-white/5 text-white/15 cursor-not-allowed"
+                        : yearNumber === n
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                        : "bg-white/[0.02] border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                    )}
+                  >
+                    {n}°
+                    {taken && <span className="block text-[8px] font-normal opacity-50">activo</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">
+              Nombre personalizado <span className="text-white/30">(opcional)</span>
+            </Label>
+            <Input
+              value={customLabel}
+              onChange={e => setCustomLabel(e.target.value)}
+              placeholder={`Ej: ${YEAR_ORDINALS[yearNumber] ?? `${yearNumber}° Año`}, Ciclo Superior...`}
+              className="bg-white/[0.02] border-white/10 h-11"
+            />
+            <p className="text-[10px] text-white/35 font-mono pl-1">
+              Se creará como: <span className="text-emerald-400">{effectiveLabel}</span> con División A por defecto.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || existingYears.includes(yearNumber)}
+            className="bg-emerald-500/80 text-white hover:bg-emerald-500 font-semibold"
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Creando...
+              </>
+            ) : (
+              <>
+                <Plus className="size-4 mr-2" />
+                Crear Año Académico
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 interface SubjectModalProps {
   open: boolean;
@@ -1439,6 +1777,38 @@ export default function SettingsPage() {
     );
   });
 
+  // ── Gestor de Estructura Académica (Años + Divisiones) ───────────────────
+  const [academicStructure, setAcademicStructure] = useState<AcademicYear[]>(INITIAL_ACADEMIC_STRUCTURE);
+  const [divisionsModalOpen, setDivisionsModalOpen] = useState(false);
+  const [editingAcademicYear, setEditingAcademicYear] = useState<AcademicYear | null>(null);
+  const [newYearModalOpen, setNewYearModalOpen] = useState(false);
+
+  const handleOpenDivisionsModal = useCallback((year: AcademicYear) => {
+    setEditingAcademicYear(year);
+    setDivisionsModalOpen(true);
+  }, []);
+
+  const handleSaveDivisions = useCallback((yearId: string, divisions: string[]) => {
+    setAcademicStructure(prev =>
+      prev.map(y => y.id === yearId ? { ...y, divisions } : y)
+    );
+    setEditingAcademicYear(null);
+  }, []);
+
+  const handleSaveNewYear = useCallback((data: Omit<AcademicYear, "id">) => {
+    const newId = `year_${Date.now()}`;
+    setAcademicStructure(prev =>
+      [...prev, { ...data, id: newId }].sort((a, b) => a.year - b.year)
+    );
+  }, []);
+
+  const handleDeleteYear = useCallback((yearId: string, label: string) => {
+    setAcademicStructure(prev => prev.filter(y => y.id !== yearId));
+    toast.success(`${label} eliminado de la estructura`, {
+      description: "Las asignaturas de este año no fueron modificadas.",
+    });
+  }, []);
+
   // ── Campos de Personal (atributos dinamicos del perfil del staff) ─────────
   const { staffFields, addStaffField, updateStaffField, deleteStaffField } = useStaffFields();
   const [isStaffFieldModalOpen, setIsStaffFieldModalOpen] = useState(false);
@@ -1600,6 +1970,13 @@ export default function SettingsPage() {
             >
               <BookOpen className="w-4 h-4 mr-2" />
               Plan de Estudios
+            </TabsTrigger>
+            <TabsTrigger
+              value="cursos-divisiones"
+              className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] rounded-xl px-4 py-2 text-sm"
+            >
+              <LayoutGrid className="w-4 h-4 mr-2" />
+              Cursos y Divisiones
             </TabsTrigger>
             <TabsTrigger
               value="campos-personal"
@@ -2288,6 +2665,134 @@ export default function SettingsPage() {
                 </tbody>
               </table>
             </div>
+          </TabsContent>
+
+          {/* Tab: Cursos y Divisiones */}
+          <TabsContent value="cursos-divisiones" className="space-y-6">
+
+            {/* Banner informativo */}
+            <div className="flex items-start gap-3 p-4 rounded-2xl bg-[#d0bcff]/5 border border-[#d0bcff]/15">
+              <LayoutGrid className="size-4 text-[#d0bcff] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-[#d0bcff]">Estructura Académica Dinámica</p>
+                <p className="text-xs text-[#d0bcff]/60 leading-relaxed">
+                  Define los años activos y sus divisiones. Los cambios impactan en la{" "}
+                  <span className="font-semibold text-[#d0bcff]/80">asignación de asignaturas</span>,{" "}
+                  <span className="font-semibold text-[#d0bcff]/80">nóminas de alumnos</span> y{" "}
+                  <span className="font-semibold text-[#d0bcff]/80">Certificados Analíticos</span>.
+                </p>
+              </div>
+            </div>
+
+            {/* Header: stats + botón nuevo año */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 rounded-full bg-white/5 border border-white/8 text-[11px] font-mono text-white/50">
+                  {academicStructure.length} años activos
+                </span>
+                <span className="px-3 py-1 rounded-full bg-[#d0bcff]/10 border border-[#d0bcff]/20 text-[11px] font-mono text-[#d0bcff]/70">
+                  {academicStructure.reduce((acc, y) => acc + y.divisions.length, 0)} divisiones totales
+                </span>
+              </div>
+              <Button
+                onClick={() => setNewYearModalOpen(true)}
+                className="bg-[#d0bcff] text-[#0e0e16] hover:bg-[#d0bcff]/90 font-semibold shrink-0"
+              >
+                <Plus className="size-4 mr-2" />
+                Nuevo Año Académico
+              </Button>
+            </div>
+
+            {/* Grilla de años académicos */}
+            <div className="space-y-3">
+              {academicStructure
+                .slice()
+                .sort((a, b) => a.year - b.year)
+                .map(yr => (
+                  <div
+                    key={yr.id}
+                    className="group flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border border-white/5 bg-white/[0.015] hover:bg-white/[0.025] hover:border-white/10 transition-all"
+                  >
+                    {/* Año badge */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex flex-col items-center justify-center shrink-0">
+                        <span className="text-lg font-bold text-[#d0bcff] leading-none">{yr.year}°</span>
+                        <span className="text-[9px] text-[#d0bcff]/50 font-mono mt-0.5">AÑO</span>
+                      </div>
+                      <div className="min-w-[100px]">
+                        <p className="text-sm font-bold text-[#e4e1ea]">{yr.label}</p>
+                        <p className="text-[10px] text-white/35 font-mono mt-0.5">
+                          {yr.divisions.length} división{yr.divisions.length !== 1 ? "es" : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Divisiones activas como badges */}
+                    <div className="flex-1 flex flex-wrap gap-2 items-center">
+                      {yr.divisions.length === 0 ? (
+                        <span className="text-xs text-[#ffb4ab]/60 italic">Sin divisiones — administra para agregar</span>
+                      ) : (
+                        yr.divisions.map(div => (
+                          <Badge
+                            key={div}
+                            className="px-2.5 py-1 h-auto bg-white/5 border border-white/12 text-white/65 hover:bg-white/8 font-mono text-xs rounded-lg transition-colors"
+                          >
+                            {div}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenDivisionsModal(yr)}
+                        className="bg-[#d0bcff]/10 border border-[#d0bcff]/25 text-[#d0bcff] hover:bg-[#d0bcff]/20 text-xs font-semibold h-8"
+                      >
+                        <LayoutGrid className="size-3.5 mr-1.5" />
+                        Administrar Divisiones
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteYear(yr.id, yr.label)}
+                        className="h-8 w-8 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10"
+                        aria-label={`Eliminar ${yr.label}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {/* Estado vacío */}
+            {academicStructure.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-[#d0bcff]/8 border border-[#d0bcff]/15 flex items-center justify-center">
+                  <LayoutGrid className="size-6 text-[#d0bcff]/40" />
+                </div>
+                <p className="text-sm font-semibold text-white/40">Sin estructura académica definida</p>
+                <p className="text-xs text-white/25 max-w-xs">
+                  Crea el primer año académico con el botón de arriba para empezar a estructurar el colegio.
+                </p>
+              </div>
+            )}
+
+            {/* Modales */}
+            <DivisionsModal
+              open={divisionsModalOpen}
+              onOpenChange={setDivisionsModalOpen}
+              year={editingAcademicYear}
+              onSave={handleSaveDivisions}
+            />
+            <NewYearModal
+              open={newYearModalOpen}
+              onOpenChange={setNewYearModalOpen}
+              existingYears={academicStructure.map(y => y.year)}
+              onSave={handleSaveNewYear}
+            />
           </TabsContent>
 
           {/* Tab 7: Campos de Personal */}
