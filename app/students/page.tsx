@@ -40,7 +40,23 @@ import {
   FileSignature,
   ChevronRight,
   Info,
+  X,
+  ChevronsUpDown,
+  UserRound as UserRoundIcon,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
@@ -244,6 +260,26 @@ export default function StudentsPage() {
   const [reportStudentQuery, setReportStudentQuery] = useState<string>("");
   const [reportMultipleList, setReportMultipleList] = useState<string>("");
   const [reportDataSets, setReportDataSets] = useState<string[]>(["attendance", "grades"]);
+
+  // Multi-Select Combobox: lista de alumnos seleccionados para INDIVIDUAL y MULTIPLE
+  type SelectedStudent = { id: string; firstName: string; lastName: string; legajo: string; division: string };
+  const [reportSelectedStudents, setReportSelectedStudents] = useState<SelectedStudent[]>([]);
+  const [reportComboOpen, setReportComboOpen] = useState(false);
+
+  const toggleReportStudent = useCallback((student: SelectedStudent) => {
+    setReportSelectedStudents(prev =>
+      prev.some(s => s.id === student.id)
+        ? prev.filter(s => s.id !== student.id)
+        : (reportScope === "INDIVIDUAL" ? [student] : [...prev, student])
+    );
+  }, [reportScope]);
+
+  // Resetear seleccion al cambiar de scope
+  const handleReportScopeChange = useCallback((v: string) => {
+    setReportScope(v as ReportScope);
+    setReportSelectedStudents([]);
+    setReportComboOpen(false);
+  }, []);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const toggleDataSet = useCallback((id: string) => {
@@ -389,9 +425,8 @@ export default function StudentsPage() {
   const reportTargetCount = useCallback(() => {
     switch (reportScope) {
       case "INDIVIDUAL":
-        return 1;
       case "MULTIPLE":
-        return Math.max(students.length, 1);
+        return reportSelectedStudents.length;
       case "CURSO": {
         const div = MOCK_DIVISIONS.find((d) => d.id === reportCourse);
         return div?.studentCount ?? 0;
@@ -417,9 +452,8 @@ export default function StudentsPage() {
   const isReportScopeValid = useMemo(() => {
     switch (reportScope) {
       case "INDIVIDUAL":
-        return reportStudentQuery.trim().length > 0;
       case "MULTIPLE":
-        return reportMultipleCount > 0;
+        return reportSelectedStudents.length > 0;
       case "CURSO":
         return Boolean(reportCourse);
       case "INSTITUCION":
@@ -427,7 +461,7 @@ export default function StudentsPage() {
       default:
         return false;
     }
-  }, [reportScope, reportStudentQuery, reportMultipleCount, reportCourse]);
+  }, [reportScope, reportSelectedStudents.length, reportCourse]);
 
   const handleGenerateReport = useCallback(
     (format: "PDF" | "DOCX") => {
@@ -435,12 +469,12 @@ export default function StudentsPage() {
       if (!isReportScopeValid) {
         const messages: Record<ReportScope, { title: string; description: string }> = {
           INDIVIDUAL: {
-            title: "Busca un alumno",
-            description: "Ingresa el nombre o DNI del alumno a exportar.",
+            title: "Selecciona un alumno",
+            description: "Busca y selecciona el alumno a exportar desde el buscador.",
           },
           MULTIPLE: {
-            title: "Ingresa al menos un alumno",
-            description: "Escribe los DNI o legajos separados por comas.",
+            title: "Selecciona al menos un alumno",
+            description: "Busca y agrega alumnos usando el buscador de la seccion de alcance.",
           },
           CURSO: {
             title: "Selecciona un curso",
@@ -1354,7 +1388,7 @@ startxref
 
                 <RadioGroup
                   value={reportScope}
-                  onValueChange={(v) => setReportScope(v as ReportScope)}
+                  onValueChange={handleReportScopeChange}
                   className="space-y-2"
                 >
                   {[
@@ -1387,41 +1421,158 @@ startxref
                 </RadioGroup>
 
                 {/* Inputs condicionales segun el alcance elegido */}
-                {reportScope === "INDIVIDUAL" && (
+                {(reportScope === "INDIVIDUAL" || reportScope === "MULTIPLE") && (
                   <div
-                    key="scope-individual"
-                    className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
+                    key="scope-combobox"
+                    className="space-y-3 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
                   >
-                    <Label className="text-xs text-white/50">Buscar alumno</Label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/30" />
-                      <Input
-                        value={reportStudentQuery}
-                        onChange={(e) => setReportStudentQuery(e.target.value)}
-                        placeholder="Buscar alumno por nombre o DNI..."
-                        className="bg-black/40 border-white/10 pl-9"
-                      />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-white/50">
+                        {reportScope === "INDIVIDUAL" ? "Seleccionar alumno" : "Seleccionar alumnos"}
+                      </Label>
+                      {reportSelectedStudents.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setReportSelectedStudents([])}
+                          className="text-[11px] text-white/30 hover:text-white/60 transition-colors"
+                        >
+                          Limpiar todo
+                        </button>
+                      )}
                     </div>
-                  </div>
-                )}
 
-                {reportScope === "MULTIPLE" && (
-                  <div
-                    key="scope-multiple"
-                    className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
-                  >
-                    <Label className="text-xs text-white/50">Seleccion multiple de alumnos</Label>
-                    <Textarea
-                      value={reportMultipleList}
-                      onChange={(e) => setReportMultipleList(e.target.value)}
-                      placeholder="Ingrese DNI o Legajos separados por comas..."
-                      rows={3}
-                      className="bg-black/40 border-white/10 resize-none"
-                    />
-                    <p className="text-[11px] text-white/40">
-                      {reportMultipleCount} entidad{reportMultipleCount === 1 ? "" : "es"} detectada
-                      {reportMultipleCount === 1 ? "" : "s"}
-                    </p>
+                    {/* Popover + Command */}
+                    <Popover open={reportComboOpen} onOpenChange={setReportComboOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          role="combobox"
+                          aria-expanded={reportComboOpen}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-3 h-10 rounded-lg border text-sm text-left transition-colors",
+                            "bg-black/40 border-white/10 text-white/50",
+                            "hover:border-white/20 hover:text-white/70",
+                            "focus:outline-none focus:border-[#d0bcff]/40 focus:ring-1 focus:ring-[#d0bcff]/20"
+                          )}
+                        >
+                          <Search className="size-4 shrink-0 text-white/30" />
+                          <span className="flex-1 truncate">
+                            Buscar alumno por nombre o legajo...
+                          </span>
+                          <ChevronsUpDown className="size-4 shrink-0 text-white/20" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-[--radix-popover-trigger-width] p-0 bg-[#1c1b23] border-white/10 shadow-2xl"
+                        align="start"
+                        sideOffset={6}
+                      >
+                        <Command className="bg-transparent">
+                          <CommandInput
+                            placeholder="Buscar alumno por nombre o legajo..."
+                            className="border-b border-white/8 text-[#e4e1ea] placeholder:text-white/30 h-10 text-sm"
+                          />
+                          <CommandList className="max-h-56">
+                            <CommandEmpty className="py-6 text-center text-sm text-white/40">
+                              No se encontraron alumnos.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {[...MOCK_STUDENTS, ...MOCK_PRIMARY_STUDENTS].map((s) => {
+                                const isSelected = reportSelectedStudents.some(r => r.id === s.id);
+                                const isDisabledIndividual = reportScope === "INDIVIDUAL" && reportSelectedStudents.length >= 1 && !isSelected;
+                                return (
+                                  <CommandItem
+                                    key={s.id}
+                                    value={`${s.firstName} ${s.lastName} ${s.legajo}`}
+                                    disabled={isDisabledIndividual}
+                                    onSelect={() => {
+                                      if (isDisabledIndividual) return;
+                                      toggleReportStudent({
+                                        id: s.id,
+                                        firstName: s.firstName,
+                                        lastName: s.lastName,
+                                        legajo: s.legajo,
+                                        division: s.currentDivision,
+                                      });
+                                      if (reportScope === "INDIVIDUAL") setReportComboOpen(false);
+                                    }}
+                                    className={cn(
+                                      "flex items-center gap-3 px-3 py-2.5 cursor-pointer text-white/70",
+                                      "hover:bg-white/5 aria-selected:bg-white/5",
+                                      isSelected && "text-[#e4e1ea]",
+                                      isDisabledIndividual && "opacity-30 cursor-not-allowed"
+                                    )}
+                                  >
+                                    {/* Checkbox visual */}
+                                    <span className={cn(
+                                      "shrink-0 size-4 rounded border-2 flex items-center justify-center transition-colors",
+                                      isSelected ? "bg-[#d0bcff] border-[#d0bcff]" : "border-white/25 bg-transparent"
+                                    )}>
+                                      {isSelected && <Check className="size-2.5 text-[#131319]" strokeWidth={3} />}
+                                    </span>
+
+                                    {/* Avatar inicial */}
+                                    <span className="size-7 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-[10px] font-bold text-[#d0bcff] shrink-0">
+                                      {s.firstName[0]}{s.lastName[0]}
+                                    </span>
+
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium leading-tight truncate">
+                                        {s.lastName}, {s.firstName}
+                                      </p>
+                                      <p className="text-[11px] text-white/35 mt-0.5">
+                                        {s.legajo} · {s.currentCourse}
+                                      </p>
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* Tags de alumnos seleccionados */}
+                    {reportSelectedStudents.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-white/8 bg-white/[0.02] min-h-[48px]">
+                        {reportSelectedStudents.map(s => (
+                          <Badge
+                            key={s.id}
+                            variant="secondary"
+                            className="flex items-center gap-1.5 pl-2 pr-1 py-1 h-auto bg-[#d0bcff]/12 border border-[#d0bcff]/25 text-[#d0bcff] hover:bg-[#d0bcff]/18 transition-colors rounded-lg text-xs font-medium"
+                          >
+                            <span className="size-4 rounded-full bg-[#d0bcff]/20 flex items-center justify-center text-[9px] font-bold shrink-0">
+                              {s.firstName[0]}{s.lastName[0]}
+                            </span>
+                            <span>{s.lastName}, {s.firstName}</span>
+                            <span className="text-white/30 text-[10px]">{s.legajo}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleReportStudent(s)}
+                              className="ml-0.5 rounded-sm hover:bg-[#d0bcff]/20 p-0.5 transition-colors"
+                              aria-label={`Quitar ${s.firstName} ${s.lastName}`}
+                            >
+                              <X className="size-3 text-[#d0bcff]/70" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-white/10 text-white/25 text-xs min-h-[48px]">
+                        <UserRound className="size-4 opacity-50" />
+                        {reportScope === "INDIVIDUAL"
+                          ? "Ningún alumno seleccionado"
+                          : "Ningún alumno seleccionado · puedes agregar varios"}
+                      </div>
+                    )}
+
+                    {/* Contador */}
+                    {reportSelectedStudents.length > 0 && (
+                      <p className="text-[11px] text-white/40 text-right">
+                        {reportSelectedStudents.length} alumno{reportSelectedStudents.length !== 1 ? "s" : ""} seleccionado{reportSelectedStudents.length !== 1 ? "s" : ""}
+                      </p>
+                    )}
                   </div>
                 )}
 
