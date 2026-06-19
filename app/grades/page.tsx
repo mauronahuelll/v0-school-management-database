@@ -9,7 +9,8 @@ import { useAuth } from "@/lib/context/auth-context";
 import { 
   BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, 
   Plus, Trash2, Pencil, X, Check, Grid3X3, ClipboardSignature, CheckCircle2,
-  Bell, User, FileStack, Send, Download
+  Bell, User, FileStack, Send, Download, BarChart3, AlertCircle, Eye, EyeOff,
+  TrendingUp, BookMarked
 } from "lucide-react";
 import {
   Sheet,
@@ -202,10 +203,14 @@ const createMockStudentRow = (
 
 export default function GradesPage() {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState("regular");
   
   // Get auth context for role-based rendering
   const { role: currentRole } = useAuth();
+
+  // PRECEPTOR solo puede ver la tab de Cierres — aterriza directamente ahí
+  const [activeTab, setActiveTab] = useState(() =>
+    currentRole === "PRECEPTOR" ? "cierres" : "regular"
+  );
   
   // Get school settings from context
   const { settings, getAvailablePeriods } = useSchoolSettings();
@@ -277,6 +282,18 @@ export default function GradesPage() {
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isTrimesterClosed, setIsTrimesterClosed] = useState(false);
+
+  // ── TAB: CIERRES Y BOLETÍN ─────────────────────────────────────────────────
+  // Nota por periodo: { [studentId]: { [periodId]: number | null } }
+  const [periodGrades, setPeriodGrades] = useState<Record<string, Record<string, number | null>>>(() => {
+    const data: Record<string, Record<string, number | null>> = {};
+    MOCK_STUDENTS_DATA.forEach(s => { data[s.id] = {}; });
+    return data;
+  });
+  // Override manual de la calificacion final: { [studentId]: number | null }
+  const [finalGradeOverrides, setFinalGradeOverrides] = useState<Record<string, number | null>>({});
+  // Flag para saber si el docente sobreescribio el calculo automatico
+  const [manualOverrideFlags, setManualOverrideFlags] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setMounted(true);
@@ -472,6 +489,29 @@ export default function GradesPage() {
     const multipleAttempts = pendingTopics.filter(t => t.status === "PENDING" && t.currentAttempt > 1).length;
     return { pending, cleared, multipleAttempts, total: pendingTopics.length };
   }, [pendingTopics]);
+
+  // Columnas dinamicas para Tab de Cierres: provienen del config del ciclo lectivo
+  const periodColumns = useMemo(() => {
+    return settings.academicPeriodConfig.periods.map(p => ({
+      id: p.id,
+      name: p.name,
+      shortName: p.shortName,
+    }));
+  }, [settings.academicPeriodConfig.periods]);
+
+  // Calcula el promedio de los periodos para cada alumno (ignora nulls)
+  const computedFinalGrades = useMemo(() => {
+    const result: Record<string, number | null> = {};
+    MOCK_STUDENTS_DATA.forEach(s => {
+      const vals = periodColumns
+        .map(col => periodGrades[s.id]?.[col.id] ?? null)
+        .filter((v): v is number => v !== null);
+      result[s.id] = vals.length > 0
+        ? roundToDecimals(vals.reduce((a, b) => a + b, 0) / vals.length)
+        : null;
+    });
+    return result;
+  }, [periodGrades, periodColumns]);
 
   const selectedPeriod = availablePeriods.find((p) => p.id === selectedPeriodId) || availablePeriods[0];
 
@@ -811,29 +851,62 @@ export default function GradesPage() {
         </div>
       </header>
 
-      {/* TABS SYSTEM */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white/[0.02] border border-white/5 p-1">
-          <TabsTrigger 
-            value="regular" 
-            className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] gap-2"
-          >
-            <Grid3X3 className="size-4" />
-            Cursada Regular
-          </TabsTrigger>
-          <TabsTrigger 
-            value="pending" 
-            className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] gap-2"
-          >
-            <ClipboardSignature className="size-4" />
-            Acreditacion de Temas Pendientes
-            {pendingStats.pending > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#ffb4ab]/20 text-[#ffb4ab] text-[10px] font-bold">
-                {pendingStats.pending}
-              </span>
+      {/* ── TABS SYSTEM ──────────────────────────────────────────────────── */}
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <TabsList className="bg-white/[0.02] border border-white/5 p-1 h-auto gap-0.5">
+
+            {/* Tab 1: Seguimiento Continuo — solo DOCENTE */}
+            {currentRole === "DOCENTE" && (
+              <TabsTrigger
+                value="regular"
+                className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] gap-2 px-4 py-2"
+              >
+                <Grid3X3 className="size-4" />
+                Seguimiento Continuo
+              </TabsTrigger>
             )}
-          </TabsTrigger>
-        </TabsList>
+
+            {/* Tab 2: Cierres y Boletín — DOCENTE + PRECEPTOR */}
+            <TabsTrigger
+              value="cierres"
+              className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300 gap-2 px-4 py-2"
+            >
+              <BarChart3 className="size-4" />
+              Cierres y Boletin
+              {currentRole === "PRECEPTOR" && (
+                <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white/50 font-mono">
+                  <Eye className="size-3" /> Solo lectura
+                </span>
+              )}
+            </TabsTrigger>
+
+            {/* Tab 3: Temas Pendientes — solo DOCENTE */}
+            {currentRole === "DOCENTE" && (
+              <TabsTrigger
+                value="pending"
+                className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] gap-2 px-4 py-2"
+              >
+                <ClipboardSignature className="size-4" />
+                Temas Pendientes
+                {pendingStats.pending > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#ffb4ab]/20 text-[#ffb4ab] text-[10px] font-bold">
+                    {pendingStats.pending}
+                  </span>
+                )}
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          {/* Badge de ciclo lectivo activo */}
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/8 text-white/40">
+            {settings.academicPeriodLayout} · {periodColumns.length} periodo{periodColumns.length !== 1 ? "s" : ""}
+          </span>
+        </div>
 
         {/* TAB 1: CURSADA REGULAR */}
         <TabsContent value="regular" className="space-y-6 mt-0">
@@ -1106,7 +1179,280 @@ export default function GradesPage() {
           </div>
         </TabsContent>
 
-        {/* TAB 2: TEMAS PENDIENTES */}
+        {/* TAB 2: CIERRES Y BOLETÍN ─────────────────────────────────────── */}
+        <TabsContent value="cierres" className="space-y-5 mt-0">
+
+          {/* Banner PRECEPTOR: solo lectura */}
+          {currentRole === "PRECEPTOR" && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/10">
+              <Eye className="size-4 text-white/40 shrink-0" />
+              <p className="text-xs text-white/50">
+                Estas viendo los cierres de periodo en <span className="font-semibold text-white/70">modo Solo Lectura</span>. Puedes consultar y emitir boletines pero no modificar calificaciones.
+              </p>
+            </div>
+          )}
+
+          {/* Stats de la vista de Cierres */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard label="Total Alumnos" value={MOCK_STUDENTS_DATA.length} />
+            <StatCard
+              label="Con Nota Final"
+              value={Object.values(finalGradeOverrides).filter(v => v !== null).length + Object.entries(computedFinalGrades).filter(([id, v]) => v !== null && !manualOverrideFlags[id]).length}
+              color="text-[#4de082]"
+            />
+            <StatCard
+              label="Ajustes Manuales"
+              value={Object.values(manualOverrideFlags).filter(Boolean).length}
+              color="text-[#d0bcff]"
+            />
+            <StatCard
+              label={`Periodos (${settings.academicPeriodLayout})`}
+              value={periodColumns.length}
+              color="text-emerald-400"
+            />
+          </div>
+
+          {/* Tabla principal de Cierres */}
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-2 text-sm text-white/60">
+                <BookMarked className="size-4 text-emerald-400" />
+                <span>
+                  {selectedSubject.name} — Calificaciones de Cierre por Periodo
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportGrades}
+                disabled={isExportingGrades}
+                className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+              >
+                {isExportingGrades ? (
+                  <><Loader2 className="size-4 mr-2 animate-spin" />Procesando...</>
+                ) : (
+                  <><Download className="size-4 mr-2" />Exportar Boletin</>
+                )}
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/[0.01]">
+                    {/* Columna alumno sticky */}
+                    <th className="sticky left-0 z-10 bg-[#131319] px-4 py-3 text-left min-w-[200px]">
+                      <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alumno</span>
+                    </th>
+
+                    {/* Columnas dinamicas de periodos */}
+                    {periodColumns.map(col => (
+                      <th key={col.id} className="px-3 py-3 text-center min-w-[110px]">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="text-xs font-semibold text-emerald-300/80 uppercase tracking-wider">
+                            {col.shortName}
+                          </span>
+                          <span className="text-[10px] text-white/30 font-normal normal-case">
+                            {col.name}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+
+                    {/* Columna Calificacion Final */}
+                    <th className="px-4 py-3 text-center min-w-[140px] bg-emerald-500/5">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-xs font-semibold text-emerald-300 uppercase tracking-wider">
+                          Cal. Final
+                        </span>
+                        <span className="text-[10px] text-white/30 font-normal normal-case">
+                          {currentRole === "DOCENTE" ? "Editable" : "Calculado"}
+                        </span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-white/5">
+                  {MOCK_STUDENTS_DATA.map(studentData => {
+                    const isReadOnly = currentRole === "PRECEPTOR";
+                    const computed = computedFinalGrades[studentData.id];
+                    const override = finalGradeOverrides[studentData.id] ?? null;
+                    const isManual = !!manualOverrideFlags[studentData.id];
+                    // Valor mostrado: override manual si existe, sino calculado
+                    const displayFinal = isManual ? override : computed;
+
+                    return (
+                      <tr key={studentData.id} className="hover:bg-white/[0.015] transition-colors">
+                        {/* Alumno sticky */}
+                        <td className="sticky left-0 z-10 bg-[#131319] px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-xs font-bold text-[#d0bcff] shrink-0">
+                              {studentData.firstName[0]}{studentData.lastName[0]}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-[#e4e1ea] truncate">
+                                {studentData.lastName}, {studentData.firstName}
+                              </p>
+                              <p className="text-xs text-white/40">{studentData.legajo}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Celdas de nota por periodo */}
+                        {periodColumns.map(col => {
+                          const val = periodGrades[studentData.id]?.[col.id] ?? null;
+                          return (
+                            <td key={col.id} className="px-3 py-3 text-center">
+                              {isReadOnly ? (
+                                // PRECEPTOR: solo lectura
+                                <div className={cn(
+                                  "inline-flex items-center justify-center size-9 rounded-lg font-bold text-sm",
+                                  val !== null && val >= 7 ? "bg-[#4de082]/15 text-[#4de082]"
+                                  : val !== null ? "bg-[#ffb4ab]/15 text-[#ffb4ab]"
+                                  : "bg-white/5 text-white/30"
+                                )}>
+                                  {val !== null ? val : "–"}
+                                </div>
+                              ) : (
+                                // DOCENTE: editable
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  step={0.1}
+                                  value={val ?? ""}
+                                  onChange={e => {
+                                    const n = e.target.value === "" ? null : parseFloat(e.target.value);
+                                    setPeriodGrades(prev => ({
+                                      ...prev,
+                                      [studentData.id]: {
+                                        ...prev[studentData.id],
+                                        [col.id]: n,
+                                      },
+                                    }));
+                                    // Si hay override manual, recalcular sugerencia
+                                    if (manualOverrideFlags[studentData.id]) {
+                                      // mantenemos el override — docente lo borrara si quiere
+                                    }
+                                  }}
+                                  className={cn(
+                                    "w-16 h-9 text-center text-sm font-medium bg-white/[0.02] border-white/10 mx-auto",
+                                    "focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20",
+                                    val !== null && val >= 7 && "text-[#4de082]",
+                                    val !== null && val < 7 && "text-[#ffb4ab]",
+                                  )}
+                                />
+                              )}
+                            </td>
+                          );
+                        })}
+
+                        {/* Columna Calificacion Final */}
+                        <td className="px-4 py-3 text-center bg-emerald-500/[0.02]">
+                          {isReadOnly ? (
+                            // PRECEPTOR: badge de solo lectura
+                            <div className={cn(
+                              "inline-flex items-center justify-center size-10 rounded-xl font-bold text-lg",
+                              displayFinal !== null && displayFinal >= 7
+                                ? "bg-[#4de082]/20 text-[#4de082]"
+                                : displayFinal !== null
+                                ? "bg-[#ffb4ab]/20 text-[#ffb4ab]"
+                                : "bg-white/5 text-white/30"
+                            )}>
+                              {displayFinal !== null ? displayFinal.toFixed(1) : "–"}
+                            </div>
+                          ) : (
+                            // DOCENTE: input editable con indicador de override
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  step={0.01}
+                                  value={
+                                    isManual
+                                      ? (override ?? "")
+                                      : (computed !== null ? computed : "")
+                                  }
+                                  onChange={e => {
+                                    const raw = e.target.value;
+                                    if (raw === "") {
+                                      // Borrar override: volver al calculado
+                                      setFinalGradeOverrides(prev => ({ ...prev, [studentData.id]: null }));
+                                      setManualOverrideFlags(prev => ({ ...prev, [studentData.id]: false }));
+                                    } else {
+                                      const n = parseFloat(raw);
+                                      const isChanged = n !== computed;
+                                      setFinalGradeOverrides(prev => ({ ...prev, [studentData.id]: n }));
+                                      setManualOverrideFlags(prev => ({ ...prev, [studentData.id]: isChanged }));
+                                    }
+                                  }}
+                                  title={
+                                    isManual
+                                      ? `Automatico: ${computed ?? "–"}  |  Ajustado manualmente`
+                                      : `Promedio calculado de ${periodColumns.length} periodo(s)`
+                                  }
+                                  className={cn(
+                                    "w-20 h-9 text-center text-sm font-bold bg-white/[0.02] border-white/10",
+                                    "focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/20",
+                                    displayFinal !== null && displayFinal >= 7 && "text-[#4de082]",
+                                    displayFinal !== null && displayFinal < 7 && "text-[#ffb4ab]",
+                                    isManual && "border-[#d0bcff]/40 bg-[#d0bcff]/5",
+                                  )}
+                                />
+                                {/* Icono de override manual */}
+                                {isManual && (
+                                  <span
+                                    className="absolute -top-1.5 -right-1.5 flex items-center justify-center size-4 rounded-full bg-[#d0bcff] text-[#131319]"
+                                    title="Nota ajustada manualmente por el docente"
+                                  >
+                                    <AlertCircle className="size-2.5" />
+                                  </span>
+                                )}
+                              </div>
+                              {/* Sugerencia calculada cuando hay override */}
+                              {isManual && computed !== null && (
+                                <span className="text-[10px] text-white/30 font-mono">
+                                  auto: {computed.toFixed(1)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer con leyenda */}
+            <div className="px-4 py-3 border-t border-white/5 bg-white/[0.01] flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4 text-[11px] text-white/40">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[#4de082] inline-block" /> Aprobado ≥{settings.gradingScale.minPassing}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[#ffb4ab] inline-block" /> Desaprobado
+                </span>
+                {currentRole === "DOCENTE" && (
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle className="size-3 text-[#d0bcff]" /> Nota ajustada manualmente
+                  </span>
+                )}
+              </div>
+              {currentRole === "DOCENTE" && (
+                <p className="text-[11px] text-white/30">
+                  La Cal. Final se calcula como promedio de periodos. Puedes sobreescribirla.
+                </p>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* TAB 3: TEMAS PENDIENTES */}
         <TabsContent value="pending" className="space-y-6 mt-0">
           {/* Info Alert */}
           <div className="flex items-start gap-3 p-4 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
