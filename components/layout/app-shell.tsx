@@ -285,108 +285,144 @@ export function AppShell({ children }: AppShellProps) {
         <CommandInput placeholder="Buscar alumnos, personal, acciones..." />
         <CommandList className="bg-background">
           <CommandEmpty>No se encontraron resultados.</CommandEmpty>
-          
-          {/* Alumnos - Only visible for ADMIN, DOCENTE, PRECEPTOR */}
+
+          {/* ── Alumnos: ADMIN, DOCENTE, PRECEPTOR ─────────────────────── */}
           {role !== "FAMILIA" && (
             <>
               <CommandGroup heading="Alumnos">
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
-                  <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-                  <span>Sofia Alvarez</span>
-                  <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
-                </CommandItem>
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
-                  <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-                  <span>Mateo Benitez</span>
-                  <span className="ml-auto text-xs text-muted-foreground">4to Ano A</span>
-                </CommandItem>
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students") }}>
-                  <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-                  <span>Valentina Castro</span>
-                  <span className="ml-auto text-xs text-muted-foreground">4to Ano B</span>
-                </CommandItem>
+                {[
+                  { name: "Sofia Alvarez",    curso: "4to Ano A" },
+                  { name: "Mateo Benitez",    curso: "4to Ano A" },
+                  { name: "Valentina Castro", curso: "4to Ano B" },
+                  { name: "Lucas Diaz",       curso: "3ro Ano C" },
+                  { name: "Camila Ferreyra",  curso: "2do Ano A" },
+                ].map(({ name, curso }) => (
+                  <CommandItem
+                    key={name}
+                    value={name}
+                    onSelect={() => { setSearchOpen(false); router.push("/students") }}
+                  >
+                    <GraduationCap className="mr-2 h-4 w-4 shrink-0 text-[#d0bcff]" />
+                    <span>{name}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{curso}</span>
+                  </CommandItem>
+                ))}
               </CommandGroup>
               <CommandSeparator />
             </>
           )}
-          
-          {/* Personal - Only visible for ADMIN */}
+
+          {/* ── Personal: solo ADMIN ────────────────────────────────────── */}
           {role === "ADMIN" && (
             <>
               <CommandGroup heading="Personal">
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
-                  <Users className="mr-2 h-4 w-4 text-[#4de082]" />
-                  <span>Prof. Maria Gonzalez</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Docente</span>
-                </CommandItem>
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/users") }}>
-                  <Users className="mr-2 h-4 w-4 text-[#4de082]" />
-                  <span>Lic. Juan Rodriguez</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Preceptor</span>
-                </CommandItem>
+                {[
+                  { name: "Prof. Maria Gonzalez",  cargo: "Docente" },
+                  { name: "Lic. Juan Rodriguez",   cargo: "Preceptor" },
+                  { name: "Dra. Ana Suarez",       cargo: "Directora" },
+                ].map(({ name, cargo }) => (
+                  <CommandItem
+                    key={name}
+                    value={name}
+                    onSelect={() => { setSearchOpen(false); router.push("/users") }}
+                  >
+                    <Users className="mr-2 h-4 w-4 shrink-0 text-[#4de082]" />
+                    <span>{name}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{cargo}</span>
+                  </CommandItem>
+                ))}
               </CommandGroup>
               <CommandSeparator />
             </>
           )}
-          
-          {/* Acciones Rapidas - Filtered by role */}
-          <CommandGroup heading="Acciones Rapidas">
-            {/* Calendario - Available to ALL roles */}
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/calendar") }}>
-              <Calendar className="mr-2 h-4 w-4 text-[#ffb93d]" />
-              <span>Ir a Calendario</span>
-            </CommandItem>
 
-            {/* Muro Escolar - Available to ALL roles */}
-            <CommandItem onSelect={() => { setSearchOpen(false); router.push("/community") }}>
-              <Megaphone className="mr-2 h-4 w-4 text-[#4de082]" />
+          {/* ── Navegacion rapida ───────────────────────────────────────── */}
+          <CommandGroup heading="Navegacion">
+            <CommandItem value="dashboard inicio" onSelect={() => { setSearchOpen(false); router.push("/dashboard") }}>
+              <Home className="mr-2 h-4 w-4 shrink-0 text-[#d0bcff]" />
+              <span>Inicio</span>
+            </CommandItem>
+            <CommandItem value="calendario eventos" onSelect={() => { setSearchOpen(false); router.push("/calendar") }}>
+              <Calendar className="mr-2 h-4 w-4 shrink-0 text-[#ffb93d]" />
+              <span>Calendario</span>
+            </CommandItem>
+            <CommandItem value="muro escolar comunidad" onSelect={() => { setSearchOpen(false); router.push("/community") }}>
+              <Megaphone className="mr-2 h-4 w-4 shrink-0 text-[#4de082]" />
               <span>Muro Escolar</span>
             </CommandItem>
-
-            {/* Legajo del Hijo - Only for FAMILIA */}
+            {role !== "FAMILIA" && (
+              <CommandItem value="comunicaciones circulares" onSelect={() => { setSearchOpen(false); router.push("/communications") }}>
+                <Megaphone className="mr-2 h-4 w-4 shrink-0 text-[#63a4ff]" />
+                <span>Comunicaciones</span>
+              </CommandItem>
+            )}
             {role === "FAMILIA" && (
-              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/family-wall") }}>
-                <GraduationCap className="mr-2 h-4 w-4 text-[#d0bcff]" />
+              <CommandItem value="muro familiar legajo hijo" onSelect={() => { setSearchOpen(false); router.push("/family-wall") }}>
+                <GraduationCap className="mr-2 h-4 w-4 shrink-0 text-[#d0bcff]" />
                 <span>Muro Familiar</span>
               </CommandItem>
             )}
+          </CommandGroup>
 
-            {/* Emitir Sancion - Only for ADMIN and PRECEPTOR */}
-            {(role === "ADMIN" || role === "PRECEPTOR") && (
-              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/behavior") }}>
-                <AlertTriangle className="mr-2 h-4 w-4 text-[#ffb4ab]" />
-                <span>Emitir Sancion</span>
-              </CommandItem>
-            )}
+          <CommandSeparator />
 
-            {/* Cargar Calificaciones - For ADMIN, DOCENTE, PRECEPTOR */}
+          {/* ── Acciones rapidas ────────────────────────────────────────── */}
+          <CommandGroup heading="Acciones Rapidas">
+
+            {/* Calificaciones: ADMIN, DOCENTE, PRECEPTOR */}
             {role !== "FAMILIA" && (
-              <CommandItem onSelect={() => { setSearchOpen(false); router.push("/grades") }}>
-                <Zap className="mr-2 h-4 w-4 text-[#d0bcff]" />
-                <span>Cargar Calificaciones</span>
+              <CommandItem value="calificaciones notas boletin" onSelect={() => { setSearchOpen(false); router.push("/grades") }}>
+                <Zap className="mr-2 h-4 w-4 shrink-0 text-[#d0bcff]" />
+                <span>Calificaciones</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Aula</span>
               </CommandItem>
             )}
 
-            {/* NUEVOS ENLACES RAPIDOS - Only for ADMIN */}
-            {role === "ADMIN" && (
-              <>
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students?action=import") }}>
-                  <Upload className="mr-2 h-4 w-4 text-[#4de082]" />
-                  <span>Importar Matricula</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground">Secretaria</span>
-                </CommandItem>
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/students?tab=reportes") }}>
-                  <FileBarChart2 className="mr-2 h-4 w-4 text-[#63a4ff]" />
-                  <span>Generador de Reportes</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground">Secretaria</span>
-                </CommandItem>
-                <CommandItem onSelect={() => { setSearchOpen(false); router.push("/settings") }}>
-                  <Settings className="mr-2 h-4 w-4 text-[#ffb93d]" />
-                  <span>Configuracion de Institucion</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground">Ajustes</span>
-                </CommandItem>
-              </>
+            {/* Sanciones: ADMIN y PRECEPTOR */}
+            {(role === "ADMIN" || role === "PRECEPTOR") && (
+              <CommandItem value="emitir sancion comportamiento" onSelect={() => { setSearchOpen(false); router.push("/behavior") }}>
+                <AlertTriangle className="mr-2 h-4 w-4 shrink-0 text-[#ffb4ab]" />
+                <span>Emitir Sancion</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Convivencia</span>
+              </CommandItem>
             )}
+
+            {/* Mi Perfil: ADMIN, DOCENTE, PRECEPTOR */}
+            {role !== "FAMILIA" && (
+              <CommandItem value="mi perfil autogestión datos personales" onSelect={() => { setSearchOpen(false); router.push("/my-profile") }}>
+                <Users className="mr-2 h-4 w-4 shrink-0 text-[#ffb93d]" />
+                <span>Mi Perfil</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Autogestion</span>
+              </CommandItem>
+            )}
+
+            {/* Importar Matricula: solo ADMIN */}
+            {role === "ADMIN" && (
+              <CommandItem value="importar matricula alumnos secretaria" onSelect={() => { setSearchOpen(false); router.push("/students?action=import") }}>
+                <Upload className="mr-2 h-4 w-4 shrink-0 text-[#4de082]" />
+                <span>Importar Matricula</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Secretaria</span>
+              </CommandItem>
+            )}
+
+            {/* Generar Reportes: solo ADMIN */}
+            {role === "ADMIN" && (
+              <CommandItem value="generar reportes estadisticas exportar" onSelect={() => { setSearchOpen(false); router.push("/students?tab=reportes") }}>
+                <FileBarChart2 className="mr-2 h-4 w-4 shrink-0 text-[#63a4ff]" />
+                <span>Generar Reportes</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Secretaria</span>
+              </CommandItem>
+            )}
+
+            {/* Configuracion Institucional: solo ADMIN */}
+            {role === "ADMIN" && (
+              <CommandItem value="configuracion institucion ajustes settings" onSelect={() => { setSearchOpen(false); router.push("/settings") }}>
+                <Settings className="mr-2 h-4 w-4 shrink-0 text-[#ffb93d]" />
+                <span>Configuracion de Institucion</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Ajustes</span>
+              </CommandItem>
+            )}
+
           </CommandGroup>
         </CommandList>
       </CommandDialog>
