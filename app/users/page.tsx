@@ -672,14 +672,18 @@ export default function StaffManagementPage() {
   }, []);
 
   // Filter staff
-  const filteredStaff = staff.filter((member) => {
-    const matchesSearch = 
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = filterRole === "ALL" || member.role === filterRole;
-    const matchesStatus = filterStatus === "ALL" || member.status === filterStatus;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  // useMemo garantiza que la tabla se recalcule cada vez que staff, searchQuery,
+  // filterRole o filterStatus cambien — incluyendo actualizaciones via handleChangeStatus.
+  const filteredStaff = useMemo(() =>
+    staff.filter((member) => {
+      const matchesSearch =
+        member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        member.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRole   = filterRole   === "ALL" || member.role   === filterRole;
+      const matchesStatus = filterStatus === "ALL" || member.status === filterStatus;
+      return matchesSearch && matchesRole && matchesStatus;
+    }),
+  [staff, searchQuery, filterRole, filterStatus]);
 
   // Handle invite with explicit identity (Legal Compliance)
   const handleInvite = useCallback(async () => {
@@ -1063,6 +1067,7 @@ export default function StaffManagementPage() {
             <SelectItem value="ALL">Todos</SelectItem>
             <SelectItem value="ACTIVE">Activos</SelectItem>
             <SelectItem value="PENDING">Pendientes</SelectItem>
+            <SelectItem value="ON_LEAVE">De Licencia</SelectItem>
             <SelectItem value="SUSPENDED">Suspendidos</SelectItem>
           </SelectContent>
         </Select>
