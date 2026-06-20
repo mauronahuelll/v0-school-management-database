@@ -47,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -411,6 +412,7 @@ export default function CommunicationsPage() {
   const [composeAudience, setComposeAudience] = useState("");
   const [composeTemplateName, setComposeTemplateName] = useState<string | null>(null);
   const [requireSignedReturn, setRequireSignedReturn] = useState(false);
+  const [isGlobalAlert, setIsGlobalAlert] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Tipo de audiencia: familias/comunidad vs. personal interno
   const [audienceTarget, setAudienceTarget] = useState<AudienceTarget>("COMUNIDAD");
@@ -592,8 +594,9 @@ export default function CommunicationsPage() {
     const capturedBody       = composeBody.trim();
     const capturedType       = composeType as CommunicationType;
     const capturedAudience   = audienceTarget;
-    const capturedActionable = requireSignedReturn;
-    const capturedTemplate   = composeTemplateName;
+    const capturedActionable   = requireSignedReturn;
+    const capturedTemplate     = composeTemplateName;
+    const capturedGlobalAlert  = isGlobalAlert;
 
     setIsSubmitting(true);
     await new Promise(resolve => setTimeout(resolve, 1200));
@@ -635,16 +638,25 @@ export default function CommunicationsPage() {
     setSelectedStaffRoles([]);
     setAudienceTarget("COMUNIDAD");
     setRequireSignedReturn(false);
+    setIsGlobalAlert(false);
 
     const isInternal = capturedAudience === "PERSONAL";
     toast.success(
-      isInternal ? "Comunicado interno enviado" : capturedActionable ? "Circular accionable enviada" : "Circular enviada exitosamente",
-      {
-        description: isInternal
-          ? `Enviado al personal: ${audienceLabel}.`
+      capturedGlobalAlert
+        ? "Alerta Global emitida a toda la comunidad."
+        : isInternal
+          ? "Comunicado interno enviado"
           : capturedActionable
-          ? `Se habilito el buzon de devolucion para ${audienceLabel}.`
-          : `El comunicado fue enviado a ${audienceLabel}.`,
+            ? "Circular accionable enviada"
+            : "Circular enviada exitosamente",
+      {
+        description: capturedGlobalAlert
+          ? "El banner de emergencia es visible para todos los usuarios activos del sistema."
+          : isInternal
+            ? `Enviado al personal: ${audienceLabel}.`
+            : capturedActionable
+              ? `Se habilito el buzon de devolucion para ${audienceLabel}.`
+              : `El comunicado fue enviado a ${audienceLabel}.`,
       }
     );
   }, [composeTitle, composeBody, composeType, composeAudience, audienceMode, selectedStudents, selectedStaffRoles, audienceTarget, requireSignedReturn]);
@@ -1574,7 +1586,66 @@ export default function CommunicationsPage() {
               />
             </div>
           </div>
-          
+
+          {/* ── INTERRUPTOR DE EMERGENCIA ──────────────────────────────────── */}
+          <div className="px-6 pb-2 space-y-2.5">
+            {/* Separador con etiqueta de zona crítica */}
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-red-500/15" />
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-red-500/50">
+                Zona Critica
+              </span>
+              <div className="h-px flex-1 bg-red-500/15" />
+            </div>
+
+            {/* Switch principal */}
+            <div className={cn(
+              "flex items-start gap-3 px-4 py-3.5 rounded-xl border transition-all duration-200",
+              isGlobalAlert
+                ? "bg-red-500/[0.06] border-red-500/30"
+                : "bg-white/[0.02] border-white/5 hover:border-red-500/20"
+            )}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className={cn(
+                    "size-4 shrink-0 transition-colors",
+                    isGlobalAlert ? "text-red-400" : "text-amber-500/70"
+                  )} />
+                  <Label
+                    htmlFor="global-alert-switch"
+                    className={cn(
+                      "text-sm font-semibold cursor-pointer transition-colors",
+                      isGlobalAlert ? "text-red-300" : "text-[#e4e1ea]"
+                    )}
+                  >
+                    Emitir como Alerta Global Urgente
+                  </Label>
+                </div>
+                <p className="text-xs text-white/40 mt-1 leading-relaxed pl-6">
+                  Activa el banner rojo en la pantalla de todos los usuarios del sistema.
+                </p>
+              </div>
+              <Switch
+                id="global-alert-switch"
+                checked={isGlobalAlert}
+                onCheckedChange={setIsGlobalAlert}
+                className="mt-0.5 data-[state=checked]:bg-red-500"
+              />
+            </div>
+
+            {/* Alert destructivo — solo visible cuando el switch está activo */}
+            {isGlobalAlert && (
+              <Alert className="border-red-500/30 bg-red-500/[0.06] text-red-300 py-3">
+                <AlertTriangle className="size-4 text-red-400 shrink-0" />
+                <AlertDescription className="text-xs text-red-300/90 leading-relaxed ml-1">
+                  <span className="font-semibold text-red-300">Atencion:</span>{" "}
+                  Esto mostrara un banner rojo persistente en la pantalla de todos los usuarios activos del sistema.
+                  Uselo solo para emergencias.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
           <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
             <Button
               variant="outline"
