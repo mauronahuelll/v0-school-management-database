@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav } from "@/components/navigation/global-nav"
 import { ContextSelector } from "@/components/auth/context-selector"
-import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell, Upload, FileBarChart2, Settings, Megaphone } from "lucide-react"
+import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell, Upload, FileBarChart2, Settings, Megaphone, X } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
@@ -68,6 +68,9 @@ export function AppShell({ children }: AppShellProps) {
   const [contextSelectorOpen, setContextSelectorOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [alertsOpen, setAlertsOpen] = useState(false)
+  const [showBanner, setShowBanner] = useState(true)
+
+  const ALERT_MESSAGE = "ALERTA URGENTE: Suspension de actividades en el turno tarde por desinfeccion del establecimiento. Por favor, retirar a los alumnos a las 12:00 hs."
   
   // Derived values from activeContext
   const role = activeContext?.role ?? null
@@ -160,9 +163,57 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   return (
     <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-background">
-      
+
+      {/* ── GLOBAL ALERT BANNER ─────────────────────────────────────────────
+          Sticky fixed sobre todo el layout. z-[100] garantiza que nunca
+          quede tapado por header, sidebar ni modales.
+      ──────────────────────────────────────────────────────────────────── */}
+      {showBanner && (
+        <div
+          className={cn(
+            "fixed top-0 left-0 right-0 z-[100]",
+            "bg-gradient-to-r from-red-950 via-red-800 to-red-900",
+            "border-b border-red-500/40",
+            "transition-all duration-300 ease-in-out",
+          )}
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="max-w-screen-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
+            {/* Icono */}
+            <div className="shrink-0 flex items-center justify-center size-6 rounded-full bg-red-500/20 border border-red-400/30">
+              <AlertTriangle className="size-3.5 text-red-300" aria-hidden="true" />
+            </div>
+
+            {/* Texto — en mobile trunca a 2 lineas, en desktop una sola */}
+            <p className="flex-1 text-sm font-medium text-red-100 leading-snug line-clamp-2 md:line-clamp-1 min-w-0">
+              <span className="font-bold text-white">ALERTA URGENTE:&nbsp;</span>
+              Suspension de actividades en el turno tarde por desinfeccion del establecimiento.&nbsp;
+              <span className="whitespace-nowrap">Por favor, retirar a los alumnos a las 12:00 hs.</span>
+            </p>
+
+            {/* Boton cerrar */}
+            <button
+              onClick={() => setShowBanner(false)}
+              aria-label="Cerrar alerta"
+              className={cn(
+                "shrink-0 ml-2 p-1.5 rounded-lg",
+                "text-red-300 hover:text-white",
+                "hover:bg-red-500/25 active:bg-red-500/40",
+                "transition-colors duration-150",
+              )}
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* MOBILE TOP HEADER (visible only on small screens) */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-background/95 backdrop-blur-xl border-b border-white/10">
+      <header
+        className="md:hidden fixed left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-background/95 backdrop-blur-xl border-b border-white/10"
+        style={{ top: showBanner ? "var(--banner-h, 42px)" : 0 }}
+      >
         {/* School & Role Compact */}
         <button 
           onClick={() => setContextSelectorOpen(true)}
@@ -478,7 +529,10 @@ export function AppShell({ children }: AppShellProps) {
       </Sheet>
 
       {/* DESKTOP SIDEBAR (hidden on mobile, visible md+) */}
-      <aside className="hidden md:flex w-[15%] min-w-[240px] flex-col glass-panel border-r border-white/10 z-20">
+      <aside
+        className="hidden md:flex w-[15%] min-w-[240px] flex-col glass-panel border-r border-white/10 z-20 transition-[padding] duration-300"
+        style={{ paddingTop: showBanner ? "var(--banner-h, 42px)" : 0 }}
+      >
         {/* Brand Isotype */}
         <div className="px-4 pt-4 pb-3 flex items-center gap-2.5">
           <div className="relative w-9 h-9 shrink-0">
@@ -640,8 +694,20 @@ export function AppShell({ children }: AppShellProps) {
         </>
       )}
 
-      {/* MAIN CONTENT AREA (full width - permanent) */}
-      <main className="flex-1 w-full h-full overflow-y-auto relative scrollbar-galactic pt-14 md:pt-0">
+      {/* MAIN CONTENT AREA (full width - permanent)
+          Mobile: pt = banner-h (variable) + 56px (header fijo)
+          Desktop: pt = banner-h solo (el aside absorbe el espacio, no hay header fijo)
+      */}
+      <main
+        className="flex-1 w-full h-full overflow-y-auto relative scrollbar-galactic transition-[padding] duration-300"
+        style={{
+          paddingTop: showBanner
+            ? "var(--banner-h, 42px)"
+            : 0,
+        }}
+      >
+        {/* Compensacion adicional del header mobile (solo md:down) */}
+        <div className="md:hidden" style={{ height: "3.5rem" }} aria-hidden="true" />
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
         <div className="relative z-10 p-4 md:p-8">
           {children}
