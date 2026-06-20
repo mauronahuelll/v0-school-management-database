@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   UserCircle,
   Mail,
@@ -13,16 +13,23 @@ import {
   Clock,
   AlertCircle,
   Loader2,
-  Pencil,
   X,
   FileCheck,
   Download,
+  Phone,
+  IdCard,
+  Save,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { downloadSimplePdf } from "@/lib/utils/download";
 import { useAuth, Role } from "@/lib/context/auth-context";
+import { useStaffFields } from "@/lib/context/staff-fields-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -62,6 +69,9 @@ const ROLE_LABELS: Record<Role, string> = {
   PRECEPTOR: "Preceptor",
   FAMILIA: "Familia",
 };
+
+// Roles that can edit their own profile
+const EDITABLE_ROLES: Role[] = ["ADMIN", "DOCENTE", "PRECEPTOR"];
 
 const INITIAL_DOCS: ComplianceDoc[] = [
   {
@@ -148,15 +158,65 @@ const STATUS_CONFIG: Record<
 };
 
 // ============================================
+// SECTION WRAPPER
+// ============================================
+
+function SectionCard({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-md",
+        className
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+function SectionHeading({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-5 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]">
+          {icon}
+        </div>
+        <div>
+          <h3 className="text-base font-semibold">{title}</h3>
+          <p className="text-xs text-white/40">{description}</p>
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+// ============================================
 // MAIN PAGE
 // ============================================
 
 export default function MyProfilePage() {
   const { user, role, userName, schoolName } = useAuth();
+  const { staffFields } = useStaffFields();
 
+  // ── Document compliance state ─────────────────────────────────────────────
   const [docs, setDocs] = useState<ComplianceDoc[]>(INITIAL_DOCS);
-
-  // Upload dialog state
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [activeDoc, setActiveDoc] = useState<ComplianceDoc | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -164,6 +224,7 @@ export default function MyProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Identity card edit state ──────────────────────────────────────────────
   const displayName = userName || user?.name || "Usuario";
   const displayEmail = user?.email || "sin-email@sequency.edu";
   const roleLabel = role ? ROLE_LABELS[role] : "Sin rol";
@@ -173,11 +234,53 @@ export default function MyProfilePage() {
     .slice(0, 2)
     .join("");
 
+  const canEdit = role ? EDITABLE_ROLES.includes(role) : false;
+
+  const [identityForm, setIdentityForm] = useState({
+    name: displayName,
+    phone: "",
+    dni: "",
+    address: "",
+  });
+
+  // ── Complementary info (dynamic fields from Admin) ────────────────────────
+  // Map: fieldId -> value
+  const [complementaryValues, setComplementaryValues] = useState<
+    Record<string, string>
+  >({});
+
+  // Seed values when staffFields change
+  useEffect(() => {
+    setComplementaryValues((prev) => {
+      const next: Record<string, string> = {};
+      staffFields.forEach((f) => {
+        next[f.id] = prev[f.id] ?? "";
+      });
+      return next;
+    });
+  }, [staffFields]);
+
+  // ── Save profile ──────────────────────────────────────────────────────────
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveProfile = useCallback(async () => {
+    setIsSaving(true);
+    await new Promise((r) => setTimeout(r, 900));
+    setIsSaving(false);
+    toast.success("Perfil actualizado correctamente.", {
+      description: "Los cambios ya son visibles en tu legajo institucional.",
+    });
+  }, []);
+
+  // ── Compliance handlers ───────────────────────────────────────────────────
   const pendingCount = docs.filter(
     (d) => d.status === "FALTANTE" || d.status === "RECHAZADO"
   ).length;
 
-  // Open upload modal
+  const requiredPending = staffFields.filter(
+    (f) => f.required && !complementaryValues[f.id]?.trim()
+  ).length;
+
   const handleOpenUpload = useCallback((doc: ComplianceDoc) => {
     setActiveDoc(doc);
     setSelectedFile(null);
@@ -185,28 +288,30 @@ export default function MyProfilePage() {
     setIsUploadOpen(true);
   }, []);
 
-  // Fuerza la descarga real del documento cargado (Aprobado / En Revision)
-  const handleDownloadDoc = useCallback((doc: ComplianceDoc) => {
-    const slug = doc.name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
-    const filename = `${slug}.pdf`;
-    downloadSimplePdf(filename, `${doc.name.toUpperCase()} - SEQUENCY`, [
-      `Titular: ${displayName}`,
-      `Rol: ${roleLabel}`,
-      `Estado: ${STATUS_CONFIG[doc.status].label}`,
-      `Descripcion: ${doc.description}`,
-      "",
-      "Documento de cumplimiento institucional.",
-      `Descargado: ${new Date().toLocaleDateString("es-AR")}`,
-    ]);
-    toast.success("Documento descargado en su dispositivo", {
-      description: filename,
-    });
-  }, [displayName, roleLabel]);
+  const handleDownloadDoc = useCallback(
+    (doc: ComplianceDoc) => {
+      const slug = doc.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      const filename = `${slug}.pdf`;
+      downloadSimplePdf(filename, `${doc.name.toUpperCase()} - SEQUENCY`, [
+        `Titular: ${displayName}`,
+        `Rol: ${roleLabel}`,
+        `Estado: ${STATUS_CONFIG[doc.status].label}`,
+        `Descripcion: ${doc.description}`,
+        "",
+        "Documento de cumplimiento institucional.",
+        `Descargado: ${new Date().toLocaleDateString("es-AR")}`,
+      ]);
+      toast.success("Documento descargado en su dispositivo", {
+        description: filename,
+      });
+    },
+    [displayName, roleLabel]
+  );
 
   const handleFileSelect = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -227,39 +332,29 @@ export default function MyProfilePage() {
     [handleFileSelect]
   );
 
-  // Confirm upload -> status becomes EN_REVISION
   const handleConfirmUpload = useCallback(async () => {
     if (!activeDoc || !selectedFile) return;
-
     setIsUploading(true);
     await new Promise((resolve) => setTimeout(resolve, 1400));
-
     setDocs((prev) =>
       prev.map((d) =>
         d.id === activeDoc.id ? { ...d, status: "EN_REVISION" as DocStatus } : d
       )
     );
-
     setIsUploading(false);
     setIsUploadOpen(false);
     setActiveDoc(null);
     setSelectedFile(null);
-
     toast.success("Documento enviado a Secretaria para su validacion.", {
       description: `${activeDoc.name} esta ahora en revision.`,
       duration: 5000,
     });
   }, [activeDoc, selectedFile]);
 
-  const handleRequestCorrection = useCallback(() => {
-    toast.success("Solicitud de correccion enviada a Secretaria.", {
-      description: "Recibiras una respuesta en tu buzon institucional.",
-    });
-  }, []);
-
   return (
     <div className="min-h-full bg-[#131319] text-[#e4e1ea]">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+
         {/* Header */}
         <header className="mb-8">
           <div className="flex items-center gap-2 text-sm text-white/40">
@@ -275,59 +370,266 @@ export default function MyProfilePage() {
         </header>
 
         <div className="space-y-6">
-          {/* ===== SECCION 1: TARJETA DE IDENTIDAD ===== */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-md">
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar className="size-16 ring-2 ring-[#d0bcff]/30">
-                  <AvatarImage src={user?.avatarUrl} alt={displayName} />
-                  <AvatarFallback className="bg-[#d0bcff]/10 text-lg font-semibold text-[#d0bcff]">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-1.5">
-                  <h2 className="text-xl font-semibold leading-none">{displayName}</h2>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-white/50">
-                    <span className="flex items-center gap-1.5">
-                      <Shield className="size-3.5 text-[#d0bcff]" />
-                      {roleLabel}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Mail className="size-3.5" />
-                      {displayEmail}
-                    </span>
-                  </div>
+
+          {/* ===== SECCION 1: TARJETA DE IDENTIDAD (editable) ===== */}
+          <SectionCard>
+            {/* Avatar row */}
+            <div className="flex items-center gap-4 mb-6">
+              <Avatar className="size-16 ring-2 ring-[#d0bcff]/30 shrink-0">
+                <AvatarImage src={user?.avatarUrl} alt={displayName} />
+                <AvatarFallback className="bg-[#d0bcff]/10 text-lg font-semibold text-[#d0bcff]">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="border-[#d0bcff]/20 bg-[#d0bcff]/10 text-[#d0bcff] gap-1.5"
+                  >
+                    <Shield className="size-3" />
+                    {roleLabel}
+                  </Badge>
                   {schoolName && (
-                    <p className="text-xs text-white/30">{schoolName}</p>
+                    <span className="text-xs text-white/30">{schoolName}</span>
                   )}
                 </div>
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={handleRequestCorrection}
-                className="shrink-0 border-white/10 bg-white/[0.02] text-white/70 hover:bg-white/5 hover:text-white"
-              >
-                <Pencil className="mr-2 size-4" />
-                Solicitar Correccion de Datos
-              </Button>
-            </div>
-          </section>
-
-          {/* ===== SECCION 2: ALCANCE ACADEMICO ===== */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-md">
-            <div className="mb-5 flex items-center gap-2">
-              <div className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]">
-                <BookOpen className="size-4 text-[#d0bcff]" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold">Alcance Academico</h3>
-                <p className="text-xs text-white/40">
-                  Materias y cursos que dictas actualmente (solo lectura)
+                <p className="text-xs text-white/40 flex items-center gap-1.5">
+                  <Mail className="size-3.5" />
+                  {displayEmail}
+                  <span className="text-white/20">&middot;</span>
+                  <span className="text-white/30 italic">Solo lectura</span>
                 </p>
               </div>
             </div>
 
+            {canEdit ? (
+              <>
+                {/* Editable form */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="profile-name"
+                      className="text-xs text-white/60"
+                    >
+                      Nombre completo
+                    </Label>
+                    <Input
+                      id="profile-name"
+                      value={identityForm.name}
+                      onChange={(e) =>
+                        setIdentityForm((p) => ({ ...p, name: e.target.value }))
+                      }
+                      className="bg-white/[0.02] border-white/10 h-11"
+                      placeholder="Tu nombre completo"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="profile-phone"
+                      className="text-xs text-white/60"
+                    >
+                      <Phone className="inline size-3 mr-1" />
+                      Telefono de contacto
+                    </Label>
+                    <Input
+                      id="profile-phone"
+                      value={identityForm.phone}
+                      onChange={(e) =>
+                        setIdentityForm((p) => ({ ...p, phone: e.target.value }))
+                      }
+                      className="bg-white/[0.02] border-white/10 h-11"
+                      placeholder="+54 9 11 xxxx-xxxx"
+                      type="tel"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="profile-dni"
+                      className="text-xs text-white/60"
+                    >
+                      <IdCard className="inline size-3 mr-1" />
+                      DNI
+                    </Label>
+                    <Input
+                      id="profile-dni"
+                      value={identityForm.dni}
+                      onChange={(e) =>
+                        setIdentityForm((p) => ({ ...p, dni: e.target.value }))
+                      }
+                      className="bg-white/[0.02] border-white/10 h-11"
+                      placeholder="12.345.678"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="profile-address"
+                      className="text-xs text-white/60"
+                    >
+                      Domicilio
+                    </Label>
+                    <Input
+                      id="profile-address"
+                      value={identityForm.address}
+                      onChange={(e) =>
+                        setIdentityForm((p) => ({
+                          ...p,
+                          address: e.target.value,
+                        }))
+                      }
+                      className="bg-white/[0.02] border-white/10 h-11"
+                      placeholder="Calle, numero, localidad"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Read-only view for FAMILIA */
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold leading-none">{displayName}</h2>
+                <p className="text-sm text-white/50">{displayEmail}</p>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* ===== SECCION 2: INFORMACION COMPLEMENTARIA ===== */}
+          {canEdit && staffFields.length > 0 && (
+            <SectionCard>
+              <SectionHeading
+                icon={<Info className="size-4 text-emerald-400" />}
+                title="Informacion Complementaria"
+                description="Campos adicionales requeridos por la institucion"
+                action={
+                  requiredPending > 0 ? (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500/30 bg-amber-500/10 text-amber-400 shrink-0"
+                    >
+                      <AlertCircle className="mr-1.5 size-3.5" />
+                      {requiredPending} pendiente{requiredPending > 1 ? "s" : ""}
+                    </Badge>
+                  ) : undefined
+                }
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {staffFields.map((field) => {
+                  const value = complementaryValues[field.id] ?? "";
+                  const isEmpty = !value.trim();
+                  const showError = field.required && isEmpty;
+
+                  return (
+                    <div
+                      key={field.id}
+                      className={cn(
+                        "space-y-1.5",
+                        field.type === "TEXTO_LARGO" && "sm:col-span-2"
+                      )}
+                    >
+                      <Label
+                        htmlFor={`cf-${field.id}`}
+                        className="text-xs text-white/60"
+                      >
+                        {field.label}
+                        {field.required && (
+                          <span className="ml-1 text-red-400" aria-label="Obligatorio">
+                            *
+                          </span>
+                        )}
+                      </Label>
+
+                      {field.type === "TEXTO_LARGO" ? (
+                        <Textarea
+                          id={`cf-${field.id}`}
+                          value={value}
+                          onChange={(e) =>
+                            setComplementaryValues((p) => ({
+                              ...p,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={field.placeholder ?? `Ingresa ${field.label.toLowerCase()}...`}
+                          rows={3}
+                          className={cn(
+                            "bg-white/[0.02] border-white/10 resize-none",
+                            showError && "border-red-500/40 focus-visible:ring-red-500/30"
+                          )}
+                        />
+                      ) : (
+                        <Input
+                          id={`cf-${field.id}`}
+                          value={value}
+                          onChange={(e) =>
+                            setComplementaryValues((p) => ({
+                              ...p,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={field.placeholder ?? `Ingresa ${field.label.toLowerCase()}...`}
+                          type={
+                            field.type === "EMAIL"
+                              ? "email"
+                              : field.type === "NUMERO"
+                              ? "number"
+                              : field.type === "TELEFONO"
+                              ? "tel"
+                              : field.type === "FECHA"
+                              ? "date"
+                              : "text"
+                          }
+                          className={cn(
+                            "bg-white/[0.02] border-white/10 h-11",
+                            showError && "border-red-500/40 focus-visible:ring-red-500/30"
+                          )}
+                        />
+                      )}
+
+                      {showError && (
+                        <p className="text-[11px] text-red-400/80 flex items-center gap-1">
+                          <AlertCircle className="size-3 shrink-0" />
+                          Este campo es obligatorio
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          )}
+
+          {/* ===== BOTON GUARDAR PERFIL ===== */}
+          {canEdit && (
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveProfile}
+                disabled={isSaving}
+                className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 font-semibold px-6 h-11 gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="size-4" />
+                    Guardar Cambios del Perfil
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* ===== SECCION 3: ALCANCE ACADEMICO ===== */}
+          <SectionCard>
+            <SectionHeading
+              icon={<BookOpen className="size-4 text-[#d0bcff]" />}
+              title="Alcance Academico"
+              description="Materias y cursos que dictas actualmente (solo lectura)"
+            />
             <div className="grid gap-3 sm:grid-cols-2">
               {TEACHING_SCOPE.map((scope) => (
                 <div
@@ -352,32 +654,26 @@ export default function MyProfilePage() {
                 </div>
               ))}
             </div>
-          </section>
+          </SectionCard>
 
-          {/* ===== SECCION 3: BUZON DE CUMPLIMIENTO ===== */}
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-md">
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]">
-                  <FileCheck className="size-4 text-[#d0bcff]" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold">Buzon de Cumplimiento</h3>
-                  <p className="text-xs text-white/40">
-                    Documentacion requerida por la institucion
-                  </p>
-                </div>
-              </div>
-              {pendingCount > 0 && (
-                <Badge
-                  variant="outline"
-                  className="w-fit border-red-500/30 bg-red-500/10 text-red-400"
-                >
-                  <AlertCircle className="mr-1.5 size-3.5" />
-                  {pendingCount} pendiente{pendingCount > 1 ? "s" : ""}
-                </Badge>
-              )}
-            </div>
+          {/* ===== SECCION 4: BUZON DE CUMPLIMIENTO ===== */}
+          <SectionCard>
+            <SectionHeading
+              icon={<FileCheck className="size-4 text-[#d0bcff]" />}
+              title="Buzon de Cumplimiento"
+              description="Documentacion requerida por la institucion"
+              action={
+                pendingCount > 0 ? (
+                  <Badge
+                    variant="outline"
+                    className="w-fit border-red-500/30 bg-red-500/10 text-red-400"
+                  >
+                    <AlertCircle className="mr-1.5 size-3.5" />
+                    {pendingCount} pendiente{pendingCount > 1 ? "s" : ""}
+                  </Badge>
+                ) : undefined
+              }
+            />
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {docs.map((doc) => {
@@ -456,7 +752,7 @@ export default function MyProfilePage() {
                 );
               })}
             </div>
-          </section>
+          </SectionCard>
         </div>
       </div>
 

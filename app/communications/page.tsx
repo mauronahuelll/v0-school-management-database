@@ -34,6 +34,11 @@ import {
   Users,
   UserPlus,
   Plus,
+  GraduationCap,
+  ClipboardList,
+  BriefcaseBusiness,
+  UserCheck,
+  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -369,6 +374,25 @@ const MOCK_STUDENT_DIRECTORY: StudentRecord[] = [
   { id: "a14", name: "Nunez, Abril", course: "6B" },
 ];
 
+// Tipo de audiencia destino del comunicado
+type AudienceTarget = "COMUNIDAD" | "PERSONAL";
+
+// Roles seleccionables para audiencia interna de staff
+type StaffRole = "TODOS" | "DOCENTES" | "PRECEPTORES" | "ADMINISTRATIVOS";
+
+const STAFF_ROLE_OPTIONS: {
+  value: StaffRole;
+  label: string;
+  description: string;
+  icon: typeof Users;
+  count: number;
+}[] = [
+  { value: "TODOS",           label: "Todos",           description: "Todo el personal",       icon: Users,           count: 42 },
+  { value: "DOCENTES",        label: "Docentes",        description: "Cuerpo docente",         icon: GraduationCap,   count: 28 },
+  { value: "PRECEPTORES",     label: "Preceptores",     description: "Preceptores y tutores",  icon: ClipboardList,   count: 8  },
+  { value: "ADMINISTRATIVOS", label: "Administrativos", description: "Personal administrativo",icon: BriefcaseBusiness,count: 6 },
+];
+
 // ============================================
 // MAIN PAGE COMPONENT
 // ============================================
@@ -388,10 +412,14 @@ export default function CommunicationsPage() {
   const [composeTemplateName, setComposeTemplateName] = useState<string | null>(null);
   const [requireSignedReturn, setRequireSignedReturn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Tipo de audiencia: familias/comunidad vs. personal interno
+  const [audienceTarget, setAudienceTarget] = useState<AudienceTarget>("COMUNIDAD");
   // Motor de Audiencia: "full" (curso completo) | "custom" (seleccion cross-course)
   const [audienceMode, setAudienceMode] = useState<"full" | "custom">("full");
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudents, setSelectedStudents] = useState<StudentRecord[]>([]);
+  // Roles del staff seleccionados para mensajeria interna
+  const [selectedStaffRoles, setSelectedStaffRoles] = useState<StaffRole[]>([]);
   
   // Sign dialog state
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
@@ -509,17 +537,49 @@ export default function CommunicationsPage() {
     );
   }, []);
 
+  const toggleStaffRole = useCallback((role: StaffRole) => {
+    if (role === "TODOS") {
+      // "Todos" actua como toggle exclusivo: lo selecciona solo o lo deselecciona
+      setSelectedStaffRoles((prev) =>
+        prev.includes("TODOS") ? [] : ["TODOS"]
+      );
+      return;
+    }
+    setSelectedStaffRoles((prev) => {
+      // Quitar "TODOS" si se selecciona un rol especifico
+      const without = prev.filter((r) => r !== "TODOS");
+      return without.includes(role)
+        ? without.filter((r) => r !== role)
+        : [...without, role];
+    });
+  }, []);
+
   const handleCompose = useCallback(async () => {
-    const hasAudience = audienceMode === "full" ? !!composeAudience : selectedStudents.length > 0;
+    // Validacion segun el tipo de audiencia seleccionado
+    const hasCommunityAudience = audienceMode === "full" ? !!composeAudience : selectedStudents.length > 0;
+    const hasStaffAudience = selectedStaffRoles.length > 0;
+    const hasAudience = audienceTarget === "COMUNIDAD" ? hasCommunityAudience : hasStaffAudience;
+
     if (!composeTitle.trim() || !composeBody.trim() || !composeType || !hasAudience) {
       toast.error("Por favor completa todos los campos y define la audiencia");
       return;
     }
 
-    // Resumen del destino segun el modo del Motor de Audiencia
-    const audienceLabel = audienceMode === "full"
-      ? (AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios")
-      : `${selectedStudents.length} alumno(s) seleccionados`;
+    // Resumen del destino segun el tipo y modo de audiencia
+    let audienceLabel: string;
+    if (audienceTarget === "PERSONAL") {
+      const roles = selectedStaffRoles.includes("TODOS")
+        ? "todo el personal"
+        : selectedStaffRoles
+            .map(r => STAFF_ROLE_OPTIONS.find(o => o.value === r)?.label)
+            .filter(Boolean)
+            .join(", ");
+      audienceLabel = roles;
+    } else {
+      audienceLabel = audienceMode === "full"
+        ? (AUDIENCE_OPTIONS.find(a => a.value === composeAudience)?.label || "los destinatarios")
+        : `${selectedStudents.length} alumno(s) seleccionados`;
+    }
 
     setIsSubmitting(true);
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -533,15 +593,23 @@ export default function CommunicationsPage() {
     setAudienceMode("full");
     setStudentSearch("");
     setSelectedStudents([]);
+    setSelectedStaffRoles([]);
+    setAudienceTarget("COMUNIDAD");
     const wasActionable = requireSignedReturn;
     setRequireSignedReturn(false);
 
-    toast.success(wasActionable ? "Circular accionable enviada" : "Circular enviada exitosamente", {
-      description: wasActionable
-        ? `Se habilito el buzon de devolucion para ${audienceLabel}.`
-        : `El comunicado fue enviado a ${audienceLabel}.`,
-    });
-  }, [composeTitle, composeBody, composeType, composeAudience, audienceMode, selectedStudents, requireSignedReturn]);
+    const isInternal = audienceTarget === "PERSONAL";
+    toast.success(
+      isInternal ? "Comunicado interno enviado" : wasActionable ? "Circular accionable enviada" : "Circular enviada exitosamente",
+      {
+        description: isInternal
+          ? `Enviado al personal: ${audienceLabel}.`
+          : wasActionable
+          ? `Se habilito el buzon de devolucion para ${audienceLabel}.`
+          : `El comunicado fue enviado a ${audienceLabel}.`,
+      }
+    );
+  }, [composeTitle, composeBody, composeType, composeAudience, audienceMode, selectedStudents, selectedStaffRoles, audienceTarget, requireSignedReturn]);
 
   if (!mounted) return null;
 
@@ -1063,11 +1131,101 @@ export default function CommunicationsPage() {
               Redactar Circular
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              Crea un nuevo comunicado para enviar a las familias
+              Crea un nuevo comunicado institucional o de comunicacion interna
             </DialogDescription>
           </DialogHeader>
           
-          <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+
+            {/* ── Selector de Tipo de Audiencia ─────────────────────────────── */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Dirigido a
+              </Label>
+              <RadioGroup
+                value={audienceTarget}
+                onValueChange={(v) => {
+                  setAudienceTarget(v as AudienceTarget);
+                  // Resetear sub-selecciones al cambiar de canal
+                  setComposeAudience("");
+                  setSelectedStudents([]);
+                  setSelectedStaffRoles([]);
+                  setAudienceMode("full");
+                }}
+                className="grid grid-cols-2 gap-3"
+              >
+                {/* Opcion: Comunidad Educativa */}
+                <Label
+                  htmlFor="target-comunidad"
+                  className={cn(
+                    "relative flex flex-col gap-2 rounded-xl border-2 p-4 cursor-pointer transition-all",
+                    audienceTarget === "COMUNIDAD"
+                      ? "border-[#d0bcff]/60 bg-[#d0bcff]/8"
+                      : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.03]"
+                  )}
+                >
+                  <RadioGroupItem value="COMUNIDAD" id="target-comunidad" className="sr-only" />
+                  <div className={cn(
+                    "size-9 rounded-xl flex items-center justify-center border",
+                    audienceTarget === "COMUNIDAD"
+                      ? "bg-[#d0bcff]/15 border-[#d0bcff]/30"
+                      : "bg-white/5 border-white/10"
+                  )}>
+                    <Home className={cn("size-5", audienceTarget === "COMUNIDAD" ? "text-[#d0bcff]" : "text-white/40")} />
+                  </div>
+                  <div>
+                    <p className={cn(
+                      "text-sm font-semibold leading-tight",
+                      audienceTarget === "COMUNIDAD" ? "text-[#e4e1ea]" : "text-white/60"
+                    )}>
+                      Comunidad Educativa
+                    </p>
+                    <p className="text-[11px] text-white/40 mt-0.5 leading-snug">
+                      Alumnos y familias
+                    </p>
+                  </div>
+                  {audienceTarget === "COMUNIDAD" && (
+                    <span className="absolute top-3 right-3 size-2 rounded-full bg-[#d0bcff]" />
+                  )}
+                </Label>
+
+                {/* Opcion: Personal Interno */}
+                <Label
+                  htmlFor="target-personal"
+                  className={cn(
+                    "relative flex flex-col gap-2 rounded-xl border-2 p-4 cursor-pointer transition-all",
+                    audienceTarget === "PERSONAL"
+                      ? "border-emerald-500/60 bg-emerald-500/8"
+                      : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.03]"
+                  )}
+                >
+                  <RadioGroupItem value="PERSONAL" id="target-personal" className="sr-only" />
+                  <div className={cn(
+                    "size-9 rounded-xl flex items-center justify-center border",
+                    audienceTarget === "PERSONAL"
+                      ? "bg-emerald-500/15 border-emerald-500/30"
+                      : "bg-white/5 border-white/10"
+                  )}>
+                    <UserCheck className={cn("size-5", audienceTarget === "PERSONAL" ? "text-emerald-400" : "text-white/40")} />
+                  </div>
+                  <div>
+                    <p className={cn(
+                      "text-sm font-semibold leading-tight",
+                      audienceTarget === "PERSONAL" ? "text-[#e4e1ea]" : "text-white/60"
+                    )}>
+                      Personal Interno
+                    </p>
+                    <p className="text-[11px] text-white/40 mt-0.5 leading-snug">
+                      Staff de la institucion
+                    </p>
+                  </div>
+                  {audienceTarget === "PERSONAL" && (
+                    <span className="absolute top-3 right-3 size-2 rounded-full bg-emerald-400" />
+                  )}
+                </Label>
+              </RadioGroup>
+            </div>
+
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-white/50">Titulo</Label>
               <Input
@@ -1097,7 +1255,10 @@ export default function CommunicationsPage() {
               </Select>
             </div>
 
-            {/* Motor de Audiencia: Curso Completo vs Seleccion Personalizada */}
+            {/* ── Destinatarios: renderizado condicional segun audienceTarget ── */}
+
+            {/* COMUNIDAD: Motor de Audiencia (Curso Completo / Seleccion Personalizada) */}
+            {audienceTarget === "COMUNIDAD" && (
             <div className="space-y-3 rounded-xl border border-white/5 bg-white/[0.02] p-4">
               <Label className="text-xs uppercase tracking-wider text-white/50">Motor de Audiencia</Label>
               <RadioGroup
@@ -1230,7 +1391,88 @@ export default function CommunicationsPage() {
                 </div>
               )}
             </div>
-            
+            )} {/* end COMUNIDAD */}
+
+            {/* PERSONAL: Selector de roles del staff */}
+            {audienceTarget === "PERSONAL" && (
+              <div className="space-y-3 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs uppercase tracking-wider text-white/50">
+                    Roles destinatarios
+                  </Label>
+                  {selectedStaffRoles.length > 0 && (
+                    <span className="text-[11px] font-mono text-emerald-400">
+                      {selectedStaffRoles.includes("TODOS")
+                        ? `${STAFF_ROLE_OPTIONS.find(o => o.value === "TODOS")!.count} personas`
+                        : `${STAFF_ROLE_OPTIONS
+                            .filter(o => selectedStaffRoles.includes(o.value))
+                            .reduce((sum, o) => sum + o.count, 0)} personas`
+                      }
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {STAFF_ROLE_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    const isSelected = selectedStaffRoles.includes(opt.value);
+                    const isDisabled = opt.value !== "TODOS" && selectedStaffRoles.includes("TODOS");
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => toggleStaffRole(opt.value)}
+                        className={cn(
+                          "relative flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all",
+                          isSelected
+                            ? "border-emerald-500/50 bg-emerald-500/10"
+                            : isDisabled
+                            ? "border-white/5 bg-white/[0.01] opacity-40 cursor-not-allowed"
+                            : "border-white/8 bg-white/[0.02] hover:border-emerald-500/30 hover:bg-emerald-500/5"
+                        )}
+                      >
+                        {/* Checkbox visual */}
+                        <span className={cn(
+                          "shrink-0 size-4 rounded border-2 flex items-center justify-center transition-colors",
+                          isSelected
+                            ? "bg-emerald-500 border-emerald-500"
+                            : "bg-transparent border-white/25"
+                        )}>
+                          {isSelected && <Check className="size-2.5 text-white" />}
+                        </span>
+
+                        <div className="min-w-0">
+                          <p className={cn(
+                            "text-sm font-medium leading-tight",
+                            isSelected ? "text-[#e4e1ea]" : "text-white/60"
+                          )}>
+                            {opt.label}
+                          </p>
+                          <p className="text-[10px] text-white/35 mt-0.5">{opt.description}</p>
+                        </div>
+
+                        <div className={cn(
+                          "ml-auto shrink-0 size-7 rounded-lg flex items-center justify-center border",
+                          isSelected
+                            ? "bg-emerald-500/15 border-emerald-500/30"
+                            : "bg-white/5 border-white/8"
+                        )}>
+                          <Icon className={cn("size-3.5", isSelected ? "text-emerald-400" : "text-white/35")} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedStaffRoles.length === 0 && (
+                  <p className="text-[11px] text-white/35 text-center py-1">
+                    Selecciona al menos un rol para continuar
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-white/50">Mensaje</Label>
               <Textarea
@@ -1305,8 +1547,21 @@ export default function CommunicationsPage() {
             </Button>
             <Button
               onClick={handleCompose}
-              disabled={isSubmitting || !composeTitle.trim() || !composeBody.trim() || !composeType || (audienceMode === "full" ? !composeAudience : selectedStudents.length === 0)}
-              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
+              disabled={
+                isSubmitting ||
+                !composeTitle.trim() ||
+                !composeBody.trim() ||
+                !composeType ||
+                (audienceTarget === "COMUNIDAD"
+                  ? (audienceMode === "full" ? !composeAudience : selectedStudents.length === 0)
+                  : selectedStaffRoles.length === 0)
+              }
+              className={cn(
+                "gap-2",
+                audienceTarget === "PERSONAL"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-400"
+                  : "bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90"
+              )}
             >
               {isSubmitting ? (
                 <>
@@ -1316,7 +1571,7 @@ export default function CommunicationsPage() {
               ) : (
                 <>
                   <Send className="size-4" />
-                  Enviar Circular
+                  {audienceTarget === "PERSONAL" ? "Enviar al Personal" : "Enviar Circular"}
                 </>
               )}
             </Button>

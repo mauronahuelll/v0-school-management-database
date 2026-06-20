@@ -40,7 +40,25 @@ import {
   FileSignature,
   ChevronRight,
   Info,
+  X,
+  ChevronsUpDown,
+  UserRound as UserRoundIcon,
+  ScrollText,
+  AlertCircle,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
@@ -185,12 +203,71 @@ const MOCK_STUDENTS: Student[] = [
 // ============================================
 // CENTRO DE REPORTES - Catalogo de conjuntos de datos
 // ============================================
-const REPORT_DATA_SETS: { id: string; label: string; description: string; icon: typeof BarChart3 }[] = [
-  { id: "attendance", label: "Historial de Ausentismo", description: "Inasistencias, tardanzas y justificativos", icon: BarChart3 },
-  { id: "grades", label: "Calificaciones (Boletin)", description: "Notas por materia y promedios", icon: FileText },
-  { id: "conduct", label: "Actas de Convivencia", description: "Sanciones, observaciones y acuerdos", icon: ClipboardCheck },
-  { id: "family", label: "Datos Filiatorios / Familiares", description: "Tutores, contactos y red familiar", icon: HeartHandshake },
+const REPORT_DATA_SETS: { id: string; label: string; description: string; icon: typeof BarChart3; isLegal?: boolean }[] = [
+  { id: "attendance",     label: "Historial de Ausentismo",                            description: "Inasistencias, tardanzas y justificativos",          icon: BarChart3 },
+  { id: "grades",         label: "Calificaciones (Boletin)",                           description: "Notas por materia y promedios",                      icon: FileText },
+  { id: "conduct",        label: "Actas de Convivencia",                               description: "Sanciones, observaciones y acuerdos",                icon: ClipboardCheck },
+  { id: "family",         label: "Datos Filiatorios / Familiares",                     description: "Tutores, contactos y red familiar",                  icon: HeartHandshake },
+  { id: "analitico_pase", label: "Certificado Analitico Parcial/Incompleto de Pase",   description: "Documento legal ministerial para solicitudes de pase externo", icon: ScrollText, isLegal: true },
 ];
+
+// ============================================
+// MOCK DE TRAYECTORIA ACADEMICA — para Certificado Analitico de Pase
+// ============================================
+interface MockSubjectRecord {
+  asignatura: string;
+  anio: number;
+  anioLabel: string;
+  calificacion: number | null;   // null = en curso / sin calificar
+  mesAprobacion: number | null;
+  anioAprobacion: number | null;
+  establecimiento: "ESTE_ESTABLECIMIENTO" | "OTRO_ESTABLECIMIENTO";
+}
+
+// Numeros a letras (rango 1-10 para calificaciones escolares argentinas)
+function numberToSpanish(n: number): string {
+  const MAP: Record<number, string> = {
+    1: "UNO", 2: "DOS", 3: "TRES", 4: "CUATRO", 5: "CINCO",
+    6: "SEIS", 7: "SIETE", 8: "OCHO", 9: "NUEVE", 10: "DIEZ",
+  };
+  return MAP[n] ?? String(n);
+}
+
+const MONTH_NAMES: Record<number, string> = {
+  1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+  7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre",
+};
+
+// Genera trayectoria mock deterministica segun el ID del alumno
+function getMockTrajectory(studentId: string): MockSubjectRecord[] {
+  const seed = studentId.charCodeAt(studentId.length - 1) % 3;
+  const base: Omit<MockSubjectRecord, "calificacion" | "mesAprobacion" | "anioAprobacion">[] = [
+    { asignatura: "Matematica",                      anio: 1, anioLabel: "1er Año", establecimiento: "OTRO_ESTABLECIMIENTO" },
+    { asignatura: "Lengua y Literatura",             anio: 1, anioLabel: "1er Año", establecimiento: "OTRO_ESTABLECIMIENTO" },
+    { asignatura: "Historia",                        anio: 1, anioLabel: "1er Año", establecimiento: "OTRO_ESTABLECIMIENTO" },
+    { asignatura: "Ingles",                          anio: 1, anioLabel: "1er Año", establecimiento: "OTRO_ESTABLECIMIENTO" },
+    { asignatura: "Matematica",                      anio: 2, anioLabel: "2do Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    { asignatura: "Lengua y Literatura",             anio: 2, anioLabel: "2do Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    { asignatura: "Biologia",                        anio: 2, anioLabel: "2do Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    { asignatura: "Educacion Fisica",                anio: 2, anioLabel: "2do Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    { asignatura: "Matematica",                      anio: 3, anioLabel: "3er Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    { asignatura: "Quimica",                         anio: 3, anioLabel: "3er Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    { asignatura: "Formacion Etica y Ciudadana",     anio: 3, anioLabel: "3er Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    // Materias sin calificar (en curso o pendientes) para demostrar estado INCOMPLETO
+    { asignatura: "Fisica",                          anio: 3, anioLabel: "3er Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+    { asignatura: "Tecnologia",                      anio: 3, anioLabel: "3er Año", establecimiento: "ESTE_ESTABLECIMIENTO" },
+  ];
+  const grades = [7, 8, 9, 6, 10, 8, 7, 9, 8, 6, 10, null, null];
+  const months = [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, null, null];
+  const years  = [2022, 2022, 2022, 2022, 2023, 2023, 2023, 2023, 2024, 2024, 2024, null, null];
+  // Leve variacion por seed para que distintos alumnos tengan distintos datos
+  return base.map((row, i) => ({
+    ...row,
+    calificacion:    grades[i] !== null ? Math.min(10, Math.max(1, (grades[i] as number) - (i === 0 ? seed : 0))) : null,
+    mesAprobacion:   months[i],
+    anioAprobacion:  years[i],
+  }));
+}
 
 // ============================================
 // MAIN COMPONENT
@@ -244,7 +321,148 @@ export default function StudentsPage() {
   const [reportStudentQuery, setReportStudentQuery] = useState<string>("");
   const [reportMultipleList, setReportMultipleList] = useState<string>("");
   const [reportDataSets, setReportDataSets] = useState<string[]>(["attendance", "grades"]);
+
+  // Multi-Select Combobox: lista de alumnos seleccionados para INDIVIDUAL y MULTIPLE
+  type SelectedStudent = { id: string; firstName: string; lastName: string; legajo: string; division: string };
+  const [reportSelectedStudents, setReportSelectedStudents] = useState<SelectedStudent[]>([]);
+  const [reportComboOpen, setReportComboOpen] = useState(false);
+
+  const toggleReportStudent = useCallback((student: SelectedStudent) => {
+    setReportSelectedStudents(prev =>
+      prev.some(s => s.id === student.id)
+        ? prev.filter(s => s.id !== student.id)
+        : (reportScope === "INDIVIDUAL" ? [student] : [...prev, student])
+    );
+  }, [reportScope]);
+
+  // Resetear seleccion al cambiar de scope
+  const handleReportScopeChange = useCallback((v: string) => {
+    setReportScope(v as ReportScope);
+    setReportSelectedStudents([]);
+    setReportComboOpen(false);
+  }, []);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
+  // ── Certificado Analitico de Pase ─────────────────────────────────────────
+  const [isGeneratingAnalitico, setIsGeneratingAnalitico] = useState(false);
+
+  // Construye el texto plano estructurado del Certificado Analitico de Pase
+  const buildAnaliticoPaseDocument = useCallback((student: { id: string; firstName: string; lastName: string; legajo: string; division: string }) => {
+    const institution = {
+      nombre:    "INSTITUTO EDUCATIVO SEQUENCY",
+      cue:       "070123400",
+      domicilio: "Av. del Libertador 4850, C.A.B.A.",
+      tel:       "(011) 4789-0000",
+    };
+
+    const trajectory = getMockTrajectory(student.id);
+    const fechaEmision = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" });
+
+    // Agrupar por año
+    const porAnio: Record<number, { label: string; materias: MockSubjectRecord[] }> = {};
+    for (const row of trajectory) {
+      if (!porAnio[row.anio]) porAnio[row.anio] = { label: row.anioLabel, materias: [] };
+      porAnio[row.anio].materias.push(row);
+    }
+
+    const SEP  = "═".repeat(80);
+    const SEP2 = "─".repeat(80);
+    const lines: string[] = [];
+
+    // ── CABECERA INSTITUCIONAL ──────────────────────────────────────────────
+    lines.push(SEP);
+    lines.push(center("REPÚBLICA ARGENTINA", 80));
+    lines.push(center("MINISTERIO DE EDUCACIÓN — DIRECCIÓN DE NIVEL MEDIO", 80));
+    lines.push(center("CERTIFICADO ANALÍTICO PARCIAL DE ESTUDIOS — PASE INTERINSTITUCIONAL", 80));
+    lines.push(SEP);
+    lines.push("");
+    lines.push(`  INSTITUCIÓN :  ${institution.nombre}`);
+    lines.push(`  C.U.E.       :  ${institution.cue}       DOMICILIO: ${institution.domicilio}`);
+    lines.push(`  TELÉFONO     :  ${institution.tel}`);
+    lines.push(SEP2);
+
+    // ── DATOS DEL ALUMNO ───────────────────────────────────────────────────
+    lines.push("");
+    lines.push("  DATOS DEL ALUMNO");
+    lines.push(SEP2);
+    lines.push(`  APELLIDO Y NOMBRE  :  ${student.lastName.toUpperCase()}, ${student.firstName.toUpperCase()}`);
+    lines.push(`  LEGAJO             :  ${student.legajo}`);
+    lines.push(`  DIVISIÓN ACTUAL    :  ${student.division.toUpperCase()}`);
+    lines.push(`  FECHA DE EMISIÓN   :  ${fechaEmision.toUpperCase()}`);
+    lines.push("");
+
+    // ── TABLA POR AÑO ──────────────────────────────────────────────────────
+    for (const anioNum of Object.keys(porAnio).map(Number).sort()) {
+      const { label, materias } = porAnio[anioNum];
+      const totalMaterias    = materias.length;
+      const aprobadas        = materias.filter(m => m.calificacion !== null && m.calificacion >= 4).length;
+      const esCompleto       = aprobadas >= totalMaterias ? "COMPLETO" : "INCOMPLETO";
+      const estadoBadge      = esCompleto === "COMPLETO" ? "[COMPLETO]" : "[INCOMPLETO]";
+
+      lines.push(SEP2);
+      lines.push(`  ${label.toUpperCase()}  —  ESTADO: ${estadoBadge}  (${aprobadas}/${totalMaterias} materias aprobadas)`);
+      lines.push(SEP2);
+
+      // Cabecera de la tabla
+      lines.push(
+        "  " +
+        col("ASIGNATURA", 32) +
+        col("CALIF. FINAL (Nros. y Letras)", 30) +
+        col("MES Y AÑO APROBACIÓN", 22) +
+        "ESTABLECIMIENTO"
+      );
+      lines.push("  " + "-".repeat(78));
+
+      for (const m of materias) {
+        const calStr = m.calificacion !== null
+          ? `${m.calificacion} (${numberToSpanish(m.calificacion)})`
+          : "--- (EN CURSO)";
+        const fechaStr = m.mesAprobacion && m.anioAprobacion
+          ? `${MONTH_NAMES[m.mesAprobacion]} ${m.anioAprobacion}`
+          : "---";
+        const establStr = m.establecimiento === "ESTE_ESTABLECIMIENTO"
+          ? "ESTE ESTABLECIMIENTO"
+          : "OTRO ESTABLECIMIENTO";
+        lines.push(
+          "  " +
+          col(m.asignatura, 32) +
+          col(calStr, 30) +
+          col(fechaStr, 22) +
+          establStr
+        );
+      }
+      lines.push("");
+    }
+
+    // ── PIE DE PÁGINA — FIRMAS ─────────────────────────────────────────────
+    lines.push(SEP);
+    lines.push("");
+    lines.push("  ACLARACIÓN: El presente certificado se emite a solicitud del interesado para");
+    lines.push("  tramitar pase a otro establecimiento educativo. Los datos consignados son");
+    lines.push("  fieles al registro institucional a la fecha de emisión.");
+    lines.push("");
+    lines.push(SEP2);
+    lines.push("");
+    lines.push(
+      "  " + col("_".repeat(34), 40) + "_".repeat(34)
+    );
+    lines.push(
+      "  " + col("FIRMA Y SELLO DEL DIRECTOR/A", 40) + "FIRMA Y SELLO DEL SECRETARIO/A"
+    );
+    lines.push("");
+    lines.push(SEP);
+
+    return lines.join("\n");
+  }, []);
+
+  // Helpers de formato tabular para el documento de texto plano
+  function col(text: string, width: number): string {
+    return text.length >= width ? text.substring(0, width - 1) + " " : text + " ".repeat(width - text.length);
+  }
+  function center(text: string, width: number): string {
+    const pad = Math.max(0, Math.floor((width - text.length) / 2));
+    return " ".repeat(pad) + text;
+  }
 
   const toggleDataSet = useCallback((id: string) => {
     setReportDataSets((prev) =>
@@ -353,6 +571,45 @@ export default function StudentsPage() {
     URL.revokeObjectURL(url);
   }, []);
 
+  // Handler exclusivo para el Certificado Analitico de Pase
+  const handleGenerateAnaliticoPase = useCallback(
+    (format: "PDF" | "DOCX") => {
+      if (reportScope !== "INDIVIDUAL" || reportSelectedStudents.length !== 1) {
+        toast.error("El Certificado Analitico de Pase requiere seleccionar exactamente UN alumno.", {
+          description: "Cambia el alcance a 'Alumno Individual' y selecciona un alumno.",
+        });
+        return;
+      }
+      const student = reportSelectedStudents[0];
+      const ext = format === "PDF" ? "pdf" : "docx";
+      const mime = format === "PDF"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+      setIsGeneratingAnalitico(true);
+      const run = new Promise<void>((resolve) => {
+        window.setTimeout(() => {
+          const content = buildAnaliticoPaseDocument(student);
+          const filename = `analitico_pase_${student.lastName.toLowerCase()}_${student.legajo}.${ext}`;
+          triggerDownload(filename, content, mime);
+          resolve();
+        }, 1600);
+      }).finally(() => {
+        setIsGeneratingAnalitico(false);
+      });
+
+      toast.promise(run, {
+        loading: "Compilando Certificado Analitico de Pase...",
+        success: () => {
+          toast.success("Certificado Analitico Incompleto generado y descargado.");
+          return "Descarga iniciada.";
+        },
+        error: "Error al compilar el Certificado Analitico.",
+      });
+    },
+    [reportScope, reportSelectedStudents, buildAnaliticoPaseDocument, triggerDownload]
+  );
+
   const handleDownloadTemplate = useCallback(() => {
     // Cabeceras estandar requeridas para la importacion de matricula (CSV separado por comas)
     const headers = [
@@ -389,9 +646,8 @@ export default function StudentsPage() {
   const reportTargetCount = useCallback(() => {
     switch (reportScope) {
       case "INDIVIDUAL":
-        return 1;
       case "MULTIPLE":
-        return Math.max(students.length, 1);
+        return reportSelectedStudents.length;
       case "CURSO": {
         const div = MOCK_DIVISIONS.find((d) => d.id === reportCourse);
         return div?.studentCount ?? 0;
@@ -417,9 +673,8 @@ export default function StudentsPage() {
   const isReportScopeValid = useMemo(() => {
     switch (reportScope) {
       case "INDIVIDUAL":
-        return reportStudentQuery.trim().length > 0;
       case "MULTIPLE":
-        return reportMultipleCount > 0;
+        return reportSelectedStudents.length > 0;
       case "CURSO":
         return Boolean(reportCourse);
       case "INSTITUCION":
@@ -427,7 +682,7 @@ export default function StudentsPage() {
       default:
         return false;
     }
-  }, [reportScope, reportStudentQuery, reportMultipleCount, reportCourse]);
+  }, [reportScope, reportSelectedStudents.length, reportCourse]);
 
   const handleGenerateReport = useCallback(
     (format: "PDF" | "DOCX") => {
@@ -435,12 +690,12 @@ export default function StudentsPage() {
       if (!isReportScopeValid) {
         const messages: Record<ReportScope, { title: string; description: string }> = {
           INDIVIDUAL: {
-            title: "Busca un alumno",
-            description: "Ingresa el nombre o DNI del alumno a exportar.",
+            title: "Selecciona un alumno",
+            description: "Busca y selecciona el alumno a exportar desde el buscador.",
           },
           MULTIPLE: {
-            title: "Ingresa al menos un alumno",
-            description: "Escribe los DNI o legajos separados por comas.",
+            title: "Selecciona al menos un alumno",
+            description: "Busca y agrega alumnos usando el buscador de la seccion de alcance.",
           },
           CURSO: {
             title: "Selecciona un curso",
@@ -1354,7 +1609,7 @@ startxref
 
                 <RadioGroup
                   value={reportScope}
-                  onValueChange={(v) => setReportScope(v as ReportScope)}
+                  onValueChange={handleReportScopeChange}
                   className="space-y-2"
                 >
                   {[
@@ -1387,41 +1642,158 @@ startxref
                 </RadioGroup>
 
                 {/* Inputs condicionales segun el alcance elegido */}
-                {reportScope === "INDIVIDUAL" && (
+                {(reportScope === "INDIVIDUAL" || reportScope === "MULTIPLE") && (
                   <div
-                    key="scope-individual"
-                    className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
+                    key="scope-combobox"
+                    className="space-y-3 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
                   >
-                    <Label className="text-xs text-white/50">Buscar alumno</Label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/30" />
-                      <Input
-                        value={reportStudentQuery}
-                        onChange={(e) => setReportStudentQuery(e.target.value)}
-                        placeholder="Buscar alumno por nombre o DNI..."
-                        className="bg-black/40 border-white/10 pl-9"
-                      />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-white/50">
+                        {reportScope === "INDIVIDUAL" ? "Seleccionar alumno" : "Seleccionar alumnos"}
+                      </Label>
+                      {reportSelectedStudents.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setReportSelectedStudents([])}
+                          className="text-[11px] text-white/30 hover:text-white/60 transition-colors"
+                        >
+                          Limpiar todo
+                        </button>
+                      )}
                     </div>
-                  </div>
-                )}
 
-                {reportScope === "MULTIPLE" && (
-                  <div
-                    key="scope-multiple"
-                    className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300"
-                  >
-                    <Label className="text-xs text-white/50">Seleccion multiple de alumnos</Label>
-                    <Textarea
-                      value={reportMultipleList}
-                      onChange={(e) => setReportMultipleList(e.target.value)}
-                      placeholder="Ingrese DNI o Legajos separados por comas..."
-                      rows={3}
-                      className="bg-black/40 border-white/10 resize-none"
-                    />
-                    <p className="text-[11px] text-white/40">
-                      {reportMultipleCount} entidad{reportMultipleCount === 1 ? "" : "es"} detectada
-                      {reportMultipleCount === 1 ? "" : "s"}
-                    </p>
+                    {/* Popover + Command */}
+                    <Popover open={reportComboOpen} onOpenChange={setReportComboOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          role="combobox"
+                          aria-expanded={reportComboOpen}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-3 h-10 rounded-lg border text-sm text-left transition-colors",
+                            "bg-black/40 border-white/10 text-white/50",
+                            "hover:border-white/20 hover:text-white/70",
+                            "focus:outline-none focus:border-[#d0bcff]/40 focus:ring-1 focus:ring-[#d0bcff]/20"
+                          )}
+                        >
+                          <Search className="size-4 shrink-0 text-white/30" />
+                          <span className="flex-1 truncate">
+                            Buscar alumno por nombre o legajo...
+                          </span>
+                          <ChevronsUpDown className="size-4 shrink-0 text-white/20" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-[--radix-popover-trigger-width] p-0 bg-[#1c1b23] border-white/10 shadow-2xl"
+                        align="start"
+                        sideOffset={6}
+                      >
+                        <Command className="bg-transparent">
+                          <CommandInput
+                            placeholder="Buscar alumno por nombre o legajo..."
+                            className="border-b border-white/8 text-[#e4e1ea] placeholder:text-white/30 h-10 text-sm"
+                          />
+                          <CommandList className="max-h-56">
+                            <CommandEmpty className="py-6 text-center text-sm text-white/40">
+                              No se encontraron alumnos.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {[...MOCK_STUDENTS, ...MOCK_PRIMARY_STUDENTS].map((s) => {
+                                const isSelected = reportSelectedStudents.some(r => r.id === s.id);
+                                const isDisabledIndividual = reportScope === "INDIVIDUAL" && reportSelectedStudents.length >= 1 && !isSelected;
+                                return (
+                                  <CommandItem
+                                    key={s.id}
+                                    value={`${s.firstName} ${s.lastName} ${s.legajo}`}
+                                    disabled={isDisabledIndividual}
+                                    onSelect={() => {
+                                      if (isDisabledIndividual) return;
+                                      toggleReportStudent({
+                                        id: s.id,
+                                        firstName: s.firstName,
+                                        lastName: s.lastName,
+                                        legajo: s.legajo,
+                                        division: s.currentDivision,
+                                      });
+                                      if (reportScope === "INDIVIDUAL") setReportComboOpen(false);
+                                    }}
+                                    className={cn(
+                                      "flex items-center gap-3 px-3 py-2.5 cursor-pointer text-white/70",
+                                      "hover:bg-white/5 aria-selected:bg-white/5",
+                                      isSelected && "text-[#e4e1ea]",
+                                      isDisabledIndividual && "opacity-30 cursor-not-allowed"
+                                    )}
+                                  >
+                                    {/* Checkbox visual */}
+                                    <span className={cn(
+                                      "shrink-0 size-4 rounded border-2 flex items-center justify-center transition-colors",
+                                      isSelected ? "bg-[#d0bcff] border-[#d0bcff]" : "border-white/25 bg-transparent"
+                                    )}>
+                                      {isSelected && <Check className="size-2.5 text-[#131319]" strokeWidth={3} />}
+                                    </span>
+
+                                    {/* Avatar inicial */}
+                                    <span className="size-7 rounded-full bg-[#d0bcff]/10 flex items-center justify-center text-[10px] font-bold text-[#d0bcff] shrink-0">
+                                      {s.firstName[0]}{s.lastName[0]}
+                                    </span>
+
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium leading-tight truncate">
+                                        {s.lastName}, {s.firstName}
+                                      </p>
+                                      <p className="text-[11px] text-white/35 mt-0.5">
+                                        {s.legajo} · {s.currentCourse}
+                                      </p>
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* Tags de alumnos seleccionados */}
+                    {reportSelectedStudents.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-white/8 bg-white/[0.02] min-h-[48px]">
+                        {reportSelectedStudents.map(s => (
+                          <Badge
+                            key={s.id}
+                            variant="secondary"
+                            className="flex items-center gap-1.5 pl-2 pr-1 py-1 h-auto bg-[#d0bcff]/12 border border-[#d0bcff]/25 text-[#d0bcff] hover:bg-[#d0bcff]/18 transition-colors rounded-lg text-xs font-medium"
+                          >
+                            <span className="size-4 rounded-full bg-[#d0bcff]/20 flex items-center justify-center text-[9px] font-bold shrink-0">
+                              {s.firstName[0]}{s.lastName[0]}
+                            </span>
+                            <span>{s.lastName}, {s.firstName}</span>
+                            <span className="text-white/30 text-[10px]">{s.legajo}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleReportStudent(s)}
+                              className="ml-0.5 rounded-sm hover:bg-[#d0bcff]/20 p-0.5 transition-colors"
+                              aria-label={`Quitar ${s.firstName} ${s.lastName}`}
+                            >
+                              <X className="size-3 text-[#d0bcff]/70" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-white/10 text-white/25 text-xs min-h-[48px]">
+                        <UserRound className="size-4 opacity-50" />
+                        {reportScope === "INDIVIDUAL"
+                          ? "Ningún alumno seleccionado"
+                          : "Ningún alumno seleccionado · puedes agregar varios"}
+                      </div>
+                    )}
+
+                    {/* Contador */}
+                    {reportSelectedStudents.length > 0 && (
+                      <p className="text-[11px] text-white/40 text-right">
+                        {reportSelectedStudents.length} alumno{reportSelectedStudents.length !== 1 ? "s" : ""} seleccionado{reportSelectedStudents.length !== 1 ? "s" : ""}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1473,7 +1845,7 @@ startxref
                 </div>
 
                 <div className="space-y-2">
-                  {REPORT_DATA_SETS.map((ds) => {
+                  {REPORT_DATA_SETS.filter(ds => !ds.isLegal).map((ds) => {
                     const Icon = ds.icon;
                     const checked = reportDataSets.includes(ds.id);
                     return (
@@ -1506,6 +1878,64 @@ startxref
                     );
                   })}
                 </div>
+
+                {/* Separador legal */}
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="flex-1 h-px bg-[#d0bcff]/15" />
+                  <span className="text-[10px] font-semibold text-[#d0bcff]/50 uppercase tracking-widest">
+                    Documentos Legales Ministeriales
+                  </span>
+                  <div className="flex-1 h-px bg-[#d0bcff]/15" />
+                </div>
+
+                {/* Checkbox destacado — Certificado Analitico de Pase */}
+                {(() => {
+                  const ds = REPORT_DATA_SETS.find(d => d.id === "analitico_pase")!;
+                  const checked = reportDataSets.includes(ds.id);
+                  const Icon = ds.icon;
+                  return (
+                    <Label
+                      htmlFor="ds-analitico_pase"
+                      className={cn(
+                        "flex items-start gap-3 rounded-xl border-2 p-3.5 cursor-pointer transition-all relative overflow-hidden",
+                        checked
+                          ? "border-[#d0bcff]/40 bg-[#d0bcff]/[0.07]"
+                          : "border-[#d0bcff]/15 bg-[#d0bcff]/[0.02] hover:border-[#d0bcff]/25 hover:bg-[#d0bcff]/[0.04]"
+                      )}
+                    >
+                      {/* Glow strip izquierdo */}
+                      <div className={cn(
+                        "absolute left-0 top-0 bottom-0 w-0.5 rounded-l transition-colors",
+                        checked ? "bg-[#d0bcff]" : "bg-[#d0bcff]/30"
+                      )} />
+                      <Checkbox
+                        id="ds-analitico_pase"
+                        checked={checked}
+                        onCheckedChange={() => toggleDataSet(ds.id)}
+                        className="mt-0.5 border-[#d0bcff]/40 data-[state=checked]:bg-[#d0bcff] data-[state=checked]:text-[#0e0e16]"
+                      />
+                      <div className="flex items-start gap-2.5 flex-1">
+                        <Icon className={cn("size-4 mt-0.5 shrink-0", checked ? "text-[#d0bcff]" : "text-[#d0bcff]/40")} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={cn("text-sm font-semibold", checked ? "text-[#d0bcff]" : "text-[#d0bcff]/70")}>
+                              {ds.label}
+                            </p>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide bg-[#d0bcff]/15 text-[#d0bcff]/80 border border-[#d0bcff]/25 uppercase">
+                              Ministerial
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-white/40 mt-0.5">{ds.description}</p>
+                          {checked && (
+                            <p className="text-[10px] text-[#d0bcff]/60 mt-1.5 leading-relaxed">
+                              Requiere alcance <span className="font-semibold">Alumno Individual</span>. Genera tabla agrupada por año con estado COMPLETO / INCOMPLETO segun el Ministerio.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Label>
+                  );
+                })()}
 
                 <div className="flex items-center gap-2 text-[11px] text-white/40 pt-1">
                   <ListChecks className="size-3.5" />
@@ -1572,6 +2002,53 @@ startxref
                     <ChevronRight className="size-4 ml-auto opacity-50" />
                   </Button>
                 </div>
+
+                {/* Botones exclusivos del Certificado Analitico de Pase */}
+                {reportDataSets.includes("analitico_pase") && (
+                  <div className="space-y-2 pt-1 border-t border-[#d0bcff]/10">
+                    <p className="text-[10px] font-semibold text-[#d0bcff]/60 uppercase tracking-widest pt-1">
+                      Certificado Analitico de Pase
+                    </p>
+                    <Button
+                      onClick={() => handleGenerateAnaliticoPase("PDF")}
+                      disabled={isGeneratingAnalitico || reportScope !== "INDIVIDUAL" || reportSelectedStudents.length !== 1}
+                      className="w-full h-14 bg-[#d0bcff]/10 hover:bg-[#d0bcff]/18 border-2 border-[#d0bcff]/30 text-[#d0bcff] justify-start gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingAnalitico ? (
+                        <Spinner className="size-5" />
+                      ) : (
+                        <ScrollText className="size-5" />
+                      )}
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold text-sm">Generar Certificado Analitico (PDF)</span>
+                        <span className="text-[11px] opacity-70">Documento ministerial con tabla por año — COMPLETO / INCOMPLETO</span>
+                      </div>
+                      <ChevronRight className="size-4 ml-auto opacity-50" />
+                    </Button>
+                    <Button
+                      onClick={() => handleGenerateAnaliticoPase("DOCX")}
+                      disabled={isGeneratingAnalitico || reportScope !== "INDIVIDUAL" || reportSelectedStudents.length !== 1}
+                      className="w-full h-14 bg-[#d0bcff]/5 hover:bg-[#d0bcff]/12 border border-[#d0bcff]/20 text-[#d0bcff]/80 justify-start gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingAnalitico ? (
+                        <Spinner className="size-5" />
+                      ) : (
+                        <FileText className="size-5" />
+                      )}
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold text-sm">Generar Certificado Analitico (DOCX)</span>
+                        <span className="text-[11px] opacity-70">Version editable para revision del equipo directivo</span>
+                      </div>
+                      <ChevronRight className="size-4 ml-auto opacity-50" />
+                    </Button>
+                    {(reportScope !== "INDIVIDUAL" || reportSelectedStudents.length !== 1) && (
+                      <p className="text-[10px] text-[#ffb4ab]/70 flex items-center gap-1.5">
+                        <AlertCircle className="size-3 shrink-0" />
+                        Selecciona exactamente un alumno en alcance Individual para habilitar este documento.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <p className="text-[11px] text-white/30 text-center leading-relaxed">
                   El motor recopilara los datos seleccionados y compilara el documento de forma asincronica.

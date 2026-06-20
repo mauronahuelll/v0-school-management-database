@@ -7,7 +7,10 @@ import { createContext, useContext, useState, useCallback, useMemo, type ReactNo
 // ============================================
 
 export type GradingScaleType = "NUMERIC" | "ALPHABETIC" | "CONCEPTUAL"
-export type AcademicPeriodType = "TRIMESTRAL" | "CUATRIMESTRAL" | "BIMESTRAL"
+export type AcademicPeriodType = "TRIMESTRAL" | "CUATRIMESTRAL" | "BIMESTRAL" | "SEMESTRAL"
+
+// Alias requerido por el cliente — mapea 1:1 con AcademicPeriodType
+export type AcademicPeriodLayout = AcademicPeriodType
 
 export interface AcademicPeriodConfig {
   type: AcademicPeriodType
@@ -57,6 +60,8 @@ export interface SchoolSettings {
   currentPeriod: string
   periodsPerYear: number
   academicPeriodConfig: AcademicPeriodConfig
+  // Layout del ciclo lectivo — derivado de academicPeriodConfig.type para acceso directo
+  academicPeriodLayout: AcademicPeriodLayout
 
   // Attendance policy
   maxAbsences: number
@@ -71,6 +76,7 @@ interface SchoolSettingsContextType {
   updateAcademicYear: (year: number) => void
   updateCurrentPeriod: (period: string) => void
   updateAcademicPeriodConfig: (config: AcademicPeriodConfig) => void
+  updateAcademicPeriodLayout: (layout: AcademicPeriodLayout) => void
   updateMaxAbsences: (max: number) => void
   updateRolePermission: (roleId: string, permissions: Partial<RolePermission>) => void
   resetToDefaults: () => void
@@ -143,11 +149,20 @@ const DEFAULT_BIMESTRAL_CONFIG: AcademicPeriodConfig = {
   ],
 }
 
-export const ACADEMIC_PERIOD_PRESETS = {
+const DEFAULT_SEMESTRAL_CONFIG: AcademicPeriodConfig = {
+  type: "SEMESTRAL",
+  periods: [
+    { id: "1S", name: "1° Semestre", shortName: "1S", startDate: "2026-03-02", endDate: "2026-07-10" },
+    { id: "2S", name: "2° Semestre", shortName: "2S", startDate: "2026-07-27", endDate: "2026-12-11" },
+  ],
+}
+
+export const ACADEMIC_PERIOD_PRESETS: Record<AcademicPeriodType, AcademicPeriodConfig> = {
   TRIMESTRAL: DEFAULT_TRIMESTRAL_CONFIG,
   CUATRIMESTRAL: DEFAULT_CUATRIMESTRAL_CONFIG,
   BIMESTRAL: DEFAULT_BIMESTRAL_CONFIG,
-} as const
+  SEMESTRAL: DEFAULT_SEMESTRAL_CONFIG,
+}
 
 const DEFAULT_ROLE_PERMISSIONS: RolePermission[] = [
   {
@@ -212,6 +227,7 @@ const DEFAULT_SETTINGS: SchoolSettings = {
   currentPeriod: "1T",
   periodsPerYear: 3,
   academicPeriodConfig: DEFAULT_TRIMESTRAL_CONFIG,
+  academicPeriodLayout: "TRIMESTRAL",
   maxAbsences: 20,
   rolePermissions: DEFAULT_ROLE_PERMISSIONS,
 }
@@ -266,8 +282,20 @@ export function SchoolSettingsProvider({
     setSettings(prev => ({
       ...prev,
       academicPeriodConfig: config,
+      academicPeriodLayout: config.type,
       periodsPerYear: config.periods.length,
       currentPeriod: config.periods[0]?.id || "1T",
+    }))
+  }, [])
+
+  const updateAcademicPeriodLayout = useCallback((layout: AcademicPeriodLayout) => {
+    const preset = ACADEMIC_PERIOD_PRESETS[layout]
+    setSettings(prev => ({
+      ...prev,
+      academicPeriodLayout: layout,
+      academicPeriodConfig: preset,
+      periodsPerYear: preset.periods.length,
+      currentPeriod: preset.periods[0]?.id || "1T",
     }))
   }, [])
 
@@ -305,6 +333,7 @@ export function SchoolSettingsProvider({
     updateAcademicYear,
     updateCurrentPeriod,
     updateAcademicPeriodConfig,
+    updateAcademicPeriodLayout,
     updateMaxAbsences,
     updateRolePermission,
     resetToDefaults,
@@ -316,6 +345,7 @@ export function SchoolSettingsProvider({
     updateAcademicYear,
     updateCurrentPeriod,
     updateAcademicPeriodConfig,
+    updateAcademicPeriodLayout,
     updateMaxAbsences,
     updateRolePermission,
     resetToDefaults,

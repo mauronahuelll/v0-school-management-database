@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   GraduationCap,
   CheckCircle2,
@@ -18,6 +18,10 @@ import {
   ArrowUpRight,
   Shield,
   AlertTriangle,
+  PlusCircle,
+  Building2,
+  Landmark,
+  GitMerge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/context/auth-context";
 
@@ -72,12 +77,77 @@ interface AcademicYearRecord {
   }[];
 }
 
+// Registro de calificacion historica cargada por equivalencia o pase
+export interface TransferCredit {
+  id: string;
+  subjectName: string;
+  academicYear: number;          // 1–6
+  academicYearLabel: string;     // "1er Año", etc.
+  finalGrade: number;
+  approvalMonth: number;         // 1–12
+  approvalYear: number;          // ej: 2023
+  establishment: "ESTE_ESTABLECIMIENTO" | "OTRO_ESTABLECIMIENTO";
+  loadedAt: string;              // fecha en que el admin la cargo
+}
+
 interface StudentTrayectoriaProps {
   studentId?: string;
   studentName: string;
   currentGrade?: string;
   initialSubjects?: PendingSubject[];
 }
+
+// ============================================
+// CATALOGS
+// ============================================
+
+const SUBJECTS_CATALOG = [
+  "Matemática", "Lengua y Literatura", "Historia", "Geografía",
+  "Biología", "Física", "Química", "Inglés", "Educación Física",
+  "Formación Ética y Ciudadana", "Tecnología", "Artes Visuales",
+  "Música", "Filosofía", "Economía", "Sociología",
+];
+
+const MONTHS: { value: number; label: string }[] = [
+  { value: 1,  label: "Enero"      }, { value: 2,  label: "Febrero"   },
+  { value: 3,  label: "Marzo"      }, { value: 4,  label: "Abril"     },
+  { value: 5,  label: "Mayo"       }, { value: 6,  label: "Junio"     },
+  { value: 7,  label: "Julio"      }, { value: 8,  label: "Agosto"    },
+  { value: 9,  label: "Septiembre" }, { value: 10, label: "Octubre"   },
+  { value: 11, label: "Noviembre"  }, { value: 12, label: "Diciembre" },
+];
+
+const ACADEMIC_YEAR_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: "1er Año" }, { value: 2, label: "2do Año" },
+  { value: 3, label: "3er Año" }, { value: 4, label: "4to Año" },
+  { value: 5, label: "5to Año" }, { value: 6, label: "6to Año" },
+];
+
+// Datos iniciales de equivalencias para demostración
+const MOCK_TRANSFER_CREDITS: TransferCredit[] = [
+  {
+    id: "tc-1",
+    subjectName: "Inglés",
+    academicYear: 2,
+    academicYearLabel: "2do Año",
+    finalGrade: 9,
+    approvalMonth: 12,
+    approvalYear: 2022,
+    establishment: "OTRO_ESTABLECIMIENTO",
+    loadedAt: "15/03/2024",
+  },
+  {
+    id: "tc-2",
+    subjectName: "Educación Física",
+    academicYear: 3,
+    academicYearLabel: "3er Año",
+    finalGrade: 8,
+    approvalMonth: 11,
+    approvalYear: 2023,
+    establishment: "OTRO_ESTABLECIMIENTO",
+    loadedAt: "15/03/2024",
+  },
+];
 
 // ============================================
 // MOCK DATA
@@ -205,6 +275,68 @@ export function StudentTrayectoria({
   const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
   const [promotionTarget, setPromotionTarget] = useState("");
   const [isPromoting, setIsPromoting] = useState(false);
+
+  // Equivalencias / Pases — Transfer Credits
+  const [transferCredits, setTransferCredits] = useState<TransferCredit[]>(MOCK_TRANSFER_CREDITS);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isSavingTransfer, setIsSavingTransfer] = useState(false);
+  const CURRENT_YEAR = new Date().getFullYear();
+  const YEAR_OPTIONS = Array.from({ length: 12 }, (_, i) => CURRENT_YEAR - i);
+  const [transferForm, setTransferForm] = useState({
+    subjectName: "",
+    academicYear: "",
+    finalGrade: "",
+    approvalMonth: "",
+    approvalYear: "",
+    establishment: "OTRO_ESTABLECIMIENTO" as TransferCredit["establishment"],
+  });
+
+  const resetTransferForm = useCallback(() => {
+    setTransferForm({
+      subjectName: "",
+      academicYear: "",
+      finalGrade: "",
+      approvalMonth: "",
+      approvalYear: "",
+      establishment: "OTRO_ESTABLECIMIENTO",
+    });
+  }, []);
+
+  const handleSaveTransfer = useCallback(async () => {
+    const { subjectName, academicYear, finalGrade, approvalMonth, approvalYear } = transferForm;
+    if (!subjectName || !academicYear || !finalGrade || !approvalMonth || !approvalYear) {
+      toast.error("Completá todos los campos antes de guardar.");
+      return;
+    }
+    const grade = parseFloat(finalGrade);
+    if (isNaN(grade) || grade < 1 || grade > 10) {
+      toast.error("La calificación debe estar entre 1 y 10.");
+      return;
+    }
+    setIsSavingTransfer(true);
+    await new Promise((r) => setTimeout(r, 900));
+    const yearNum = parseInt(academicYear, 10);
+    const yearLabel = ACADEMIC_YEAR_OPTIONS.find(y => y.value === yearNum)?.label ?? `${yearNum}° Año`;
+    const monthLabel = MONTHS.find(m => m.value === parseInt(approvalMonth, 10))?.label ?? "";
+    const newCredit: TransferCredit = {
+      id: `tc-${Date.now()}`,
+      subjectName,
+      academicYear: yearNum,
+      academicYearLabel: yearLabel,
+      finalGrade: grade,
+      approvalMonth: parseInt(approvalMonth, 10),
+      approvalYear: parseInt(approvalYear, 10),
+      establishment: transferForm.establishment,
+      loadedAt: new Date().toLocaleDateString("es-AR"),
+    };
+    setTransferCredits((prev) => [newCredit, ...prev]);
+    setIsSavingTransfer(false);
+    setIsTransferModalOpen(false);
+    resetTransferForm();
+    toast.success("Materia aprobada por equivalencia registrada.", {
+      description: `${subjectName} — ${monthLabel} ${approvalYear}`,
+    });
+  }, [transferForm, resetTransferForm]);
 
   // Mount and role detection
   useEffect(() => {
@@ -353,13 +485,23 @@ export function StudentTrayectoria({
         </div>
 
         {isAdmin && (
-          <Button
-            onClick={() => setIsPromotionDialogOpen(true)}
-            className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
-          >
-            <ArrowUpRight className="size-4 mr-2" />
-            Realizar Promocion
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Button
+              onClick={() => setIsTransferModalOpen(true)}
+              variant="outline"
+              className="border-[#d0bcff]/30 text-[#d0bcff] hover:bg-[#d0bcff]/10 hover:border-[#d0bcff]/50 bg-[#d0bcff]/5"
+            >
+              <GitMerge className="size-4 mr-2" />
+              Cargar Equivalencia / Pase
+            </Button>
+            <Button
+              onClick={() => setIsPromotionDialogOpen(true)}
+              className="bg-[#d0bcff] text-[#1a1a2e] hover:bg-[#d0bcff]/90"
+            >
+              <ArrowUpRight className="size-4 mr-2" />
+              Realizar Promocion
+            </Button>
+          </div>
         )}
       </div>
 
@@ -591,6 +733,138 @@ export function StudentTrayectoria({
         </div>
       </div>
 
+      {/* Historial Consolidado de Equivalencias y Pases */}
+      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-md">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <h3 className="text-sm font-semibold text-[#e4e1ea] flex items-center gap-2">
+            <GitMerge className="size-4 text-[#d0bcff]" />
+            Historial Consolidado — Equivalencias y Pases
+          </h3>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/25"
+            >
+              {transferCredits.length} registro{transferCredits.length !== 1 ? "s" : ""}
+            </Badge>
+            {isAdmin && (
+              <Button
+                size="sm"
+                onClick={() => setIsTransferModalOpen(true)}
+                className="h-7 px-2.5 text-xs bg-[#d0bcff]/10 border border-[#d0bcff]/25 text-[#d0bcff] hover:bg-[#d0bcff]/20"
+              >
+                <PlusCircle className="size-3 mr-1.5" />
+                Agregar
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {transferCredits.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+            <div className="w-12 h-12 rounded-xl bg-[#d0bcff]/8 border border-[#d0bcff]/15 flex items-center justify-center">
+              <GitMerge className="size-5 text-[#d0bcff]/40" />
+            </div>
+            <p className="text-sm text-white/35">Sin equivalencias o pases registrados.</p>
+            {isAdmin && (
+              <p className="text-xs text-white/25">
+                Usá el botón "Cargar Equivalencia / Pase" para agregar calificaciones históricas.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-white/5">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.02]">
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                    Asignatura
+                  </th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                    Año Académico
+                  </th>
+                  <th className="px-4 py-3 text-center text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                    Nota Final
+                  </th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                    Aprobación
+                  </th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                    Establecimiento
+                  </th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider hidden sm:table-cell">
+                    Cargado
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {transferCredits.map((credit) => {
+                  const monthLabel = MONTHS.find(m => m.value === credit.approvalMonth)?.label ?? "";
+                  const isExternalEstab = credit.establishment === "OTRO_ESTABLECIMIENTO";
+                  const gradeColor =
+                    credit.finalGrade >= 7
+                      ? "text-[#4de082]"
+                      : credit.finalGrade >= 4
+                      ? "text-[#ffb93d]"
+                      : "text-[#ffb4ab]";
+                  return (
+                    <tr
+                      key={credit.id}
+                      className="hover:bg-white/[0.02] transition-colors group"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="size-7 rounded-lg bg-[#d0bcff]/8 border border-[#d0bcff]/15 flex items-center justify-center shrink-0">
+                            <BookOpen className="size-3.5 text-[#d0bcff]/60" />
+                          </div>
+                          <span className="font-medium text-[#e4e1ea]">{credit.subjectName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-mono bg-[#d0bcff]/8 text-[#d0bcff]/80 border-[#d0bcff]/20"
+                        >
+                          {credit.academicYearLabel}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={cn("text-lg font-bold", gradeColor)}>
+                          {credit.finalGrade}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-white/60">
+                        {monthLabel} {credit.approvalYear}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          {isExternalEstab ? (
+                            <Building2 className="size-3.5 text-[#ffb93d]/70 shrink-0" />
+                          ) : (
+                            <Landmark className="size-3.5 text-[#4de082]/70 shrink-0" />
+                          )}
+                          <span
+                            className={cn(
+                              "text-xs",
+                              isExternalEstab ? "text-[#ffb93d]/80" : "text-[#4de082]/80"
+                            )}
+                          >
+                            {isExternalEstab ? "Otro establecimiento" : "Este establecimiento"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-white/30 font-mono hidden sm:table-cell">
+                        {credit.loadedAt}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Update Status Modal */}
       <Dialog open={isUpdateModalOpen} onOpenChange={setIsUpdateModalOpen}>
         <DialogContent className="bg-[#131319] border-white/10 max-w-md">
@@ -670,6 +944,217 @@ export function StudentTrayectoria({
                 </>
               ) : (
                 "Guardar Cambios"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Cargar Materia por Equivalencia / Pase — solo ADMIN */}
+      <Dialog
+        open={isTransferModalOpen}
+        onOpenChange={(o) => { if (!o) resetTransferForm(); setIsTransferModalOpen(o); }}
+      >
+        <DialogContent className="bg-[#0e0e16] border-white/10 max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2 text-lg">
+              <GitMerge className="size-5 text-[#d0bcff]" />
+              Cargar Materia Aprobada por Equivalencia / Pase
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Registrá calificaciones históricas de otro establecimiento o de este mismo colegio.
+              Quedarán en el Historial Consolidado del alumno.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+
+            {/* Alerta */}
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+              <Shield className="size-4 text-[#d0bcff] shrink-0 mt-0.5" />
+              <p className="text-[11px] text-[#d0bcff]/70 leading-relaxed">
+                Esta carga queda registrada en el legajo del alumno y es visible para la familia.
+                Solo los administradores pueden editarla o eliminarla.
+              </p>
+            </div>
+
+            {/* Establecimiento de Origen — RadioGroup */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-white/70">
+                Establecimiento de Origen
+              </Label>
+              <RadioGroup
+                value={transferForm.establishment}
+                onValueChange={(v) =>
+                  setTransferForm((p) => ({ ...p, establishment: v as TransferCredit["establishment"] }))
+                }
+                className="grid grid-cols-2 gap-2"
+              >
+                {[
+                  { value: "OTRO_ESTABLECIMIENTO",  label: "Otro Establecimiento",  icon: Building2,  desc: "Pase externo / Colegio de origen" },
+                  { value: "ESTE_ESTABLECIMIENTO",  label: "Este Establecimiento",   icon: Landmark,   desc: "Equivalencia interna del colegio" },
+                ].map(({ value, label, icon: Icon, desc }) => {
+                  const isSelected = transferForm.establishment === value;
+                  return (
+                    <label
+                      key={value}
+                      htmlFor={`estab-${value}`}
+                      className={cn(
+                        "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                        isSelected
+                          ? "bg-[#d0bcff]/10 border-[#d0bcff]/40"
+                          : "bg-white/[0.02] border-white/8 hover:border-white/15"
+                      )}
+                    >
+                      <RadioGroupItem
+                        value={value}
+                        id={`estab-${value}`}
+                        className="mt-0.5 border-white/30 text-[#d0bcff]"
+                      />
+                      <div>
+                        <div className={cn("flex items-center gap-1.5 text-sm font-semibold", isSelected ? "text-[#d0bcff]" : "text-white/60")}>
+                          <Icon className="size-3.5 shrink-0" />
+                          {label}
+                        </div>
+                        <p className="text-[10px] text-white/35 mt-0.5">{desc}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+
+            {/* Asignatura */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Asignatura</Label>
+              <Select
+                value={transferForm.subjectName}
+                onValueChange={(v) => setTransferForm((p) => ({ ...p, subjectName: v }))}
+              >
+                <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                  <SelectValue placeholder="Seleccionar asignatura..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#131319] border-white/10 max-h-52">
+                  {SUBJECTS_CATALOG.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Año Académico correspondiente */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Año Académico correspondiente</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {ACADEMIC_YEAR_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTransferForm((p) => ({ ...p, academicYear: String(value) }))}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-2.5 rounded-xl border text-sm font-semibold transition-all",
+                      transferForm.academicYear === String(value)
+                        ? "bg-[#d0bcff]/15 border-[#d0bcff]/40 text-[#d0bcff]"
+                        : "bg-white/[0.02] border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                    )}
+                  >
+                    <span className="text-base font-bold leading-none">{value}°</span>
+                    <span className="text-[10px] font-normal mt-0.5 opacity-70">Año</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Calificación Final */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60">Calificación Final</Label>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                step={0.5}
+                placeholder="Ej: 8"
+                value={transferForm.finalGrade}
+                onChange={(e) => setTransferForm((p) => ({ ...p, finalGrade: e.target.value }))}
+                className="bg-white/[0.02] border-white/10 h-11"
+              />
+              <p className="text-[10px] text-white/30 pl-1">Rango 1–10. Se almacena tal como se ingresa.</p>
+            </div>
+
+            {/* Mes y Año de Aprobación — dos columnas */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Mes de Aprobación</Label>
+                <Select
+                  value={transferForm.approvalMonth}
+                  onValueChange={(v) => setTransferForm((p) => ({ ...p, approvalMonth: v }))}
+                >
+                  <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                    <SelectValue placeholder="Mes..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#131319] border-white/10 max-h-52">
+                    {MONTHS.map(({ value, label }) => (
+                      <SelectItem key={value} value={String(value)}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-white/60">Año de Aprobación</Label>
+                <Select
+                  value={transferForm.approvalYear}
+                  onValueChange={(v) => setTransferForm((p) => ({ ...p, approvalYear: v }))}
+                >
+                  <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                    <SelectValue placeholder="Año..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#131319] border-white/10 max-h-52">
+                    {YEAR_OPTIONS.map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Preview del registro */}
+            {transferForm.subjectName && transferForm.academicYear && transferForm.finalGrade && transferForm.approvalMonth && transferForm.approvalYear && (
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#4de082]/5 border border-[#4de082]/15">
+                <CheckCircle2 className="size-4 text-[#4de082] shrink-0 mt-0.5" />
+                <p className="text-[11px] text-[#4de082]/80 leading-relaxed">
+                  <span className="font-semibold">{transferForm.subjectName}</span> —{" "}
+                  {ACADEMIC_YEAR_OPTIONS.find(y => y.value === parseInt(transferForm.academicYear))?.label} —{" "}
+                  Nota <span className="font-bold">{transferForm.finalGrade}</span> —{" "}
+                  {MONTHS.find(m => m.value === parseInt(transferForm.approvalMonth))?.label} {transferForm.approvalYear}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => { resetTransferForm(); setIsTransferModalOpen(false); }}
+              disabled={isSavingTransfer}
+              className="text-white/60 hover:text-white hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveTransfer}
+              disabled={isSavingTransfer}
+              className="bg-[#d0bcff] text-[#0e0e16] hover:bg-[#d0bcff]/90 font-semibold"
+            >
+              {isSavingTransfer ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <GitMerge className="size-4 mr-2" />
+                  Registrar Equivalencia
+                </>
               )}
             </Button>
           </DialogFooter>

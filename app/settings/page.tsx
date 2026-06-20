@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   ShieldAlert, 
   Settings, 
@@ -35,9 +35,26 @@ import {
   Mail,
   Heart,
   Send,
+  BookOpen,
+  ChevronDown,
+  Search,
+  UserCog,
+  Type,
+  AlignLeft,
+  Hash,
+  ToggleLeft,
+  Info,
+  AlertCircle,
+  Check,
+  LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "@/lib/context/auth-context";
-import { useSchoolSettings } from "@/lib/context/school-settings-context";
+import {
+  useSchoolSettings,
+  ACADEMIC_PERIOD_PRESETS,
+  type AcademicPeriodLayout,
+} from "@/lib/context/school-settings-context";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -54,6 +71,14 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  useStaffFields,
+  type StaffField,
+  type StaffFieldType,
+  STAFF_FIELD_TYPE_LABELS,
+} from "@/lib/context/staff-fields-context";
 
 // ============================================================================
 // TYPES
@@ -206,6 +231,780 @@ const FIELD_TYPE_LABELS: Record<EnrollmentFieldType, string> = {
   EMAIL: "Email",
   SELECCION: "Seleccion",
 };
+
+// ============================================================================
+// PLAN DE ESTUDIOS — TYPES & DATA
+// ============================================================================
+
+type SubjectType = "CURRICULAR" | "EXTRACURRICULAR";
+
+// Ordinal en español para los años académicos (con ñ correcta)
+const YEAR_ORDINALS: Record<number, string> = {
+  1: "1er Año", 2: "2do Año", 3: "3er Año",
+  4: "4to Año", 5: "5to Año", 6: "6to Año",
+};
+
+interface Subject {
+  id: string;
+  name: string;
+  type: SubjectType;
+  academicYear: number; // 1–6 — OBLIGATORIO para Certificados Analiticos
+  courses: string[];    // divisiones donde se dicta (filtradas al año)
+}
+
+const AVAILABLE_COURSES = [
+  { id: "1A", label: "1° A", year: 1, division: "A" },
+  { id: "1B", label: "1° B", year: 1, division: "B" },
+  { id: "1C", label: "1° C", year: 1, division: "C" },
+  { id: "2A", label: "2° A", year: 2, division: "A" },
+  { id: "2B", label: "2° B", year: 2, division: "B" },
+  { id: "3A", label: "3° A", year: 3, division: "A" },
+  { id: "3B", label: "3° B", year: 3, division: "B" },
+  { id: "4A", label: "4° A", year: 4, division: "A" },
+  { id: "4B", label: "4° B", year: 4, division: "B" },
+  { id: "5A", label: "5° A", year: 5, division: "A" },
+  { id: "5B", label: "5° B", year: 5, division: "B" },
+  { id: "6A", label: "6° A", year: 6, division: "A" },
+  { id: "6B", label: "6° B", year: 6, division: "B" },
+];
+
+// ── Estructura Académica (Años + Divisiones dinámicas) ───────────────────────
+interface AcademicYear {
+  id: string;         // "year_1", "year_2", ...
+  year: number;       // 1–N
+  label: string;      // "1er Año", "2do Año", etc.
+  divisions: string[]; // ["A", "B", "C"] — editable
+}
+
+const INITIAL_ACADEMIC_STRUCTURE: AcademicYear[] = [
+  { id: "year_1", year: 1, label: "1er Año",  divisions: ["A", "B", "C"] },
+  { id: "year_2", year: 2, label: "2do Año",  divisions: ["A", "B"] },
+  { id: "year_3", year: 3, label: "3er Año",  divisions: ["A", "B"] },
+  { id: "year_4", year: 4, label: "4to Año",  divisions: ["A", "B"] },
+  { id: "year_5", year: 5, label: "5to Año",  divisions: ["A", "B"] },
+  { id: "year_6", year: 6, label: "6to Año",  divisions: ["A", "B"] },
+];
+
+const INITIAL_SUBJECTS: Subject[] = [
+  { id: "sub_1",  name: "Matematica",                 type: "CURRICULAR",      academicYear: 1, courses: ["1A","1B","1C"] },
+  { id: "sub_2",  name: "Matematica",                 type: "CURRICULAR",      academicYear: 2, courses: ["2A","2B"] },
+  { id: "sub_3",  name: "Matematica",                 type: "CURRICULAR",      academicYear: 3, courses: ["3A","3B"] },
+  { id: "sub_4",  name: "Lengua y Literatura",         type: "CURRICULAR",      academicYear: 1, courses: ["1A","1B","1C"] },
+  { id: "sub_5",  name: "Lengua y Literatura",         type: "CURRICULAR",      academicYear: 2, courses: ["2A","2B"] },
+  { id: "sub_6",  name: "Historia",                   type: "CURRICULAR",      academicYear: 3, courses: ["3A","3B"] },
+  { id: "sub_7",  name: "Geografia",                  type: "CURRICULAR",      academicYear: 2, courses: ["2A","2B"] },
+  { id: "sub_8",  name: "Biologia",                   type: "CURRICULAR",      academicYear: 4, courses: ["4A","4B"] },
+  { id: "sub_9",  name: "Fisica",                     type: "CURRICULAR",      academicYear: 5, courses: ["5A","5B"] },
+  { id: "sub_10", name: "Quimica",                    type: "CURRICULAR",      academicYear: 5, courses: ["5A","5B"] },
+  { id: "sub_11", name: "Educacion Fisica",            type: "CURRICULAR",      academicYear: 1, courses: ["1A","1B","1C"] },
+  { id: "sub_12", name: "Ingles",                     type: "CURRICULAR",      academicYear: 1, courses: ["1A","1B","1C"] },
+  { id: "sub_13", name: "Formacion Etica y Ciudadana", type: "CURRICULAR",      academicYear: 1, courses: ["1A","1B","1C"] },
+  { id: "sub_14", name: "Taller de Teatro",            type: "EXTRACURRICULAR", academicYear: 3, courses: ["3A","3B"] },
+  { id: "sub_15", name: "Robotica e IA",               type: "EXTRACURRICULAR", academicYear: 5, courses: ["5A","5B"] },
+];
+
+// ============================================================================
+// SUBJECT MODAL (Create / Edit)
+// ============================================================================
+
+// ============================================================================
+// DIVISIONS MODAL — Gestor de divisiones (Tag Input) por Año Académico
+// ============================================================================
+
+interface DivisionsModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  year: AcademicYear | null;
+  onSave: (yearId: string, divisions: string[]) => void;
+}
+
+function DivisionsModal({ open, onOpenChange, year, onSave }: DivisionsModalProps) {
+  const [tags, setTags] = useState<string[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && year) {
+      setTags([...year.divisions]);
+      setInputValue("");
+    }
+  }, [open, year]);
+
+  const addTag = (raw: string) => {
+    const val = raw.trim().toUpperCase();
+    if (!val) return;
+    if (tags.includes(val)) {
+      toast.error(`La división "${val}" ya existe en este año`);
+      return;
+    }
+    setTags(prev => [...prev, val]);
+    setInputValue("");
+  };
+
+  const removeTag = (tag: string) => {
+    setTags(prev => prev.filter(t => t !== tag));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(inputValue);
+    } else if (e.key === "Backspace" && inputValue === "" && tags.length > 0) {
+      setTags(prev => prev.slice(0, -1));
+    }
+  };
+
+  const resetForm = () => {
+    setTags([]);
+    setInputValue("");
+  };
+
+  const handleSave = async () => {
+    if (tags.length === 0) {
+      toast.error("Debe haber al menos una división activa");
+      return;
+    }
+    if (!year) return;
+    setIsSaving(true);
+    await new Promise(r => setTimeout(r, 700));
+    onSave(year.id, tags);
+    setIsSaving(false);
+    resetForm();
+    onOpenChange(false);
+    toast.success(`Divisiones de ${year.label} actualizadas`, {
+      description: `Divisiones activas: ${tags.join(", ")}`,
+    });
+  };
+
+  if (!year) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="bg-[#0e0e16] border-white/10 max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <LayoutGrid className="size-5 text-[#d0bcff]" />
+            Administrar Divisiones — {year.label}
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            Escribe una letra o nombre y presiona <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 text-[10px] font-mono">Enter</kbd> para agregar. Haz clic en <span className="font-mono">✕</span> para quitar una división.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {/* Info banner */}
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+            <AlertCircle className="size-4 text-[#d0bcff] shrink-0 mt-0.5" />
+            <p className="text-[11px] text-[#d0bcff]/70 leading-relaxed">
+              Los cambios afectan la <span className="font-semibold text-[#d0bcff]">asignación de asignaturas</span> y los <span className="font-semibold text-[#d0bcff]">Certificados Analíticos</span>. Renombrar una división no migra datos históricos automáticamente.
+            </p>
+          </div>
+
+          {/* Tag Input */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">
+              Divisiones activas para {year.label}
+            </Label>
+
+            {/* Contenedor tipo CRM tag-input */}
+            <div
+              className="min-h-[80px] p-3 rounded-xl border border-white/10 bg-black/30 focus-within:border-[#d0bcff]/40 focus-within:ring-1 focus-within:ring-[#d0bcff]/15 transition-all cursor-text flex flex-wrap gap-2 items-start"
+              onClick={() => inputRef.current?.focus()}
+            >
+              {tags.map(tag => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-lg bg-[#d0bcff]/12 border border-[#d0bcff]/25 text-[#d0bcff] text-sm font-semibold leading-none select-none"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                    className="size-4 rounded flex items-center justify-center hover:bg-[#d0bcff]/20 transition-colors ml-0.5"
+                    aria-label={`Quitar división ${tag}`}
+                  >
+                    <X className="size-3 text-[#d0bcff]/70" />
+                  </button>
+                </span>
+              ))}
+
+              {/* Input transparente integrado */}
+              <input
+                ref={inputRef}
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                onBlur={() => { if (inputValue.trim()) addTag(inputValue); }}
+                placeholder={tags.length === 0 ? "Ej: A, B, Humanidades — presiona Enter para agregar" : "Agregar división..."}
+                className="flex-1 min-w-[160px] bg-transparent border-none outline-none text-sm text-[#e4e1ea] placeholder:text-white/20 py-1"
+              />
+            </div>
+
+            <p className="text-[10px] text-white/35 font-mono pl-1">
+              {tags.length} división{tags.length !== 1 ? "es" : ""} activa{tags.length !== 1 ? "s" : ""}
+              {tags.length > 0 && ` · ${tags.join(", ")}`}
+            </p>
+          </div>
+
+          {/* Sugerencias rápidas */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/40">Agregar rápido</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {["A", "B", "C", "D", "E", "T.M.", "T.T.", "Humanidades", "Técnica", "Arte"].map(sug => {
+                const isAdded = tags.includes(sug.toUpperCase());
+                return (
+                  <button
+                    key={sug}
+                    type="button"
+                    onClick={() => isAdded ? removeTag(sug.toUpperCase()) : addTag(sug)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg border text-xs font-medium transition-all",
+                      isAdded
+                        ? "bg-[#d0bcff]/12 border-[#d0bcff]/30 text-[#d0bcff]/70 line-through"
+                        : "bg-white/[0.03] border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                    )}
+                  >
+                    {isAdded ? <><Check className="size-3 inline mr-1" />{sug}</> : `+ ${sug}`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || tags.length === 0}
+            className="bg-[#d0bcff] text-[#0e0e16] hover:bg-[#d0bcff]/90 font-semibold"
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-[#0e0e16]/30 border-t-[#0e0e16] rounded-full animate-spin mr-2" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Check className="size-4 mr-2" />
+                Guardar Divisiones
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
+// NEW ACADEMIC YEAR MODAL — Crear un año académico extra (7mo Año, etc.)
+// ============================================================================
+
+interface NewYearModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingYears: number[];
+  onSave: (year: Omit<AcademicYear, "id">) => void;
+}
+
+function NewYearModal({ open, onOpenChange, existingYears, onSave }: NewYearModalProps) {
+  const [yearNumber, setYearNumber] = useState<number>(existingYears.length + 1);
+  const [customLabel, setCustomLabel] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      const next = Math.max(...existingYears, 0) + 1;
+      setYearNumber(next);
+      setCustomLabel("");
+    }
+  }, [open, existingYears]);
+
+  const effectiveLabel = customLabel.trim() || YEAR_ORDINALS[yearNumber] || `${yearNumber}° Año`;
+
+  const handleSave = async () => {
+    if (existingYears.includes(yearNumber)) {
+      toast.error(`El ${effectiveLabel} ya existe en la estructura académica`);
+      return;
+    }
+    setIsSaving(true);
+    await new Promise(r => setTimeout(r, 700));
+    onSave({ year: yearNumber, label: effectiveLabel, divisions: ["A"] });
+    setIsSaving(false);
+    onOpenChange(false);
+    toast.success(`${effectiveLabel} creado`, {
+      description: "Ya puedes asignarle divisiones y asignaturas.",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-[#0e0e16] border-white/10 max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <GraduationCap className="size-5 text-emerald-400" />
+            Nuevo Año Académico
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            Amplía la estructura del colegio. Útil para escuelas técnicas con 7° año o instituciones en expansión.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Número de Año</Label>
+            <div className="flex items-center gap-2">
+              {[...Array(8)].map((_, i) => {
+                const n = i + 1;
+                const taken = existingYears.includes(n);
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => !taken && setYearNumber(n)}
+                    disabled={taken}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl border text-sm font-bold transition-all",
+                      taken
+                        ? "bg-white/[0.02] border-white/5 text-white/15 cursor-not-allowed"
+                        : yearNumber === n
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                        : "bg-white/[0.02] border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                    )}
+                  >
+                    {n}°
+                    {taken && <span className="block text-[8px] font-normal opacity-50">activo</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">
+              Nombre personalizado <span className="text-white/30">(opcional)</span>
+            </Label>
+            <Input
+              value={customLabel}
+              onChange={e => setCustomLabel(e.target.value)}
+              placeholder={`Ej: ${YEAR_ORDINALS[yearNumber] ?? `${yearNumber}° Año`}, Ciclo Superior...`}
+              className="bg-white/[0.02] border-white/10 h-11"
+            />
+            <p className="text-[10px] text-white/35 font-mono pl-1">
+              Se creará como: <span className="text-emerald-400">{effectiveLabel}</span> con División A por defecto.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || existingYears.includes(yearNumber)}
+            className="bg-emerald-500/80 text-white hover:bg-emerald-500 font-semibold"
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Creando...
+              </>
+            ) : (
+              <>
+                <Plus className="size-4 mr-2" />
+                Crear Año Académico
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface SubjectModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  subject: Subject | null; // null = create mode
+  // En modo creación puede llegar un array (batch); en edición siempre un solo elemento
+  onSave: (data: Omit<Subject, "id"> | Omit<Subject, "id">[]) => void;
+}
+
+function SubjectModal({ open, onOpenChange, subject, onSave }: SubjectModalProps) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<SubjectType>("CURRICULAR");
+  // En edición: año único; en creación: multi-select (batch)
+  const [selectedYears, setSelectedYears] = useState<number[]>([]);
+  // Divisiones por año: { [year]: courseId[] }
+  const [divisionsByYear, setDivisionsByYear] = useState<Record<number, string[]>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const isEditing = subject !== null;
+
+  // Año activo en el panel de divisiones (solo relevante en creación con varios años)
+  const [activeYearPanel, setActiveYearPanel] = useState<number>(1);
+
+  useEffect(() => {
+    if (open) {
+      setName(subject?.name ?? "");
+      setType(subject?.type ?? "CURRICULAR");
+      if (subject) {
+        // Modo edición: un solo año pre-seleccionado
+        setSelectedYears([subject.academicYear]);
+        setActiveYearPanel(subject.academicYear);
+        setDivisionsByYear({ [subject.academicYear]: subject.courses });
+      } else {
+        setSelectedYears([]);
+        setActiveYearPanel(1);
+        setDivisionsByYear({});
+      }
+    }
+  }, [open, subject]);
+
+  const resetForm = () => {
+    setName("");
+    setType("CURRICULAR");
+    setSelectedYears([]);
+    setActiveYearPanel(1);
+    setDivisionsByYear({});
+  };
+
+  // Toggle un año del multi-select
+  const toggleYear = (y: number) => {
+    if (isEditing) return; // en edición el año es fijo
+    setSelectedYears(prev => {
+      if (prev.includes(y)) {
+        // Quitar año y sus divisiones
+        setDivisionsByYear(d => { const copy = { ...d }; delete copy[y]; return copy; });
+        return prev.filter(x => x !== y);
+      }
+      setActiveYearPanel(y);
+      return [...prev, y].sort((a, b) => a - b);
+    });
+  };
+
+  // Divisiones disponibles para el panel activo
+  const divisionsForPanel = AVAILABLE_COURSES.filter(c => c.year === activeYearPanel);
+  const selectedCoursesForPanel = divisionsByYear[activeYearPanel] ?? [];
+
+  const toggleCourse = (courseId: string) => {
+    setDivisionsByYear(prev => {
+      const cur = prev[activeYearPanel] ?? [];
+      const next = cur.includes(courseId)
+        ? cur.filter(id => id !== courseId)
+        : [...cur, courseId];
+      return { ...prev, [activeYearPanel]: next };
+    });
+  };
+
+  const toggleAllDivisionsForPanel = () => {
+    const allIds = divisionsForPanel.map(c => c.id);
+    const allSelected = allIds.every(id => selectedCoursesForPanel.includes(id));
+    setDivisionsByYear(prev => ({
+      ...prev,
+      [activeYearPanel]: allSelected ? [] : allIds,
+    }));
+  };
+
+  const allPanelSelected = divisionsForPanel.every(c => selectedCoursesForPanel.includes(c.id));
+
+  // Validación: todos los años seleccionados deben tener al menos una división
+  const yearsWithNoDivisions = selectedYears.filter(y => (divisionsByYear[y] ?? []).length === 0);
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error("Ingresa el nombre de la asignatura");
+      return;
+    }
+    if (selectedYears.length === 0) {
+      toast.error("Selecciona al menos un Año Académico");
+      return;
+    }
+    if (yearsWithNoDivisions.length > 0) {
+      toast.error(
+        `Faltan divisiones en: ${yearsWithNoDivisions.map(y => YEAR_ORDINALS[y]).join(", ")}`,
+        { description: "Cada año debe tener al menos una división asignada." }
+      );
+      return;
+    }
+    setIsSaving(true);
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    if (isEditing) {
+      // Edición: siempre un registro único
+      onSave({
+        name: name.trim(),
+        type,
+        academicYear: selectedYears[0],
+        courses: divisionsByYear[selectedYears[0]] ?? [],
+      });
+      toast.success("Asignatura actualizada en la malla curricular.");
+    } else {
+      // Creación batch: genera una entrada por cada año tildado
+      const batch: Omit<Subject, "id">[] = selectedYears.map(y => ({
+        name: name.trim(),
+        type,
+        academicYear: y,
+        courses: divisionsByYear[y] ?? [],
+      }));
+      onSave(batch);
+      toast.success("Asignaturas generadas y asignadas a la currícula correctamente.");
+    }
+
+    setIsSaving(false);
+    resetForm();
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="bg-[#0e0e16] border-white/10 max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-[#e4e1ea] flex items-center gap-2">
+            <BookOpen className="size-5 text-[#d0bcff]" />
+            {isEditing ? "Editar Asignatura" : "Nueva Asignatura"}
+          </DialogTitle>
+          <DialogDescription className="text-white/50">
+            {isEditing
+              ? "Modifica la asignatura en la malla curricular de la institución."
+              : "Tilda los Años Académicos y el sistema generará una fila por cada uno."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+
+          {/* Alerta — Certificados Analíticos */}
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-[#d0bcff]/5 border border-[#d0bcff]/20">
+            <AlertCircle className="size-4 text-[#d0bcff] shrink-0 mt-0.5" />
+            <p className="text-[11px] text-[#d0bcff]/70 leading-relaxed">
+              <span className="font-semibold text-[#d0bcff]">Importante:</span> Definir el{" "}
+              <span className="font-semibold">Año Académico</span> es vital para la correcta
+              generación automática de los{" "}
+              <span className="font-semibold">Certificados Analíticos</span> (Historial Académico).
+            </p>
+          </div>
+
+          {/* Nombre de la Asignatura */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Nombre de la Asignatura</Label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ej: Matemática, Historia, Taller de Programación..."
+              className="bg-white/[0.02] border-white/10 h-11"
+            />
+            {name.trim() && selectedYears.length > 0 && (
+              <p className="text-[10px] text-white/35 font-mono pl-1">
+                Se crearán{" "}
+                <span className="text-[#d0bcff]/70">{selectedYears.length}</span> entrada
+                {selectedYears.length !== 1 ? "s" : ""}: {selectedYears.map(y => `${name.trim()} — ${YEAR_ORDINALS[y]}`).join(" · ")}
+              </p>
+            )}
+          </div>
+
+          {/* Tipo */}
+          <div className="space-y-2">
+            <Label className="text-xs text-white/60">Tipo de Asignatura</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["CURRICULAR", "EXTRACURRICULAR"] as SubjectType[]).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setType(t)}
+                  className={cn(
+                    "p-3 rounded-xl border text-sm font-medium transition-all text-left",
+                    type === t
+                      ? "bg-[#d0bcff]/10 border-[#d0bcff]/30 text-[#d0bcff]"
+                      : "bg-white/[0.02] border-white/5 text-white/50 hover:border-white/10"
+                  )}
+                >
+                  <span className="block text-[10px] font-mono mb-0.5 opacity-60">
+                    {t === "CURRICULAR" ? "PLAN OFICIAL" : "OPCIONAL"}
+                  </span>
+                  {t === "CURRICULAR" ? "Curricular" : "Extracurricular"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Años en los que se dicta — MULTI-SELECT BATCH */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-white/70 flex items-center gap-1.5">
+                {isEditing ? "Año Académico" : "Años en los que se dicta"}
+                <span className="text-[10px] font-normal text-[#ffb4ab] bg-[#ffb4ab]/10 px-1.5 py-0.5 rounded font-mono">
+                  Obligatorio
+                </span>
+              </Label>
+              {!isEditing && selectedYears.length > 0 && (
+                <span className="text-[10px] text-[#d0bcff]/60 font-mono">
+                  {selectedYears.length} año{selectedYears.length !== 1 ? "s" : ""} seleccionado{selectedYears.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[1,2,3,4,5,6].map(y => {
+                const isSelected = selectedYears.includes(y);
+                const hasDivisions = (divisionsByYear[y] ?? []).length > 0;
+                const isActive = activeYearPanel === y && selectedYears.includes(y);
+                return (
+                  <button
+                    key={y}
+                    type="button"
+                    onClick={() => {
+                      toggleYear(y);
+                      if (!isEditing && (isSelected || !selectedYears.includes(y))) {
+                        setActiveYearPanel(y);
+                      }
+                    }}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center py-3 rounded-xl border text-sm font-semibold transition-all",
+                      isSelected && isActive
+                        ? "bg-[#d0bcff]/15 border-[#d0bcff]/50 text-[#d0bcff] ring-1 ring-[#d0bcff]/30"
+                        : isSelected
+                        ? "bg-[#d0bcff]/8 border-[#d0bcff]/30 text-[#d0bcff]/80"
+                        : "bg-white/[0.02] border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                    )}
+                  >
+                    {/* Checkbox visual en esquina */}
+                    <span className={cn(
+                      "absolute top-1.5 right-1.5 size-3.5 rounded border flex items-center justify-center transition-colors",
+                      isSelected ? "bg-[#d0bcff] border-[#d0bcff]" : "border-white/20 bg-transparent"
+                    )}>
+                      {isSelected && <Check className="size-2 text-[#0e0e16]" strokeWidth={3} />}
+                    </span>
+                    <span className="text-lg font-bold leading-none">{y}°</span>
+                    <span className="text-[10px] font-normal mt-0.5 opacity-70">Año</span>
+                    {/* Indicador de divisiones configuradas */}
+                    {isSelected && (
+                      <span className={cn(
+                        "mt-1 text-[9px] font-mono px-1 rounded",
+                        hasDivisions ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffb4ab] bg-[#ffb4ab]/10"
+                      )}>
+                        {hasDivisions ? `${(divisionsByYear[y] ?? []).length} div.` : "sin div."}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Panel de divisiones — se muestra para el año activo si está seleccionado */}
+          {selectedYears.length > 0 && (
+            <div className="space-y-2">
+              {/* Selector de año activo (si hay varios) */}
+              {selectedYears.length > 1 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[10px] text-white/40 mr-1">Configurar divisiones de:</span>
+                  {selectedYears.map(y => (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => setActiveYearPanel(y)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all",
+                        activeYearPanel === y
+                          ? "bg-[#d0bcff]/15 border-[#d0bcff]/40 text-[#d0bcff]"
+                          : "bg-white/[0.02] border-white/8 text-white/40 hover:border-white/20"
+                      )}
+                    >
+                      {YEAR_ORDINALS[y]}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-white/60">
+                  Divisiones — <span className="text-[#d0bcff]/70">{YEAR_ORDINALS[activeYearPanel]}</span>
+                </Label>
+                <button
+                  type="button"
+                  onClick={toggleAllDivisionsForPanel}
+                  className="text-[10px] text-[#d0bcff]/60 hover:text-[#d0bcff] transition-colors"
+                >
+                  {allPanelSelected ? "Desmarcar todas" : "Seleccionar todas"}
+                </button>
+              </div>
+
+              <div className="p-3 bg-white/[0.01] border border-white/5 rounded-xl">
+                {divisionsForPanel.length === 0 ? (
+                  <p className="text-xs text-white/30 text-center py-2">
+                    No hay divisiones configuradas para este año.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {divisionsForPanel.map(course => {
+                      const isSelected = selectedCoursesForPanel.includes(course.id);
+                      return (
+                        <button
+                          key={course.id}
+                          type="button"
+                          onClick={() => toggleCourse(course.id)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold transition-all",
+                            isSelected
+                              ? "bg-[#d0bcff]/15 border-[#d0bcff]/40 text-[#d0bcff]"
+                              : "bg-white/[0.02] border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                          )}
+                        >
+                          <span className={cn(
+                            "size-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                            isSelected ? "bg-[#d0bcff] border-[#d0bcff]" : "border-white/25"
+                          )}>
+                            {isSelected && <Check className="size-2.5 text-[#0e0e16]" strokeWidth={3} />}
+                          </span>
+                          División {course.division}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-[10px] text-white/30 mt-2 font-mono">
+                  {selectedCoursesForPanel.length} de {divisionsForPanel.length} división{divisionsForPanel.length !== 1 ? "es" : ""} seleccionada{selectedCoursesForPanel.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-white/10">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !name.trim() || selectedYears.length === 0}
+            className="bg-[#d0bcff] text-[#0e0e16] hover:bg-[#d0bcff]/90 font-semibold"
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-[#0e0e16]/30 border-t-[#0e0e16] rounded-full animate-spin mr-2" />
+                Generando...
+              </>
+            ) : (
+              <>
+                <Plus className="size-4 mr-2" />
+                {isEditing
+                  ? "Guardar Cambios"
+                  : selectedYears.length > 1
+                  ? `Generar ${selectedYears.length} Asignaturas`
+                  : "Agregar a Malla Curricular"}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // ============================================================================
 // ACCESS DENIED COMPONENT
@@ -848,12 +1647,11 @@ function AddRequirementModal({ open, onOpenChange, target, onSave }: AddRequirem
 
 export default function SettingsPage() {
   const { activeContext } = useAuth();
-  const { settings, updateMaxAbsences } = useSchoolSettings();
+  const { settings, updateMaxAbsences, updateAcademicPeriodLayout } = useSchoolSettings();
   const [mounted, setMounted] = useState(false);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   
   // Form states
-  const [academicFormat, setAcademicFormat] = useState("trimestral");
   const [gradingModel, setGradingModel] = useState("numerico");
   const [enablePreliminary, setEnablePreliminary] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -920,7 +1718,158 @@ export default function SettingsPage() {
     toast.success("Requisito eliminado del esquema institucional");
   }, []);
 
-  // ── Enrollment fields (Campos de Matricula) ──────────────────────
+  // ── Plan de Estudios (Asignaturas) ───────────────────────────────
+  const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
+  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [subjectSearch, setSubjectSearch] = useState("");
+
+  const handleOpenCreateSubject = useCallback(() => {
+    setEditingSubject(null);
+    setSubjectModalOpen(true);
+  }, []);
+
+  const handleOpenEditSubject = useCallback((subject: Subject) => {
+    setEditingSubject(subject);
+    setSubjectModalOpen(true);
+  }, []);
+
+  const handleSaveSubject = useCallback((payload: Omit<Subject, "id"> | Omit<Subject, "id">[]) => {
+    const entries = Array.isArray(payload) ? payload : [payload];
+
+    // Regla de negocio: nombre + año debe ser único por cada entrada del batch
+    const duplicates = entries.filter(data =>
+      subjects.some(s =>
+        s.name.toLowerCase() === data.name.toLowerCase() &&
+        s.academicYear === data.academicYear &&
+        s.id !== editingSubject?.id
+      )
+    );
+    if (duplicates.length > 0) {
+      toast.error(
+        `Combinación duplicada: ${duplicates.map(d => `"${d.name}" en ${YEAR_ORDINALS[d.academicYear]}`).join(", ")}`,
+        { description: "La combinación Asignatura + Año Académico debe ser única en la malla curricular." }
+      );
+      return;
+    }
+
+    if (editingSubject && entries.length === 1) {
+      setSubjects(prev => prev.map(s => s.id === editingSubject.id ? { ...s, ...entries[0] } : s));
+    } else {
+      // Batch: genera IDs únicos con offset para evitar colisiones en el mismo tick
+      const newRows = entries.map((data, i) => ({ ...data, id: `sub_${Date.now()}_${i}` }));
+      setSubjects(prev => [...prev, ...newRows]);
+    }
+    setEditingSubject(null);
+  }, [editingSubject, subjects]);
+
+  const handleDeleteSubject = useCallback((id: string) => {
+    setSubjects(prev => prev.filter(s => s.id !== id));
+    toast.success("Asignatura eliminada del plan de estudios");
+  }, []);
+
+  const filteredSubjects = subjects.filter(s => {
+    const q = subjectSearch.toLowerCase();
+    return (
+      s.name.toLowerCase().includes(q) ||
+      YEAR_ORDINALS[s.academicYear]?.toLowerCase().includes(q) ||
+      String(s.academicYear).includes(q)
+    );
+  });
+
+  // ── Gestor de Estructura Académica (Años + Divisiones) ───────────────────
+  const [academicStructure, setAcademicStructure] = useState<AcademicYear[]>(INITIAL_ACADEMIC_STRUCTURE);
+  const [divisionsModalOpen, setDivisionsModalOpen] = useState(false);
+  const [editingAcademicYear, setEditingAcademicYear] = useState<AcademicYear | null>(null);
+  const [newYearModalOpen, setNewYearModalOpen] = useState(false);
+
+  const handleOpenDivisionsModal = useCallback((year: AcademicYear) => {
+    setEditingAcademicYear(year);
+    setDivisionsModalOpen(true);
+  }, []);
+
+  const handleSaveDivisions = useCallback((yearId: string, divisions: string[]) => {
+    setAcademicStructure(prev =>
+      prev.map(y => y.id === yearId ? { ...y, divisions } : y)
+    );
+    setEditingAcademicYear(null);
+  }, []);
+
+  const handleSaveNewYear = useCallback((data: Omit<AcademicYear, "id">) => {
+    const newId = `year_${Date.now()}`;
+    setAcademicStructure(prev =>
+      [...prev, { ...data, id: newId }].sort((a, b) => a.year - b.year)
+    );
+  }, []);
+
+  const handleDeleteYear = useCallback((yearId: string, label: string) => {
+    setAcademicStructure(prev => prev.filter(y => y.id !== yearId));
+    toast.success(`${label} eliminado de la estructura`, {
+      description: "Las asignaturas de este año no fueron modificadas.",
+    });
+  }, []);
+
+  // ── Campos de Personal (atributos dinamicos del perfil del staff) ─────────
+  const { staffFields, addStaffField, updateStaffField, deleteStaffField } = useStaffFields();
+  const [isStaffFieldModalOpen, setIsStaffFieldModalOpen] = useState(false);
+  const [editingStaffField, setEditingStaffField] = useState<StaffField | null>(null);
+  const [staffFieldForm, setStaffFieldForm] = useState<{
+    label: string;
+    type: StaffFieldType;
+    required: boolean;
+    placeholder: string;
+  }>({ label: "", type: "TEXTO", required: false, placeholder: "" });
+  const [isSavingStaffField, setIsSavingStaffField] = useState(false);
+
+  const handleOpenStaffFieldModal = useCallback((field?: StaffField) => {
+    if (field) {
+      setEditingStaffField(field);
+      setStaffFieldForm({
+        label: field.label,
+        type: field.type,
+        required: field.required,
+        placeholder: field.placeholder ?? "",
+      });
+    } else {
+      setEditingStaffField(null);
+      setStaffFieldForm({ label: "", type: "TEXTO", required: false, placeholder: "" });
+    }
+    setIsStaffFieldModalOpen(true);
+  }, []);
+
+  const handleSaveStaffField = useCallback(async () => {
+    if (!staffFieldForm.label.trim()) {
+      toast.error("Ingresa el nombre del campo");
+      return;
+    }
+    setIsSavingStaffField(true);
+    await new Promise(r => setTimeout(r, 600));
+    const payload = {
+      label: staffFieldForm.label.trim(),
+      type: staffFieldForm.type,
+      required: staffFieldForm.required,
+      placeholder: staffFieldForm.placeholder.trim() || undefined,
+    };
+    if (editingStaffField) {
+      updateStaffField(editingStaffField.id, payload);
+      toast.success("Campo de personal actualizado");
+    } else {
+      addStaffField(payload);
+      toast.success("Campo de personal creado", {
+        description: "Ya aparecera en los perfiles del staff",
+      });
+    }
+    setIsSavingStaffField(false);
+    setIsStaffFieldModalOpen(false);
+    setEditingStaffField(null);
+  }, [staffFieldForm, editingStaffField, addStaffField, updateStaffField]);
+
+  const handleDeleteStaffField = useCallback((id: string, label: string) => {
+    deleteStaffField(id);
+    toast.success(`Campo "${label}" eliminado del perfil de personal`);
+  }, [deleteStaffField]);
+
+  // ── Enrollment fields (Campos de Matricula) ───────────────────────────────
   const [customFields, setCustomFields] = useState<EnrollmentField[]>(INITIAL_CUSTOM_FIELDS);
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
 
@@ -1015,41 +1964,126 @@ export default function SettingsPage() {
               <Columns3 className="w-4 h-4 mr-2" />
               Campos de Matricula
             </TabsTrigger>
+            <TabsTrigger
+              value="asignaturas"
+              className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-300 rounded-xl px-4 py-2 text-sm"
+            >
+              <BookOpen className="w-4 h-4 mr-2" />
+              Plan de Estudios
+            </TabsTrigger>
+            <TabsTrigger
+              value="cursos-divisiones"
+              className="data-[state=active]:bg-[#d0bcff]/20 data-[state=active]:text-[#d0bcff] rounded-xl px-4 py-2 text-sm"
+            >
+              <LayoutGrid className="w-4 h-4 mr-2" />
+              Cursos y Divisiones
+            </TabsTrigger>
+            <TabsTrigger
+              value="campos-personal"
+              className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300 rounded-xl px-4 py-2 text-sm"
+            >
+              <UserCog className="w-4 h-4 mr-2" />
+              Campos de Personal
+            </TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Regimen Academico */}
           <TabsContent value="regimen" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Formato del Ano */}
+              {/* Division del Ciclo Lectivo */}
               <div className="space-y-4 p-5 bg-white/[0.01] border border-white/5 rounded-2xl">
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-1">
                   <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Formato del Ano Lectivo</h3>
-                    <p className="text-[10px] text-white/40">Division temporal del ciclo escolar</p>
+                    <h3 className="text-sm font-bold text-white">Division del Ciclo Lectivo</h3>
+                    <p className="text-[10px] text-white/40">Estructura de periodos de evaluacion del ano</p>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs text-white/60">Regimen de Periodos</Label>
-                  <Select value={academicFormat} onValueChange={setAcademicFormat}>
-                    <SelectTrigger className="bg-black/40 border-white/10 h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bimestral">Bimestral (4 periodos)</SelectItem>
-                      <SelectItem value="trimestral">Trimestral (3 periodos) - Recomendado</SelectItem>
-                      <SelectItem value="cuatrimestral">Cuatrimestral (2 periodos)</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                {/* RadioGroup visual de opciones */}
+                <RadioGroup
+                  value={settings.academicPeriodLayout}
+                  onValueChange={(v) => {
+                    updateAcademicPeriodLayout(v as AcademicPeriodLayout);
+                    toast.success("Estructura del ciclo lectivo actualizada.", {
+                      description: `Periodos configurados: ${ACADEMIC_PERIOD_PRESETS[v as AcademicPeriodLayout].periods.map(p => p.shortName).join(" · ")}`,
+                    });
+                  }}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {(
+                    [
+                      { value: "BIMESTRAL",    label: "Bimestral",    count: 4, desc: "4 periodos" },
+                      { value: "TRIMESTRAL",   label: "Trimestral",   count: 3, desc: "3 periodos · Recomendado" },
+                      { value: "CUATRIMESTRAL",label: "Cuatrimestral",count: 2, desc: "2 periodos" },
+                      { value: "SEMESTRAL",    label: "Semestral",    count: 2, desc: "2 semestres" },
+                    ] as { value: AcademicPeriodLayout; label: string; count: number; desc: string }[]
+                  ).map((opt) => {
+                    const isActive = settings.academicPeriodLayout === opt.value;
+                    return (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`layout-${opt.value}`}
+                        className={cn(
+                          "relative flex flex-col gap-1 rounded-xl border-2 px-4 py-3 cursor-pointer transition-all",
+                          isActive
+                            ? "border-blue-500/60 bg-blue-500/8"
+                            : "border-white/8 bg-white/[0.01] hover:border-white/15 hover:bg-white/[0.02]"
+                        )}
+                      >
+                        <RadioGroupItem
+                          value={opt.value}
+                          id={`layout-${opt.value}`}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className={cn(
+                            "text-sm font-semibold",
+                            isActive ? "text-blue-300" : "text-white/70"
+                          )}>
+                            {opt.label}
+                          </span>
+                          {/* Dot de seleccion */}
+                          <span className={cn(
+                            "size-2 rounded-full transition-all",
+                            isActive ? "bg-blue-400" : "bg-white/15"
+                          )} />
+                        </div>
+                        <span className="text-[10px] text-white/40">{opt.desc}</span>
+                      </Label>
+                    );
+                  })}
+                </RadioGroup>
+
+                {/* Preview de periodos activos */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] uppercase tracking-wider text-white/35 font-medium">
+                    Periodos activos
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {settings.academicPeriodConfig.periods.map((p) => (
+                      <span
+                        key={p.id}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-lg bg-blue-500/8 border border-blue-500/15 text-blue-300/80"
+                      >
+                        <span className="font-semibold">{p.shortName}</span>
+                        <span className="text-white/25">·</span>
+                        <span className="text-white/40">
+                          {new Date(p.startDate).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                          {" — "}
+                          {new Date(p.endDate).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                
+
                 <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                   <p className="text-[10px] text-blue-300/70 leading-relaxed">
-                    El regimen seleccionado define los cortes de calificaciones y la estructura 
-                    de los boletines que se generan para las familias.
+                    El regimen seleccionado define los cortes de calificaciones y la estructura
+                    de los boletines generados para las familias. El cambio se aplica de forma inmediata.
                   </p>
                 </div>
               </div>
@@ -1451,6 +2485,433 @@ export default function SettingsPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Tab 6: Plan de Estudios — Malla Curricular */}
+          <TabsContent value="asignaturas" className="space-y-6">
+
+            {/* Banner principal — Malla Curricular */}
+            <div className="p-4 bg-[#d0bcff]/5 border border-[#d0bcff]/15 rounded-2xl flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 text-[#d0bcff] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-[#d0bcff]">Malla Curricular Institucional</p>
+                <p className="text-xs text-[#d0bcff]/60 leading-relaxed">
+                  Cada asignatura está atada a un <span className="font-semibold text-[#d0bcff]/80">Año Académico</span> específico.
+                  Esta estructura es <span className="font-semibold">vital</span> para la correcta generación automática de los{" "}
+                  <span className="font-semibold text-[#d0bcff]/80">Certificados Analíticos</span> (Historial Académico) de cada alumno.
+                  La combinación <span className="font-mono bg-[#d0bcff]/10 px-1 rounded">Asignatura + Año</span> debe ser única.
+                </p>
+              </div>
+            </div>
+
+            {/* Header: search + create button */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/30" />
+                <input
+                  type="text"
+                  value={subjectSearch}
+                  onChange={e => setSubjectSearch(e.target.value)}
+                  placeholder="Buscar por asignatura o año (ej: 2do, Matematica)..."
+                  className="w-full pl-9 pr-3 h-10 rounded-xl bg-white/[0.02] border border-white/10 text-sm text-[#e4e1ea] placeholder:text-white/30 focus:outline-none focus:border-[#d0bcff]/40 transition-colors"
+                />
+              </div>
+              <Button
+                onClick={handleOpenCreateSubject}
+                className="bg-[#d0bcff] text-[#0e0e16] hover:bg-[#d0bcff]/90 font-semibold shrink-0"
+              >
+                <Plus className="size-4 mr-2" />
+                Nueva Asignatura
+              </Button>
+            </div>
+
+            {/* Summary chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/8 text-[11px] font-mono text-white/50">
+                {subjects.length} entradas en malla
+              </span>
+              <span className="px-3 py-1 rounded-full bg-[#d0bcff]/10 border border-[#d0bcff]/20 text-[11px] font-mono text-[#d0bcff]/70">
+                {subjects.filter(s => s.type === "CURRICULAR").length} curriculares
+              </span>
+              <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-mono text-amber-400">
+                {subjects.filter(s => s.type === "EXTRACURRICULAR").length} extracurriculares
+              </span>
+              {/* Chips de años presentes */}
+              {[...new Set(subjects.map(s => s.academicYear))].sort().map(y => (
+                <span key={y} className="px-3 py-1 rounded-full bg-emerald-500/8 border border-emerald-500/15 text-[11px] font-mono text-emerald-400">
+                  {YEAR_ORDINALS[y]}: {subjects.filter(s => s.academicYear === y).length}
+                </span>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div className="border border-white/5 rounded-2xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-white/[0.02] border-b border-white/5">
+                    {/* Columna clave: Año Académico */}
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-[#d0bcff]/60 uppercase tracking-wider w-36">
+                      Año Académico
+                    </th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                      Asignatura
+                    </th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider w-24">
+                      Tipo
+                    </th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                      Divisiones
+                    </th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold text-white/50 uppercase tracking-wider w-24">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredSubjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-14 text-center text-sm text-white/30">
+                        {subjectSearch
+                          ? `Sin resultados para "${subjectSearch}"`
+                          : "No hay asignaturas. Crea la primera con el boton de arriba."}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSubjects
+                      .slice()
+                      .sort((a, b) => a.academicYear - b.academicYear || a.name.localeCompare(b.name))
+                      .map(subject => (
+                      <tr key={subject.id} className="hover:bg-white/[0.015] transition-colors group">
+
+                        {/* Año Académico — columna principal */}
+                        <td className="px-4 py-4">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#d0bcff]/8 border border-[#d0bcff]/20">
+                            <span className="text-base font-bold text-[#d0bcff] leading-none">{subject.academicYear}°</span>
+                            <span className="text-[11px] text-[#d0bcff]/60 font-medium">Año</span>
+                          </div>
+                        </td>
+
+                        {/* Nombre de la asignatura */}
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center shrink-0">
+                              <BookOpen className="size-3.5 text-white/40" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-semibold text-[#e4e1ea]">
+                                {subject.name}
+                              </span>
+                              <p className="text-[10px] text-white/30 font-mono mt-0.5">
+                                {subject.name} — {YEAR_ORDINALS[subject.academicYear]}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Tipo */}
+                        <td className="px-4 py-4">
+                          {subject.type === "CURRICULAR" ? (
+                            <Badge className="bg-[#d0bcff]/8 text-[#d0bcff]/70 border border-[#d0bcff]/20 hover:bg-[#d0bcff]/8 font-mono text-[10px]">
+                              Curricular
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/10 font-mono text-[10px]">
+                              Extracurricular
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* Divisiones — solo del año correspondiente */}
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {subject.courses.map(courseId => {
+                              const course = AVAILABLE_COURSES.find(c => c.id === courseId);
+                              return course ? (
+                                <Badge
+                                  key={courseId}
+                                  className="bg-white/5 text-white/55 border border-white/10 hover:bg-white/5 font-mono text-[10px] px-2 py-0.5"
+                                >
+                                  Div. {course.division}
+                                </Badge>
+                              ) : null;
+                            })}
+                          </div>
+                        </td>
+                        {/* Actions */}
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditSubject(subject)}
+                              className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5"
+                              aria-label="Editar asignatura"
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteSubject(subject.id)}
+                              className="h-8 w-8 p-0 text-red-400/50 hover:text-red-400 hover:bg-red-500/10"
+                              aria-label="Eliminar asignatura"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+
+          {/* Tab: Cursos y Divisiones */}
+          <TabsContent value="cursos-divisiones" className="space-y-6">
+
+            {/* Banner informativo */}
+            <div className="flex items-start gap-3 p-4 rounded-2xl bg-[#d0bcff]/5 border border-[#d0bcff]/15">
+              <LayoutGrid className="size-4 text-[#d0bcff] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-[#d0bcff]">Estructura Académica Dinámica</p>
+                <p className="text-xs text-[#d0bcff]/60 leading-relaxed">
+                  Define los años activos y sus divisiones. Los cambios impactan en la{" "}
+                  <span className="font-semibold text-[#d0bcff]/80">asignación de asignaturas</span>,{" "}
+                  <span className="font-semibold text-[#d0bcff]/80">nóminas de alumnos</span> y{" "}
+                  <span className="font-semibold text-[#d0bcff]/80">Certificados Analíticos</span>.
+                </p>
+              </div>
+            </div>
+
+            {/* Header: stats + botón nuevo año */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 rounded-full bg-white/5 border border-white/8 text-[11px] font-mono text-white/50">
+                  {academicStructure.length} años activos
+                </span>
+                <span className="px-3 py-1 rounded-full bg-[#d0bcff]/10 border border-[#d0bcff]/20 text-[11px] font-mono text-[#d0bcff]/70">
+                  {academicStructure.reduce((acc, y) => acc + y.divisions.length, 0)} divisiones totales
+                </span>
+              </div>
+              <Button
+                onClick={() => setNewYearModalOpen(true)}
+                className="bg-[#d0bcff] text-[#0e0e16] hover:bg-[#d0bcff]/90 font-semibold shrink-0"
+              >
+                <Plus className="size-4 mr-2" />
+                Nuevo Año Académico
+              </Button>
+            </div>
+
+            {/* Grilla de años académicos */}
+            <div className="space-y-3">
+              {academicStructure
+                .slice()
+                .sort((a, b) => a.year - b.year)
+                .map(yr => (
+                  <div
+                    key={yr.id}
+                    className="group flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border border-white/5 bg-white/[0.015] hover:bg-white/[0.025] hover:border-white/10 transition-all"
+                  >
+                    {/* Año badge */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex flex-col items-center justify-center shrink-0">
+                        <span className="text-lg font-bold text-[#d0bcff] leading-none">{yr.year}°</span>
+                        <span className="text-[9px] text-[#d0bcff]/50 font-mono mt-0.5">AÑO</span>
+                      </div>
+                      <div className="min-w-[100px]">
+                        <p className="text-sm font-bold text-[#e4e1ea]">{yr.label}</p>
+                        <p className="text-[10px] text-white/35 font-mono mt-0.5">
+                          {yr.divisions.length} división{yr.divisions.length !== 1 ? "es" : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Divisiones activas como badges */}
+                    <div className="flex-1 flex flex-wrap gap-2 items-center">
+                      {yr.divisions.length === 0 ? (
+                        <span className="text-xs text-[#ffb4ab]/60 italic">Sin divisiones — administra para agregar</span>
+                      ) : (
+                        yr.divisions.map(div => (
+                          <Badge
+                            key={div}
+                            className="px-2.5 py-1 h-auto bg-white/5 border border-white/12 text-white/65 hover:bg-white/8 font-mono text-xs rounded-lg transition-colors"
+                          >
+                            {div}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenDivisionsModal(yr)}
+                        className="bg-[#d0bcff]/10 border border-[#d0bcff]/25 text-[#d0bcff] hover:bg-[#d0bcff]/20 text-xs font-semibold h-8"
+                      >
+                        <LayoutGrid className="size-3.5 mr-1.5" />
+                        Administrar Divisiones
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteYear(yr.id, yr.label)}
+                        className="h-8 w-8 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10"
+                        aria-label={`Eliminar ${yr.label}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {/* Estado vacío */}
+            {academicStructure.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-[#d0bcff]/8 border border-[#d0bcff]/15 flex items-center justify-center">
+                  <LayoutGrid className="size-6 text-[#d0bcff]/40" />
+                </div>
+                <p className="text-sm font-semibold text-white/40">Sin estructura académica definida</p>
+                <p className="text-xs text-white/25 max-w-xs">
+                  Crea el primer año académico con el botón de arriba para empezar a estructurar el colegio.
+                </p>
+              </div>
+            )}
+
+            {/* Modales */}
+            <DivisionsModal
+              open={divisionsModalOpen}
+              onOpenChange={setDivisionsModalOpen}
+              year={editingAcademicYear}
+              onSave={handleSaveDivisions}
+            />
+            <NewYearModal
+              open={newYearModalOpen}
+              onOpenChange={setNewYearModalOpen}
+              existingYears={academicStructure.map(y => y.year)}
+              onSave={handleSaveNewYear}
+            />
+          </TabsContent>
+
+          {/* Tab 7: Campos de Personal */}
+          <TabsContent value="campos-personal" className="space-y-6">
+            {/* Info banner */}
+            <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-start gap-3">
+              <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-emerald-300/70 leading-relaxed">
+                Define los campos de informacion complementaria que apareceran en los perfiles
+                de todo el personal (ADMIN, DOCENTE, PRECEPTOR). Los campos marcados como
+                obligatorios generaran alertas hasta que el usuario los complete.
+              </p>
+            </div>
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[#e4e1ea]">Campos Definidos</h3>
+                <p className="text-xs text-white/40 mt-0.5">
+                  {staffFields.length} campo{staffFields.length !== 1 ? "s" : ""} activo{staffFields.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <Button
+                onClick={() => handleOpenStaffFieldModal()}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
+              >
+                <Plus className="size-4 mr-2" />
+                Nuevo Campo
+              </Button>
+            </div>
+
+            {/* Table */}
+            {staffFields.length === 0 ? (
+              <div className="py-16 text-center text-sm text-white/30 border border-dashed border-white/10 rounded-2xl">
+                No hay campos definidos. Crea el primero con el boton de arriba.
+              </div>
+            ) : (
+              <div className="border border-white/5 rounded-2xl overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-white/[0.02] border-b border-white/5">
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">Campo</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider">Tipo</th>
+                      <th className="px-4 py-3 text-center text-[10px] font-semibold text-white/50 uppercase tracking-wider">Obligatorio</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/50 uppercase tracking-wider hidden md:table-cell">Placeholder</th>
+                      <th className="px-4 py-3 text-center text-[10px] font-semibold text-white/50 uppercase tracking-wider w-20">Acc.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {staffFields.map(field => {
+                      const typeIcons: Record<StaffFieldType, React.ReactNode> = {
+                        TEXTO:       <Type className="size-3.5 text-blue-400" />,
+                        TEXTO_LARGO: <AlignLeft className="size-3.5 text-purple-400" />,
+                        NUMERO:      <Hash className="size-3.5 text-amber-400" />,
+                        FECHA:       <CalendarClock className="size-3.5 text-emerald-400" />,
+                        TELEFONO:    <Phone className="size-3.5 text-teal-400" />,
+                        EMAIL:       <Mail className="size-3.5 text-rose-400" />,
+                      };
+                      return (
+                        <tr key={field.id} className="group hover:bg-white/[0.015] transition-colors">
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="size-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center shrink-0">
+                                {typeIcons[field.type]}
+                              </div>
+                              <span className="text-sm font-medium text-[#e4e1ea]">{field.label}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="text-xs text-white/50">
+                              {STAFF_FIELD_TYPE_LABELS[field.type]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            {field.required ? (
+                              <Badge className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/10 text-[10px] font-mono">
+                                Obligatorio
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-white/5 text-white/40 border border-white/10 hover:bg-white/5 text-[10px] font-mono">
+                                Opcional
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 hidden md:table-cell">
+                            <span className="text-xs text-white/30 truncate max-w-[160px] block">
+                              {field.placeholder || "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            <div className="flex items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenStaffFieldModal(field)}
+                                className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5"
+                                aria-label="Editar campo"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteStaffField(field.id, field.label)}
+                                className="h-8 w-8 p-0 text-red-400/50 hover:text-red-400 hover:bg-red-500/10"
+                                aria-label="Eliminar campo"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1496,6 +2957,120 @@ export default function SettingsPage() {
         onOpenChange={setIsAddFieldOpen}
         onSave={handleAddField}
       />
+
+      {/* Subject Modal (Create / Edit) */}
+      <SubjectModal
+        open={subjectModalOpen}
+        onOpenChange={setSubjectModalOpen}
+        subject={editingSubject}
+        onSave={handleSaveSubject}
+      />
+
+      {/* Staff Field Modal (Create / Edit) */}
+      <Dialog
+        open={isStaffFieldModalOpen}
+        onOpenChange={(o) => {
+          if (!o) { setIsStaffFieldModalOpen(false); setEditingStaffField(null); }
+        }}
+      >
+        <DialogContent className="sm:max-w-[460px] bg-[#131319] border-white/10 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5">
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <UserCog className="size-5 text-emerald-400" />
+              {editingStaffField ? "Editar Campo de Personal" : "Nuevo Campo de Personal"}
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Este campo aparecera en la seccion &ldquo;Informacion Complementaria&rdquo; del perfil de cada miembro del staff.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* Label */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">
+                Nombre del Campo <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                value={staffFieldForm.label}
+                onChange={e => setStaffFieldForm(p => ({ ...p, label: e.target.value }))}
+                placeholder="Ej: CBU, Talle de uniforme, Alergias..."
+                className="bg-white/[0.02] border-white/10 h-11"
+              />
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">Tipo de dato</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.entries(STAFF_FIELD_TYPE_LABELS) as [StaffFieldType, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setStaffFieldForm(p => ({ ...p, type: key }))}
+                    className={cn(
+                      "py-2 px-2 rounded-xl border text-xs font-medium text-center transition-all",
+                      staffFieldForm.type === key
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                        : "bg-white/[0.02] border-white/5 text-white/50 hover:border-white/15"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Placeholder */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">
+                Texto de ayuda (placeholder)
+                <span className="ml-1 text-white/30 normal-case">(opcional)</span>
+              </Label>
+              <Input
+                value={staffFieldForm.placeholder}
+                onChange={e => setStaffFieldForm(p => ({ ...p, placeholder: e.target.value }))}
+                placeholder="Ej: Ingresa tu CBU de 22 digitos..."
+                className="bg-white/[0.02] border-white/10 h-11"
+              />
+            </div>
+
+            {/* Required toggle */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-[#e4e1ea]">Campo obligatorio</p>
+                <p className="text-xs text-white/40">
+                  El usuario vera una alerta hasta completarlo
+                </p>
+              </div>
+              <Switch
+                checked={staffFieldForm.required}
+                onCheckedChange={v => setStaffFieldForm(p => ({ ...p, required: v }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
+            <Button
+              variant="outline"
+              onClick={() => { setIsStaffFieldModalOpen(false); setEditingStaffField(null); }}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveStaffField}
+              disabled={isSavingStaffField || !staffFieldForm.label.trim()}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
+            >
+              {isSavingStaffField ? (
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>
+              ) : (
+                <><CheckCircle2 className="size-4" />{editingStaffField ? "Guardar Cambios" : "Crear Campo"}</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

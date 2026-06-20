@@ -128,6 +128,18 @@ interface StaffAttendanceRecord {
   lateArrivals: number;
 }
 
+// Situacion de revista: relacion laboral del docente con ESA catedra especifica
+type SituacionRevista = "TITULAR" | "PROVISORIO" | "SUPLENTE";
+
+interface TeachingPosition {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  courseId: string;
+  courseName: string;
+  situacion: SituacionRevista;
+}
+
 // ============================================
 // MOCK DATA
 // ============================================
@@ -219,6 +231,19 @@ const MOCK_DOCUMENTS: Record<string, StaffDocument[]> = {
     { id: "d2", name: "Titulo Habilitante", description: "Titulo universitario o terciario", status: "AL_DIA", uploadedAt: "2024-01-20" },
     { id: "d3", name: "Apto Medico", description: "Certificado de aptitud psicofisica", status: "AL_DIA", uploadedAt: "2024-05-01", expirationDate: "2025-05-01" },
     { id: "d4", name: "Antecedentes Penales", description: "Certificado de antecedentes", status: "VENCIDO", uploadedAt: "2023-01-20", expirationDate: "2024-01-20" },
+  ],
+};
+
+// Mock teaching positions per staff member (subject + course + situacion de revista)
+const MOCK_POSITIONS: Record<string, TeachingPosition[]> = {
+  "1": [
+    { id: "p1_1", subjectId: "mat", subjectName: "Matematica", courseId: "4a", courseName: "4to Ano A", situacion: "TITULAR" },
+    { id: "p1_2", subjectId: "mat", subjectName: "Matematica", courseId: "4b", courseName: "4to Ano B", situacion: "TITULAR" },
+    { id: "p1_3", subjectId: "fis", subjectName: "Fisica",     courseId: "5a", courseName: "5to Ano A", situacion: "PROVISORIO" },
+  ],
+  "4": [
+    { id: "p4_1", subjectId: "his", subjectName: "Historia",    courseId: "3a", courseName: "3er Ano A", situacion: "TITULAR" },
+    { id: "p4_2", subjectId: "his", subjectName: "Historia",    courseId: "3b", courseName: "3er Ano B", situacion: "SUPLENTE" },
   ],
 };
 
@@ -320,6 +345,12 @@ function getStatusConfig(status: StaffStatus): { label: string; color: string; i
   return configs[status];
 }
 
+const SITUACION_CONFIG: Record<SituacionRevista, { label: string; color: string; bg: string; border: string }> = {
+  TITULAR:    { label: "Titular",    color: "text-[#4de082]",  bg: "bg-[#4de082]/10",   border: "border-[#4de082]/25"  },
+  PROVISORIO: { label: "Provisorio", color: "text-amber-400",  bg: "bg-amber-500/10",   border: "border-amber-500/25"  },
+  SUPLENTE:   { label: "Suplente",   color: "text-blue-400",   bg: "bg-blue-500/10",    border: "border-blue-500/25"   },
+};
+
 function getDocumentStatusConfig(status: DocumentStatus): { label: string; color: string; bgColor: string } {
   const configs: Record<DocumentStatus, { label: string; color: string; bgColor: string }> = {
     AL_DIA: { label: "Aprobado", color: "text-[#4de082]", bgColor: "bg-[#4de082]/10 border-[#4de082]/20" },
@@ -381,7 +412,96 @@ export default function StaffManagementPage() {
   const [legajoTab, setLegajoTab] = useState("datos");
   const [isValidatingDoc, setIsValidatingDoc] = useState<string | null>(null);
 
-  // Editable documents store (audit flow: approve / reject / upload on behalf)
+  // ── Matriz de Cargos (Teaching Positions) ────────────────────────────────
+  const [positionsStore, setPositionsStore] = useState<Record<string, TeachingPosition[]>>(MOCK_POSITIONS);
+  const [isCargoModalOpen, setIsCargoModalOpen] = useState(false);
+  const [editingPosition, setEditingPosition] = useState<TeachingPosition | null>(null);
+  const [cargoForm, setCargoForm] = useState<{
+    subjectId: string;
+    courseId: string;
+    situacion: SituacionRevista;
+  }>({ subjectId: "", courseId: "", situacion: "TITULAR" });
+  const [isSavingCargo, setIsSavingCargo] = useState(false);
+
+  // Positions of the currently open legajo member
+  const legajoPositions: TeachingPosition[] = legajoMember
+    ? positionsStore[legajoMember.id] ?? []
+    : [];
+
+  const handleOpenCargoModal = useCallback((position?: TeachingPosition) => {
+    if (position) {
+      setEditingPosition(position);
+      setCargoForm({ subjectId: position.subjectId, courseId: position.courseId, situacion: position.situacion });
+    } else {
+      setEditingPosition(null);
+      setCargoForm({ subjectId: "", courseId: "", situacion: "TITULAR" });
+    }
+    setIsCargoModalOpen(true);
+  }, []);
+
+  const handleSaveCargo = useCallback(async () => {
+    if (!legajoMember || !cargoForm.subjectId || !cargoForm.courseId) {
+      toast.error("Selecciona asignatura, curso y situacion de revista");
+      return;
+    }
+    setIsSavingCargo(true);
+    await new Promise(resolve => setTimeout(resolve, 700));
+
+    const subject = AVAILABLE_SUBJECTS.find(s => s.id === cargoForm.subjectId)!;
+    const course  = AVAILABLE_COURSES.find(c => c.id === cargoForm.courseId)!;
+
+    const currentPositions = positionsStore[legajoMember.id] ?? [];
+
+    if (!editingPosition) {
+      const duplicate = currentPositions.some(
+        p => p.subjectId === subject.id && p.courseId === course.id
+      );
+      if (duplicate) {
+        setIsSavingCargo(false);
+        toast.error("Ya existe un cargo con esa asignatura y curso");
+        return;
+      }
+    }
+
+    setPositionsStore(prev => {
+      const current = prev[legajoMember.id] ?? [];
+      if (editingPosition) {
+        return {
+          ...prev,
+          [legajoMember.id]: current.map(p =>
+            p.id === editingPosition.id
+              ? { ...p, subjectId: subject.id, subjectName: subject.name, courseId: course.id, courseName: course.name, situacion: cargoForm.situacion }
+              : p
+          ),
+        };
+      }
+      return {
+        ...prev,
+        [legajoMember.id]: [
+          ...current,
+          { id: `pos_${Date.now()}`, subjectId: subject.id, subjectName: subject.name, courseId: course.id, courseName: course.name, situacion: cargoForm.situacion },
+        ],
+      };
+    });
+
+    setIsSavingCargo(false);
+    setIsCargoModalOpen(false);
+    setEditingPosition(null);
+    toast.success(editingPosition ? "Cargo actualizado" : "Cargo asignado al legajo", {
+      description: `${subject.name} — ${course.name} (${SITUACION_CONFIG[cargoForm.situacion].label})`,
+    });
+  }, [legajoMember, cargoForm, editingPosition]);
+
+  const handleDeletePosition = useCallback((positionId: string, label: string) => {
+    if (!legajoMember) return;
+    setPositionsStore(prev => ({
+      ...prev,
+      [legajoMember.id]: (prev[legajoMember.id] ?? []).filter(p => p.id !== positionId),
+    }));
+    toast.success(`Cargo eliminado: ${label}`);
+  }, [legajoMember]);
+
+  // ── Editable documents store (audit flow: approve / reject / upload on behalf) ──
   const [documentsStore, setDocumentsStore] = useState<Record<string, StaffDocument[]>>(MOCK_DOCUMENTS);
 
   // Reject modal state (requires reason)
@@ -1365,37 +1485,121 @@ export default function StaffManagementPage() {
                 </div>
               </div>
 
-              {/* Academic Scope */}
+              {/* Matriz de Cargos y Asignaciones */}
               <div className="space-y-3">
-                <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">Alcance Academico</h3>
-                {legajoMember?.assignedCourses && legajoMember.assignedCourses.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
-                      <p className="text-[10px] text-white/40 mb-2">Cursos Asignados</p>
-                      <div className="flex flex-wrap gap-2">
-                        {legajoMember.assignedCourses.map((course, i) => (
-                          <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-[#d0bcff]/10 text-[#d0bcff] border border-[#d0bcff]/20">
-                            {course}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {legajoMember.assignedSubjects.length > 0 && (
-                      <div className="px-4 py-3 bg-white/[0.02] rounded-xl border border-white/5">
-                        <p className="text-[10px] text-white/40 mb-2">Materias</p>
-                        <div className="flex flex-wrap gap-2">
-                          {legajoMember.assignedSubjects.map((subject, i) => (
-                            <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                              {subject}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">
+                    Cargos y Asignaciones
+                  </h3>
+                  {legajoMember?.role === "DOCENTE" && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleOpenCargoModal()}
+                      className="h-7 text-xs bg-[#d0bcff]/10 text-[#d0bcff] hover:bg-[#d0bcff]/20 border border-[#d0bcff]/20 gap-1"
+                    >
+                      <Plus className="size-3" />
+                      Asignar Cargo
+                    </Button>
+                  )}
+                </div>
+
+                {legajoPositions.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-white/30 bg-white/[0.02] rounded-xl border border-white/5 border-dashed">
+                    Sin cargos asignados.
+                    {legajoMember?.role === "DOCENTE" && (
+                      <button
+                        onClick={() => handleOpenCargoModal()}
+                        className="block mx-auto mt-2 text-[#d0bcff]/60 hover:text-[#d0bcff] text-xs transition-colors"
+                      >
+                        + Asignar primer cargo
+                      </button>
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-sm text-white/30 bg-white/[0.02] rounded-xl border border-white/5">
-                    Sin asignaciones academicas
+                  <div className="rounded-xl border border-white/5 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-white/[0.02] border-b border-white/5">
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-white/40 font-semibold">
+                            Asignatura
+                          </th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-white/40 font-semibold">
+                            Curso
+                          </th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-white/40 font-semibold">
+                            Sit. Revista
+                          </th>
+                          <th className="px-2 py-2.5 text-right text-[10px] uppercase tracking-wider text-white/40 font-semibold w-16">
+                            Acc.
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {legajoPositions.map((pos) => {
+                          const sit = SITUACION_CONFIG[pos.situacion];
+                          return (
+                            <tr key={pos.id} className="hover:bg-white/[0.015] transition-colors group">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="size-7 rounded-lg bg-[#d0bcff]/8 border border-[#d0bcff]/15 flex items-center justify-center shrink-0">
+                                    <BookOpen className="size-3.5 text-[#d0bcff]" />
+                                  </div>
+                                  <span className="font-medium text-[#e4e1ea] text-xs">{pos.subjectName}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-xs text-white/60">{pos.courseName}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={cn(
+                                  "inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-lg border",
+                                  sit.color, sit.bg, sit.border
+                                )}>
+                                  {sit.label}
+                                </span>
+                              </td>
+                              <td className="px-2 py-3 text-right">
+                                <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => handleOpenCargoModal(pos)}
+                                    className="p-1.5 rounded-lg text-white/30 hover:text-[#d0bcff] hover:bg-[#d0bcff]/10 transition-colors"
+                                    aria-label="Editar cargo"
+                                  >
+                                    <Edit3 className="size-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePosition(pos.id, `${pos.subjectName} — ${pos.courseName}`)}
+                                    className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                    aria-label="Eliminar cargo"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Summary chips */}
+                {legajoPositions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {(["TITULAR", "PROVISORIO", "SUPLENTE"] as SituacionRevista[]).map(s => {
+                      const count = legajoPositions.filter(p => p.situacion === s).length;
+                      if (count === 0) return null;
+                      const cfg = SITUACION_CONFIG[s];
+                      return (
+                        <span key={s} className={cn("text-[10px] font-mono px-2 py-0.5 rounded-full border", cfg.color, cfg.bg, cfg.border)}>
+                          {count} {cfg.label}{count !== 1 ? "s" : ""}
+                        </span>
+                      );
+                    })}
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/10 text-white/40">
+                      {legajoPositions.length} cargo{legajoPositions.length !== 1 ? "s" : ""} total
+                    </span>
                   </div>
                 )}
               </div>
@@ -1660,6 +1864,132 @@ export default function StaffManagementPage() {
           </Tabs>
         </SheetContent>
       </Sheet>
+
+      {/* Modal: Asignar / Editar Cargo Docente */}
+      <Dialog open={isCargoModalOpen} onOpenChange={(open) => { if (!open) { setIsCargoModalOpen(false); setEditingPosition(null); } }}>
+        <DialogContent className="sm:max-w-[460px] bg-[#131319] border-white/10 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5">
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <GraduationCap className="size-5 text-[#d0bcff]" />
+              {editingPosition ? "Editar Cargo" : "Asignar Cargo"}
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Define la asignatura, el curso y la situacion de revista de este cargo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* Asignatura */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">Asignatura</Label>
+              <Select
+                value={cargoForm.subjectId}
+                onValueChange={(v) => setCargoForm(p => ({ ...p, subjectId: v }))}
+              >
+                <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                  <SelectValue placeholder="Seleccionar asignatura..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {AVAILABLE_SUBJECTS.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Curso / Division */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">Curso / Division</Label>
+              <Select
+                value={cargoForm.courseId}
+                onValueChange={(v) => setCargoForm(p => ({ ...p, courseId: v }))}
+              >
+                <SelectTrigger className="bg-white/[0.02] border-white/10 h-11">
+                  <SelectValue placeholder="Seleccionar curso..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {AVAILABLE_COURSES.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Situacion de Revista */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/60 uppercase tracking-wider">Situacion de Revista</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["TITULAR", "PROVISORIO", "SUPLENTE"] as SituacionRevista[]).map(s => {
+                  const cfg = SITUACION_CONFIG[s];
+                  const isSelected = cargoForm.situacion === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setCargoForm(p => ({ ...p, situacion: s }))}
+                      className={cn(
+                        "py-3 px-2 rounded-xl border-2 text-center transition-all duration-150",
+                        isSelected
+                          ? cn("border-current", cfg.color, cfg.bg)
+                          : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                      )}
+                    >
+                      <p className={cn("text-xs font-semibold", isSelected ? cfg.color : "text-white/50")}>
+                        {cfg.label}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Preview */}
+            {cargoForm.subjectId && cargoForm.courseId && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="size-9 rounded-lg bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center shrink-0">
+                  <BookOpen className="size-4 text-[#d0bcff]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-[#e4e1ea] truncate">
+                    {AVAILABLE_SUBJECTS.find(s => s.id === cargoForm.subjectId)?.name}
+                    {" — "}
+                    {AVAILABLE_COURSES.find(c => c.id === cargoForm.courseId)?.name}
+                  </p>
+                  <span className={cn(
+                    "inline-block text-[10px] font-semibold uppercase tracking-wide mt-0.5 px-2 py-0.5 rounded-full border",
+                    SITUACION_CONFIG[cargoForm.situacion].color,
+                    SITUACION_CONFIG[cargoForm.situacion].bg,
+                    SITUACION_CONFIG[cargoForm.situacion].border,
+                  )}>
+                    {SITUACION_CONFIG[cargoForm.situacion].label}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
+            <Button
+              variant="outline"
+              onClick={() => { setIsCargoModalOpen(false); setEditingPosition(null); }}
+              className="border-white/10 text-white/70 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveCargo}
+              disabled={isSavingCargo || !cargoForm.subjectId || !cargoForm.courseId}
+              className="bg-[#d0bcff] text-[#1b1b1f] hover:bg-[#d0bcff]/90 gap-2"
+            >
+              {isSavingCargo ? (
+                <><Loader2 className="size-4 animate-spin" />Guardando...</>
+              ) : (
+                <><CheckCircle className="size-4" />{editingPosition ? "Actualizar Cargo" : "Confirmar Asignacion"}</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject Document Modal (requires reason) */}
       <Dialog open={rejectingDoc !== null} onOpenChange={(o) => { if (!o) { setRejectingDoc(null); setRejectionReason(""); } }}>
