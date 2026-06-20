@@ -34,6 +34,10 @@ import {
   FileSearch,
   Trash2,
   Download,
+  Network,
+  Star,
+  PlaneTakeoff,
+  ChevronRight,
 } from "lucide-react";
 import { downloadSimplePdf } from "@/lib/utils/download";
 import { toast } from "sonner";
@@ -67,6 +71,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -82,6 +89,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 import { getTodayLocalISO } from "@/lib/utils/date-utils";
 import { cn } from "@/lib/utils";
 
@@ -89,15 +97,27 @@ import { cn } from "@/lib/utils";
 // TYPES
 // ============================================
 
-type StaffRole = "DOCENTE" | "PRECEPTOR" | "ADMINISTRATIVO";
-type StaffStatus = "ACTIVE" | "PENDING" | "SUSPENDED";
+// El rol ADMIN mantiene acceso completo (Dashboards, Reportes, IAM).
+// adminSubRole es metadata jerárquica — NO altera el RBAC subyacente.
+type StaffRole = "DOCENTE" | "PRECEPTOR" | "ADMINISTRATIVO" | "ADMIN";
+type AdminSubRole = "REPRESENTANTE_LEGAL" | "DIRECTIVO" | "SECRETARIO" | "OTRO";
+type StaffStatus = "ACTIVE" | "PENDING" | "SUSPENDED" | "ON_LEAVE";
 type DocumentStatus = "AL_DIA" | "VENCIDO" | "FALTA_ENTREGAR" | "EN_REVISION" | "RECHAZADO";
+
+// Catálogo de sub-roles directivos — inmutable, solo ADMIN los puede ver/asignar
+const ADMIN_SUB_ROLES: { value: AdminSubRole; label: string; description: string }[] = [
+  { value: "REPRESENTANTE_LEGAL", label: "Representante Legal", description: "Firma documentos oficiales ante el Ministerio" },
+  { value: "DIRECTIVO",           label: "Directivo",           description: "Conduce la institución y toma decisiones pedagógicas" },
+  { value: "SECRETARIO",          label: "Secretario/a",        description: "Gestiona actas, legajos y comunicaciones formales" },
+  { value: "OTRO",                label: "Otro (Especificar)",   description: "Cargo directivo no contemplado en la lista" },
+];
 
 interface StaffMember {
   id: string;
   name: string;
   email: string;
   role: StaffRole;
+  adminSubRole?: AdminSubRole;  // solo presente cuando role === "ADMIN"
   status: StaffStatus;
   assignedCourses: string[];
   assignedSubjects: string[];
@@ -210,6 +230,34 @@ const MOCK_STAFF: StaffMember[] = [
     lastActivity: "Hace 30 dias",
     phone: "+54 11 5555-7890",
   },
+  {
+    id: "6",
+    name: "Suarez, Claudia Beatriz",
+    email: "suarez.directora@escuela.edu.ar",
+    role: "ADMIN",
+    adminSubRole: "DIRECTIVO",
+    status: "ACTIVE",
+    assignedCourses: [],
+    assignedSubjects: [],
+    invitedAt: "2023-03-01",
+    lastActivity: "Hace 5 min",
+    phone: "+54 11 5555-0001",
+    address: "Av. Santa Fe 2100, CABA",
+    cuil: "27-22334455-6",
+  },
+  {
+    id: "7",
+    name: "Perez, Juan Manuel",
+    email: "perez.legal@escuela.edu.ar",
+    role: "ADMIN",
+    adminSubRole: "REPRESENTANTE_LEGAL",
+    status: "ACTIVE",
+    assignedCourses: [],
+    assignedSubjects: [],
+    invitedAt: "2022-01-10",
+    lastActivity: "Hace 2 dias",
+    cuil: "20-18765432-1",
+  },
 ];
 
 // Mock documents for staff legajo
@@ -312,6 +360,15 @@ const ROLE_CARDS = [
     selectedColor: "border-amber-500 bg-amber-500/20",
     iconColor: "text-amber-400",
   },
+  {
+    value: "ADMIN" as StaffRole,
+    label: "Admin (Gestion/Direccion)",
+    description: "Acceso total. Requiere definicion de Cargo Directivo",
+    icon: Shield,
+    color: "border-rose-500/30 bg-rose-500/5 hover:border-rose-500/50 hover:bg-rose-500/10",
+    selectedColor: "border-rose-500 bg-rose-500/20",
+    iconColor: "text-rose-400",
+  },
 ];
 
 // ============================================
@@ -323,8 +380,15 @@ function getRoleLabel(role: StaffRole): string {
     DOCENTE: "Docente",
     PRECEPTOR: "Preceptor/a",
     ADMINISTRATIVO: "Administrativo",
+    ADMIN: "Admin",
   };
   return labels[role];
+}
+
+// Devuelve la etiqueta del sub-rol directivo (se muestra en lugar de "Admin" en la tabla)
+function getAdminSubRoleLabel(subRole?: AdminSubRole): string {
+  if (!subRole) return "Admin";
+  return ADMIN_SUB_ROLES.find(s => s.value === subRole)?.label ?? "Admin";
 }
 
 function getRoleColor(role: StaffRole): string {
@@ -332,15 +396,17 @@ function getRoleColor(role: StaffRole): string {
     DOCENTE: "bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/20",
     PRECEPTOR: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     ADMINISTRATIVO: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    ADMIN: "bg-rose-500/10 text-rose-400 border-rose-500/20",
   };
   return colors[role];
 }
 
 function getStatusConfig(status: StaffStatus): { label: string; color: string; icon: typeof CheckCircle } {
   const configs: Record<StaffStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
-    ACTIVE: { label: "Activo", color: "bg-[#4de082]/10 text-[#4de082]", icon: CheckCircle },
-    PENDING: { label: "Pendiente", color: "bg-yellow-500/10 text-yellow-500", icon: Clock },
-    SUSPENDED: { label: "Suspendido", color: "bg-[#ffb4ab]/10 text-[#ffb4ab]", icon: UserX },
+    ACTIVE:    { label: "Activo",      color: "bg-[#4de082]/10 text-[#4de082]",   icon: CheckCircle },
+    PENDING:   { label: "Pendiente",   color: "bg-yellow-500/10 text-yellow-500", icon: Clock },
+    SUSPENDED: { label: "Suspendido",  color: "bg-[#ffb4ab]/10 text-[#ffb4ab]",  icon: UserX },
+    ON_LEAVE:  { label: "De Licencia", color: "bg-amber-500/10 text-amber-400",   icon: PlaneTakeoff },
   };
   return configs[status];
 }
@@ -363,6 +429,38 @@ function getDocumentStatusConfig(status: DocumentStatus): { label: string; color
 }
 
 // ============================================
+// FUNCIONES INSTITUCIONALES (Non-Academic Assignments)
+// Roles de gestion interna — separados de los cargos curriculares
+// ============================================
+
+interface InstitutionalRole {
+  id: string;
+  roleType: string;         // tipo de funcion (de catalogo o libre)
+  areaDetail: string;       // area o curso especifico (texto libre)
+  assignedAt: string;       // fecha de asignacion
+}
+
+// Catalogo base de tipos de funcion — el admin puede escribir cualquier valor
+const INSTITUTIONAL_ROLE_TYPES = [
+  "Coordinador de Area",
+  "Jefe de Departamento",
+  "Tutor de Curso",
+  "Referente Tecnologico",
+];
+
+// Mock data — miembros con funciones institucionales pre-cargadas
+const MOCK_INSTITUTIONAL_ROLES: Record<string, InstitutionalRole[]> = {
+  "1": [
+    { id: "ir_1_1", roleType: "Jefe de Departamento",   areaDetail: "Ciencias Exactas",  assignedAt: "2024-03-10" },
+    { id: "ir_1_2", roleType: "Referente Tecnologico",  areaDetail: "Laboratorio Fisica", assignedAt: "2024-07-01" },
+  ],
+  "4": [
+    { id: "ir_4_1", roleType: "Coordinador de Area",    areaDetail: "Ciencias Sociales",  assignedAt: "2024-02-15" },
+    { id: "ir_4_2", roleType: "Tutor de Curso",         areaDetail: "3er Año B",          assignedAt: "2024-03-01" },
+  ],
+};
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -381,15 +479,17 @@ export default function StaffManagementPage() {
     email: "",
     role: "DOCENTE" as StaffRole,
     level: "",
+    adminSubRole: "" as AdminSubRole | "",
   });
   const [isInviting, setIsInviting] = useState(false);
 
-  // Validation check
+  // Validation check — ADMIN requiere sub-rol obligatorio
   const isFormValid = useMemo(() => {
     const hasIdentity = inviteData.firstName.trim() && inviteData.lastName.trim();
     const hasEmail = inviteData.email.trim() && inviteData.email.includes("@");
-    const hasLevel = inviteData.role === "ADMINISTRATIVO" || inviteData.level !== "";
-    return hasIdentity && hasEmail && hasLevel;
+    const hasLevel = inviteData.role === "ADMINISTRATIVO" || inviteData.role === "ADMIN" || inviteData.level !== "";
+    const hasAdminSubRole = inviteData.role !== "ADMIN" || inviteData.adminSubRole !== "";
+    return hasIdentity && hasEmail && hasLevel && hasAdminSubRole;
   }, [inviteData]);
 
   // Scope management modal state
@@ -411,6 +511,52 @@ export default function StaffManagementPage() {
   const [legajoMember, setLegajoMember] = useState<StaffMember | null>(null);
   const [legajoTab, setLegajoTab] = useState("datos");
   const [isValidatingDoc, setIsValidatingDoc] = useState<string | null>(null);
+
+  // ── Funciones Institucionales (Non-Academic) ──────────────────────────────
+  const [institutionalRolesStore, setInstitutionalRolesStore] = useState<Record<string, InstitutionalRole[]>>(MOCK_INSTITUTIONAL_ROLES);
+  const [isInstRoleFormOpen, setIsInstRoleFormOpen] = useState(false);
+  const [instRoleForm, setInstRoleForm] = useState({ roleType: "", areaDetail: "" });
+  const [isSavingInstRole, setIsSavingInstRole] = useState(false);
+
+  const legajoInstRoles: InstitutionalRole[] = legajoMember
+    ? institutionalRolesStore[legajoMember.id] ?? []
+    : [];
+
+  const handleSaveInstRole = useCallback(async () => {
+    if (!legajoMember) return;
+    const { roleType, areaDetail } = instRoleForm;
+    if (!roleType.trim() || !areaDetail.trim()) {
+      toast.error("Completa el tipo de funcion y el area / detalle especifico.");
+      return;
+    }
+    setIsSavingInstRole(true);
+    await new Promise(r => setTimeout(r, 700));
+    const newRole: InstitutionalRole = {
+      id: `ir_${Date.now()}`,
+      roleType: roleType.trim(),
+      areaDetail: areaDetail.trim(),
+      assignedAt: getTodayLocalISO(),
+    };
+    setInstitutionalRolesStore(prev => ({
+      ...prev,
+      [legajoMember.id]: [...(prev[legajoMember.id] ?? []), newRole],
+    }));
+    setIsSavingInstRole(false);
+    setIsInstRoleFormOpen(false);
+    setInstRoleForm({ roleType: "", areaDetail: "" });
+    toast.success("Funcion institucional asignada.", {
+      description: `${newRole.roleType} — ${newRole.areaDetail}`,
+    });
+  }, [legajoMember, instRoleForm]);
+
+  const handleDeleteInstRole = useCallback((roleId: string, label: string) => {
+    if (!legajoMember) return;
+    setInstitutionalRolesStore(prev => ({
+      ...prev,
+      [legajoMember.id]: (prev[legajoMember.id] ?? []).filter(r => r.id !== roleId),
+    }));
+    toast.success(`Funcion "${label}" removida del legajo.`);
+  }, [legajoMember]);
 
   // ── Matriz de Cargos (Teaching Positions) ────────────────────────────────
   const [positionsStore, setPositionsStore] = useState<Record<string, TeachingPosition[]>>(MOCK_POSITIONS);
@@ -556,6 +702,10 @@ export default function StaffManagementPage() {
       name: fullName,
       email: inviteData.email.toLowerCase().trim(),
       role: inviteData.role,
+      // adminSubRole solo se persiste si el rol es ADMIN — no afecta el RBAC subyacente
+      ...(inviteData.role === "ADMIN" && inviteData.adminSubRole
+        ? { adminSubRole: inviteData.adminSubRole as AdminSubRole }
+        : {}),
       status: "PENDING",
       assignedCourses: [],
       assignedSubjects: [],
@@ -573,6 +723,7 @@ export default function StaffManagementPage() {
       email: "",
       role: "DOCENTE",
       level: "",
+      adminSubRole: "",
     });
     
     toast.success("Alta de personal registrada exitosamente", {
@@ -581,6 +732,16 @@ export default function StaffManagementPage() {
   }, [inviteData, isFormValid]);
 
   // Handle revoke access
+  const handleChangeStatus = useCallback((memberId: string, newStatus: StaffStatus, memberName: string) => {
+    setStaff(prev => prev.map(m =>
+      m.id === memberId ? { ...m, status: newStatus } : m
+    ));
+    const label = getStatusConfig(newStatus).label;
+    toast.success("Estado del personal actualizado.", {
+      description: `${memberName} — nuevo estado: ${label}`,
+    });
+  }, []);
+
   const handleRevokeAccess = useCallback((memberId: string, memberName: string) => {
     setStaff((prev) => 
       prev.map((m) => 
@@ -649,6 +810,7 @@ export default function StaffManagementPage() {
       email: "",
       role: "DOCENTE",
       level: "",
+      adminSubRole: "",
     });
   }, []);
 
@@ -967,12 +1129,19 @@ export default function StaffManagementPage() {
                         </div>
                       </td>
                       
-                      {/* Role */}
+                      {/* Role — si es ADMIN muestra el Cargo Directivo como badge secundario */}
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${getRoleColor(member.role)}`}>
-                          <Shield className="size-3" />
-                          {getRoleLabel(member.role)}
-                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border w-fit ${getRoleColor(member.role)}`}>
+                            <Shield className="size-3" />
+                            {getRoleLabel(member.role)}
+                          </span>
+                          {member.role === "ADMIN" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border bg-rose-500/8 border-rose-500/20 text-rose-300/80 w-fit font-medium">
+                              {getAdminSubRoleLabel(member.adminSubRole)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       
                       {/* Scope */}
@@ -1055,6 +1224,42 @@ export default function StaffManagementPage() {
                               <Activity className="size-4" />
                               Auditar Actividad
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-white/10" />
+
+                            {/* Submenú — Cambiar Estado de RRHH */}
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="gap-2 cursor-pointer focus:bg-white/5 data-[state=open]:bg-white/5">
+                                <Activity className="size-4 text-white/60" />
+                                <span>Cambiar Estado de RRHH</span>
+                                <ChevronRight className="size-3.5 ml-auto text-white/30" />
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-44 bg-[#131319] border-white/10 p-1">
+                                {(
+                                  [
+                                    { value: "ACTIVE",    label: "Activo",      dot: "bg-[#4de082]" },
+                                    { value: "ON_LEAVE",  label: "De Licencia", dot: "bg-amber-400"  },
+                                    { value: "SUSPENDED", label: "Suspendido",  dot: "bg-[#ffb4ab]"  },
+                                  ] as const
+                                ).map(({ value, label, dot }) => {
+                                  const isCurrent = member.status === value;
+                                  return (
+                                    <DropdownMenuItem
+                                      key={value}
+                                      disabled={isCurrent}
+                                      className="gap-2.5 cursor-pointer focus:bg-white/5 disabled:opacity-40 disabled:cursor-default"
+                                      onClick={() => handleChangeStatus(member.id, value, member.name)}
+                                    >
+                                      <span className={`size-2 rounded-full shrink-0 ${dot}`} />
+                                      <span>{label}</span>
+                                      {isCurrent && (
+                                        <span className="ml-auto text-[10px] text-white/30">actual</span>
+                                      )}
+                                    </DropdownMenuItem>
+                                  );
+                                })}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer text-[#ffb4ab] focus:text-[#ffb4ab] focus:bg-[#ffb4ab]/10"
@@ -1158,7 +1363,9 @@ export default function StaffManagementPage() {
                         setInviteData(prev => ({ 
                           ...prev, 
                           role: role.value,
-                          level: role.value === "ADMINISTRATIVO" ? "" : prev.level
+                          // Limpia campos que no aplican al nuevo rol
+                          level: (role.value === "ADMINISTRATIVO" || role.value === "ADMIN") ? "" : prev.level,
+                          adminSubRole: role.value === "ADMIN" ? prev.adminSubRole : "",
                         }));
                       }}
                       className={cn(
@@ -1176,6 +1383,51 @@ export default function StaffManagementPage() {
                 })}
               </div>
             </div>
+
+            {/* Cargo Directivo (Condicional — solo si rol es ADMIN) */}
+            {inviteData.role === "ADMIN" && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs uppercase tracking-wider text-white/50">
+                    Cargo Directivo / Jerarquia
+                  </Label>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide bg-rose-500/15 text-rose-400 border border-rose-500/25 uppercase">
+                    Requerido
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-rose-500/[0.04] border border-rose-500/15">
+                  <p className="text-[10px] text-white/40 mb-3 leading-relaxed">
+                    El Cargo Directivo define la jerarquia institucional del usuario. El nivel de acceso al sistema
+                    permanece igual para todos los <span className="text-rose-400 font-semibold">ADMIN</span>.
+                  </p>
+                  <Select
+                    value={inviteData.adminSubRole}
+                    onValueChange={(v) => setInviteData(prev => ({ ...prev, adminSubRole: v as AdminSubRole }))}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "bg-white/[0.02] border transition-colors h-11",
+                        inviteData.adminSubRole
+                          ? "border-rose-500/40 text-[#e4e1ea]"
+                          : "border-white/10 text-white/40"
+                      )}
+                    >
+                      <SelectValue placeholder="Seleccionar cargo directivo..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#131319] border-white/10">
+                      {ADMIN_SUB_ROLES.map((sub) => (
+                        <SelectItem key={sub.value} value={sub.value}>
+                          <div className="flex flex-col py-0.5">
+                            <span className="font-medium text-[#e4e1ea]">{sub.label}</span>
+                            <span className="text-[10px] text-white/40 mt-0.5">{sub.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             {/* Level Selection (Conditional) */}
             {(inviteData.role === "DOCENTE" || inviteData.role === "PRECEPTOR") && (
@@ -1227,7 +1479,15 @@ export default function StaffManagementPage() {
                       {inviteData.lastName ? `${inviteData.lastName}, ${inviteData.firstName}` : inviteData.firstName || "Sin nombre"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {getRoleLabel(inviteData.role)} {inviteData.level && `• ${EDUCATION_LEVELS.find(l => l.id === inviteData.level)?.name}`}
+                      {getRoleLabel(inviteData.role)}
+                      {inviteData.role === "ADMIN" && inviteData.adminSubRole && (
+                        <span className="ml-1 text-rose-400">
+                          • {ADMIN_SUB_ROLES.find(s => s.value === inviteData.adminSubRole)?.label}
+                        </span>
+                      )}
+                      {inviteData.role !== "ADMIN" && inviteData.level && (
+                        <span> • {EDUCATION_LEVELS.find(l => l.id === inviteData.level)?.name}</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1420,9 +1680,16 @@ export default function StaffManagementPage() {
               <div>
                 <SheetTitle className="text-[#e4e1ea] text-lg">{legajoMember?.name}</SheetTitle>
                 <SheetDescription className="text-white/50 flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${legajoMember ? getRoleColor(legajoMember.role) : ""}`}>
-                    {legajoMember ? getRoleLabel(legajoMember.role) : ""}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${legajoMember ? getRoleColor(legajoMember.role) : ""}`}>
+                      {legajoMember ? getRoleLabel(legajoMember.role) : ""}
+                    </span>
+                    {legajoMember?.role === "ADMIN" && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border bg-rose-500/8 border-rose-500/20 text-rose-300/80 font-medium">
+                        {getAdminSubRoleLabel(legajoMember.adminSubRole)}
+                      </span>
+                    )}
+                  </div>
                   {legajoMember?.cuil && <span className="text-xs font-mono">CUIL: {legajoMember.cuil}</span>}
                 </SheetDescription>
               </div>
@@ -1603,6 +1870,197 @@ export default function StaffManagementPage() {
                   </div>
                 )}
               </div>
+
+              {/* ── Separator ─────────────────────────────────────────────── */}
+              <Separator className="bg-white/[0.06]" />
+
+              {/* ── Funciones Institucionales / Roles Especiales ─────────── */}
+              <div className="space-y-3">
+
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Network className="size-3.5 text-amber-400/80" />
+                      <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">
+                        Funciones Institucionales / Roles Especiales
+                      </h3>
+                    </div>
+                    <p className="text-[10px] text-white/30 leading-relaxed pl-5">
+                      Roles de gestion interna — no estan atados a una materia curricular.
+                    </p>
+                  </div>
+                  {!isInstRoleFormOpen && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsInstRoleFormOpen(true)}
+                      className="h-7 text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/25 gap-1 shrink-0"
+                    >
+                      <Plus className="size-3" />
+                      Asignar Funcion
+                    </Button>
+                  )}
+                </div>
+
+                {/* Formulario inline de asignacion */}
+                {isInstRoleFormOpen && (
+                  <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.03] space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Star className="size-3.5 text-amber-400" />
+                      <p className="text-xs font-semibold text-amber-400/90">Nueva Funcion Institucional</p>
+                    </div>
+
+                    {/* Campo 1 — Tipo de Funcion (Select + opcion libre) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-white/50">
+                        Tipo de Funcion <span className="text-amber-400/70">*</span>
+                      </Label>
+                      <Select
+                        value={INSTITUTIONAL_ROLE_TYPES.includes(instRoleForm.roleType) ? instRoleForm.roleType : "__custom__"}
+                        onValueChange={(v) => {
+                          if (v !== "__custom__") setInstRoleForm(p => ({ ...p, roleType: v }));
+                          else setInstRoleForm(p => ({ ...p, roleType: "" }));
+                        }}
+                      >
+                        <SelectTrigger className={cn(
+                          "bg-white/[0.02] border h-10 transition-colors",
+                          instRoleForm.roleType ? "border-amber-500/35" : "border-white/10"
+                        )}>
+                          <SelectValue placeholder="Seleccionar tipo de funcion..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#131319] border-white/10">
+                          {INSTITUTIONAL_ROLE_TYPES.map(type => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                          ))}
+                          <SelectItem value="__custom__">
+                            <span className="text-white/50 italic">Otro (escribir abajo...)</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {/* Input libre cuando se selecciona "Otro" */}
+                      {(!INSTITUTIONAL_ROLE_TYPES.includes(instRoleForm.roleType) || instRoleForm.roleType === "") && (
+                        <Input
+                          value={instRoleForm.roleType}
+                          onChange={e => setInstRoleForm(p => ({ ...p, roleType: e.target.value }))}
+                          placeholder="Ej: Referente de Convivencia, Coordinador de Jornada..."
+                          className="bg-white/[0.02] border-white/10 focus:border-amber-500/35 h-10 text-sm placeholder:text-white/25 mt-1.5"
+                        />
+                      )}
+                    </div>
+
+                    {/* Campo 2 — Area / Detalle Especifico (texto libre) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-white/50">
+                        Area o Curso Especifico <span className="text-amber-400/70">*</span>
+                      </Label>
+                      <Input
+                        value={instRoleForm.areaDetail}
+                        onChange={e => setInstRoleForm(p => ({ ...p, areaDetail: e.target.value }))}
+                        placeholder="Ej: Ciencias Exactas, 3er Año B, Laboratorio..."
+                        className="bg-white/[0.02] border-white/10 focus:border-amber-500/35 h-10 text-sm placeholder:text-white/25"
+                      />
+                    </div>
+
+                    {/* Acciones del formulario */}
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setIsInstRoleFormOpen(false); setInstRoleForm({ roleType: "", areaDetail: "" }); }}
+                        disabled={isSavingInstRole}
+                        className="h-8 text-xs text-white/50 hover:text-white hover:bg-white/5"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveInstRole}
+                        disabled={isSavingInstRole || !instRoleForm.roleType.trim() || !instRoleForm.areaDetail.trim()}
+                        className="h-8 text-xs bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 gap-1.5 disabled:opacity-40"
+                      >
+                        {isSavingInstRole ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Check className="size-3.5" />
+                        )}
+                        {isSavingInstRole ? "Guardando..." : "Asignar Funcion"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabla de funciones */}
+                {legajoInstRoles.length === 0 && !isInstRoleFormOpen ? (
+                  <div className="text-center py-7 text-sm text-white/25 bg-white/[0.015] rounded-xl border border-white/[0.04] border-dashed">
+                    Sin funciones institucionales asignadas.
+                    <button
+                      onClick={() => setIsInstRoleFormOpen(true)}
+                      className="block mx-auto mt-2 text-amber-400/50 hover:text-amber-400 text-xs transition-colors"
+                    >
+                      + Asignar primera funcion
+                    </button>
+                  </div>
+                ) : legajoInstRoles.length > 0 ? (
+                  <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-white/[0.025] border-b border-white/[0.06]">
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-white/35 font-semibold">
+                            Tipo de Funcion
+                          </th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-white/35 font-semibold">
+                            Area / Detalle Especifico
+                          </th>
+                          <th className="px-2 py-2.5 text-right text-[10px] uppercase tracking-wider text-white/35 font-semibold w-16">
+                            Acc.
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {legajoInstRoles.map(role => (
+                          <tr key={role.id} className="hover:bg-white/[0.015] transition-colors group">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="size-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                                  <Network className="size-3.5 text-amber-400" />
+                                </div>
+                                <span className="text-xs font-medium text-[#e4e1ea]">{role.roleType}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-white/60">{role.areaDetail}</span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3 text-right">
+                              <button
+                                onClick={() => handleDeleteInstRole(role.id, `${role.roleType} — ${role.areaDetail}`)}
+                                className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                aria-label="Remover funcion institucional"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {/* Contador */}
+                    <div className="px-4 py-2 bg-white/[0.01] border-t border-white/[0.04] flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-white/30">
+                        {legajoInstRoles.length} funcion{legajoInstRoles.length !== 1 ? "es" : ""} institucional{legajoInstRoles.length !== 1 ? "es" : ""}
+                      </span>
+                      <button
+                        onClick={() => setIsInstRoleFormOpen(true)}
+                        className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors"
+                      >
+                        + Asignar mas
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
             </TabsContent>
 
             {/* Tab 2: Documentacion Legal - Auditoria */}

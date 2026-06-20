@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { parseLocalDateString } from "@/lib/utils/date-utils";
 import { cn } from "@/lib/utils";
+import { printAsPdf, downloadDoc } from "@/lib/utils/export-engine";
 import { formatDateToLocalISO } from "@/lib/utils/date-utils";
 import { MonthGrid, type DayEvent } from "@/components/calendar/month-grid";
 
@@ -443,75 +444,37 @@ export default function CalendarPage() {
 
   const handleExportCalendar = useCallback(() => {
     const format = getExportFormat(currentRole);
-    
+
     if (format === "DOCX") {
       toast.loading("Generando archivo editable en formato Word...", { id: "calendar-export" });
-      
-      // Simulate DOCX generation
+
       setTimeout(() => {
-        const docxContent = `<?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p><w:r><w:t>CALENDARIO INSTITUCIONAL 2026 - SEQUENCY</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Regimen: ${periodSystem}</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Formato: Editable (Uso administrativo)</w:t></w:r></w:p>
-  </w:body>
-</w:document>`;
-        
-        const blob = new Blob([docxContent], { 
-          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "Calendario_Institucional_2026.docx";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
+        const htmlContent = `
+          <h1>CALENDARIO INSTITUCIONAL 2026 — SEQUENCY</h1>
+          <p><strong>Regimen:</strong> ${periodSystem}</p>
+          <p><strong>Formato:</strong> Editable (Uso administrativo)</p>
+          <p><strong>Generado:</strong> ${new Date().toLocaleDateString("es-AR")}</p>
+        `;
+        downloadDoc(htmlContent, "Calendario_Institucional_2026.doc");
         toast.dismiss("calendar-export");
         toast.success("Calendario exportado en formato Word editable");
       }, 1500);
     } else {
-      toast.loading("Compilando calendario PDF cerrado e inmutable...", { id: "calendar-export" });
-      
-      // Simulate PDF generation
+      toast.loading("Abriendo dialogo de impresion / guardar como PDF...", { id: "calendar-export" });
+
       setTimeout(() => {
-        const pdfContent = `%PDF-1.4
-1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
-2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
-3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj
-4 0 obj << /Length 200 >> stream
-BT
-/F1 18 Tf
-50 700 Td
-(CALENDARIO INSTITUCIONAL 2026) Tj
-0 -30 Td
-/F1 12 Tf
-(Documento oficial - Solo lectura) Tj
-ET
-endstream endobj
-xref
-0 5
-trailer << /Size 5 /Root 1 0 R >>
-startxref
-400
-%%EOF`;
-        
-        const blob = new Blob([pdfContent], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "Calendario_Institucional_2026.pdf";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
+        const htmlContent = `
+          <h1 style="text-align:center">CALENDARIO INSTITUCIONAL 2026</h1>
+          <h2 style="text-align:center">SEQUENCY — Documento Oficial</h2>
+          <hr/>
+          <p><strong>Regimen:</strong> ${periodSystem}</p>
+          <p><strong>Fecha de emision:</strong> ${new Date().toLocaleDateString("es-AR")}</p>
+          <p style="margin-top:16pt"><em>Documento oficial — Solo lectura.</em></p>
+        `;
+        printAsPdf(htmlContent, "Calendario Institucional 2026 — Sequency");
         toast.dismiss("calendar-export");
-        toast.success("Calendario descargado en formato PDF oficial");
-      }, 1500);
+        toast.success("Dialogo de impresion abierto — guardalo como PDF");
+      }, 800);
     }
   }, [currentRole, periodSystem]);
 

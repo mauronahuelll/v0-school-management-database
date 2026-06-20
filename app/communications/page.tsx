@@ -440,18 +440,22 @@ export default function CommunicationsPage() {
   // Visibilidad asimetrica: solo ADMIN y PRECEPTOR pueden redactar tramites/circulares.
   const canCompose = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
 
-  const communications = useMemo(() => {
-    return isReceiver ? MOCK_FAMILIA_COMMUNICATIONS : MOCK_SENDER_COMMUNICATIONS;
-  }, [isReceiver]);
+  const [communications, setCommunications] = useState<Communication[]>(
+    // La fuente inicial depende del rol: la asignacion real ocurre despues de montar (ver useEffect)
+    MOCK_SENDER_COMMUNICATIONS
+  );
 
   const selectedCommunication = useMemo(() => {
     return communications.find(c => c.id === selectedId) || null;
   }, [communications, selectedId]);
 
   useEffect(() => {
+    // Asignar la lista correcta segun el rol (solo la primera vez que monta)
+    const initialList = isReceiver ? MOCK_FAMILIA_COMMUNICATIONS : MOCK_SENDER_COMMUNICATIONS;
+    setCommunications(initialList);
     setMounted(true);
-    if (communications.length > 0) {
-      setSelectedId(communications[0].id);
+    if (initialList.length > 0) {
+      setSelectedId(initialList[0].id);
     }
 
     // Deep-linking desde el Centro de Comando del Dashboard
@@ -459,7 +463,9 @@ export default function CommunicationsPage() {
     if (params.get("action") === "compose" && canCompose) {
       setIsComposeOpen(true);
     }
-  }, [communications]);
+  // Solo re-ejecutar si cambia el rol (cambio de cuenta) — no en cada render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReceiver]);
 
   const handleSelectCommunication = useCallback((id: string) => {
     setSelectedId(id);
@@ -581,9 +587,42 @@ export default function CommunicationsPage() {
         : `${selectedStudents.length} alumno(s) seleccionados`;
     }
 
+    // Capturar valores antes del reset para construir el objeto
+    const capturedTitle      = composeTitle.trim();
+    const capturedBody       = composeBody.trim();
+    const capturedType       = composeType as CommunicationType;
+    const capturedAudience   = audienceTarget;
+    const capturedActionable = requireSignedReturn;
+    const capturedTemplate   = composeTemplateName;
+
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1200));
     setIsSubmitting(false);
+
+    // Construir el nuevo comunicado y agregarlo AL PRINCIPIO del estado
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+    const newCommunication: Communication = {
+      id: `sent-${Date.now()}`,
+      type: capturedType || "INSTITUCIONAL",
+      title: capturedTitle,
+      body: capturedBody,
+      senderName: "Yo",
+      senderRole: activeContext?.role === "PRECEPTOR" ? "Preceptoria" : "Direccion General",
+      sentAt: `Hoy, ${timeLabel}`,
+      priority: "MEDIA",
+      ...(capturedAudience === "PERSONAL"
+        ? { totalRecipients: selectedStaffRoles.length || 1, signedCount: 0, pendingRecipients: [] }
+        : { totalRecipients: audienceMode === "custom" ? selectedStudents.length : undefined, signedCount: 0, pendingRecipients: [] }
+      ),
+      ...(capturedActionable && capturedTemplate
+        ? { requiresReturn: true, returnTemplateName: capturedTemplate, tracking: [] }
+        : {}),
+    };
+
+    setCommunications(prev => [newCommunication, ...prev]);
+    setSelectedId(newCommunication.id);
+
     setIsComposeOpen(false);
     setComposeTitle("");
     setComposeBody("");
@@ -595,16 +634,15 @@ export default function CommunicationsPage() {
     setSelectedStudents([]);
     setSelectedStaffRoles([]);
     setAudienceTarget("COMUNIDAD");
-    const wasActionable = requireSignedReturn;
     setRequireSignedReturn(false);
 
-    const isInternal = audienceTarget === "PERSONAL";
+    const isInternal = capturedAudience === "PERSONAL";
     toast.success(
-      isInternal ? "Comunicado interno enviado" : wasActionable ? "Circular accionable enviada" : "Circular enviada exitosamente",
+      isInternal ? "Comunicado interno enviado" : capturedActionable ? "Circular accionable enviada" : "Circular enviada exitosamente",
       {
         description: isInternal
           ? `Enviado al personal: ${audienceLabel}.`
-          : wasActionable
+          : capturedActionable
           ? `Se habilito el buzon de devolucion para ${audienceLabel}.`
           : `El comunicado fue enviado a ${audienceLabel}.`,
       }
