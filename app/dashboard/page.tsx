@@ -23,7 +23,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { OperationalAlerts, getAlertsCount } from "@/components/dashboard/operational-alerts"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
+import { printAsPdf } from "@/lib/utils/export-engine";
 
 // ============================================
 // TYPES
@@ -696,36 +697,30 @@ export default function DashboardPage() {
     setIsAuditing(true);
     const run = new Promise<void>((resolve) => {
       window.setTimeout(() => {
-        const body = [
-          "SEQUENCY - Auditoria de Compliance RRHH",
-          "==========================================",
-          `Generado: ${new Date().toLocaleString("es-AR")}`,
-          "",
-          "DOCUMENTACION FALTANTE DEL PERSONAL",
-          "- 5 docentes con Apto Medico vencido",
-          "- 3 docentes sin DD.JJ. de Cargos",
-          "- 2 docentes sin constancia de CUIL actualizada",
-          "",
-          "Nivel de cumplimiento institucional: 71%",
-          "Documento generado automaticamente por el Centro de Comando.",
-        ].join("\n");
-
-        const blob = new Blob([body], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "auditoria_rrhh.pdf";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        const generado = new Date().toLocaleString("es-AR");
+        const htmlContent = `
+          <h1>SEQUENCY — Auditoria de Compliance RRHH</h1>
+          <p><strong>Generado:</strong> ${generado}</p>
+          <hr style="margin:12pt 0"/>
+          <h2>Documentacion Faltante del Personal</h2>
+          <ul>
+            <li>5 docentes con Apto Medico vencido</li>
+            <li>3 docentes sin DD.JJ. de Cargos</li>
+            <li>2 docentes sin constancia de CUIL actualizada</li>
+          </ul>
+          <p style="margin-top:16pt">
+            <strong>Nivel de cumplimiento institucional: 71%</strong>
+          </p>
+          <p><em>Documento generado automaticamente por el Centro de Comando.</em></p>
+        `;
+        printAsPdf(htmlContent, "Auditoria RRHH — Sequency");
         resolve();
-      }, 1800);
+      }, 1000);
     }).finally(() => setIsAuditing(false));
 
     toast.promise(run, {
       loading: "Auditando documentacion del personal... Compilando reporte...",
-      success: "Descarga iniciada: auditoria_rrhh.pdf",
+      success: "Dialogo de impresion abierto — guarda como PDF.",
       error: "No se pudo generar la auditoria.",
     });
   }, []);

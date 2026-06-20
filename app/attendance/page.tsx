@@ -54,22 +54,7 @@ import type {
   LicenseFormData,
 } from "@/lib/types/attendance";
 
-// ============================================
-// NATIVE DOWNLOAD ENGINE (Blob API, sin librerias externas)
-// ============================================
-// Crea un Blob, fuerza el click en un <a> oculto y limpia el DOM.
-function triggerDownload(filename: string, content: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
+import { downloadCsv } from "@/lib/utils/export-engine";
 
 // Etiqueta legible para el estado de asistencia
 function statusLabel(status: string): string {
@@ -305,7 +290,7 @@ function RRHHAttendancePanel() {
     });
 
     const csvContent = BOM + [headers.join(","), ...rows].join("\n");
-    triggerDownload("parte_asistencia_diaria.csv", csvContent, "text/csv;charset=utf-8;");
+    downloadCsv(csvContent, "parte_asistencia_diaria.csv");
 
     setIsExporting(false);
     toast.success("Parte diario del personal exportado", {
@@ -406,7 +391,7 @@ function StudentDailyAttendance({
     );
 
     const csvContent = BOM + [headers.join(","), ...rows].join("\n");
-    triggerDownload("parte_asistencia_diaria.csv", csvContent, "text/csv;charset=utf-8;");
+    downloadCsv(csvContent, "parte_asistencia_diaria.csv");
 
     setIsExporting(false);
     toast.success("Parte diario exportado", {

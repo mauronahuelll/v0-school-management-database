@@ -51,6 +51,7 @@ import type {
 } from "@/lib/types/grades";
 import { calculateSimpleAverage, isPassingGrade, roundToDecimals } from "@/lib/types/grades";
 import { cn } from "@/lib/utils";
+import { downloadCsv } from "@/lib/utils/export-engine";
 
 // ============================================
 // MOCK DATA FOR DEMO
@@ -668,20 +669,9 @@ export default function GradesPage() {
     });
   }, [valoracionData, valoracionJustificaciones]);
 
-  // Export valoracion to CSV
-  // Native Download Engine: crea un Blob, fuerza el click en un <a> oculto y limpia el DOM.
-  const triggerDownload = useCallback((filename: string, content: string, type: string) => {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, []);
+  // downloadCsv del motor nativo de exportacion (sin Blob manual)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _unusedTrigger = null; // eliminado: usamos el motor central
 
   const handleExportValoracion = useCallback(async () => {
     setIsExportingValoracion(true);
@@ -705,24 +695,15 @@ export default function GradesPage() {
       ].map(cell => `"${cell}"`).join(",");
     });
     
+    // csvContent ya incluye BOM desde la variable BOM definida arriba
     const csvContent = BOM + [headers.join(","), ...rows].join("\n");
-    
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    
-    // Generate filename
+
+    // Generar filename y disparar descarga via motor central
     const subjectSlug = selectedSubject.shortName.toLowerCase();
     const periodSlug = selectedPeriod.name.toLowerCase().replace(/\s+/g, "_");
     const filename = `valoraciones_preliminares_${subjectSlug}_${periodSlug}.csv`;
-    
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // downloadCsv agrega su propio BOM — pasamos sin BOM para evitar doble BOM
+    downloadCsv([headers.join(","), ...rows].join("\n"), filename);
     
     setIsExportingValoracion(false);
     toast.success("Planilla exportada con exito en su dispositivo");
@@ -762,8 +743,8 @@ export default function GradesPage() {
       ].map((cell) => `"${cell}"`).join(",");
     });
 
-    const csvContent = BOM + [headers.join(","), ...rows].join("\n");
-    triggerDownload("planilla_calificaciones.csv", csvContent, "text/csv;charset=utf-8;");
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    downloadCsv(csvContent, "planilla_calificaciones.csv");
 
     setIsExportingGrades(false);
     toast.success("Planilla de calificaciones descargada", {

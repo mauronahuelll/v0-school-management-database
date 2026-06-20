@@ -105,6 +105,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { printAsPdf, downloadDoc, downloadCsv, plainTextToHtml } from "@/lib/utils/export-engine";
 import { useAuth } from "@/lib/context/auth-context";
 
 // ============================================
@@ -557,18 +558,24 @@ export default function StudentsPage() {
     handleFileSelected(e.dataTransfer.files?.[0]);
   }, [handleFileSelected]);
 
-  // Native Download Engine: crea un Blob, fuerza el click en un <a> oculto y limpia el DOM.
+  /**
+   * triggerDownload — adaptador de compatibilidad sobre el motor central.
+   * Delega a printAsPdf (PDF), downloadDoc (.doc) o downloadCsv segun el MIME.
+   */
   const triggerDownload = useCallback((filename: string, content: string, type: string) => {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (type.includes("pdf")) {
+      // PDF: abre dialogo de impresion nativo del SO
+      printAsPdf(plainTextToHtml(content), filename);
+    } else if (type.includes("word") || type.includes("wordprocessingml")) {
+      // DOCX / Word: descarga como .doc con MIME HTML que Word reconoce
+      const docFilename = filename.replace(/\.docx?$/i, ".doc");
+      downloadDoc(plainTextToHtml(content), docFilename);
+    } else if (type.includes("csv")) {
+      downloadCsv(content, filename);
+    } else {
+      // Fallback: descarga como .doc con contenido en texto plano
+      downloadDoc(plainTextToHtml(content), filename);
+    }
   }, []);
 
   // Handler exclusivo para el Certificado Analitico de Pase
@@ -581,33 +588,38 @@ export default function StudentsPage() {
         return;
       }
       const student = reportSelectedStudents[0];
-      const ext = format === "PDF" ? "pdf" : "docx";
-      const mime = format === "PDF"
-        ? "application/pdf"
-        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
       setIsGeneratingAnalitico(true);
       const run = new Promise<void>((resolve) => {
         window.setTimeout(() => {
-          const content = buildAnaliticoPaseDocument(student);
-          const filename = `analitico_pase_${student.lastName.toLowerCase()}_${student.legajo}.${ext}`;
-          triggerDownload(filename, content, mime);
+          const textContent = buildAnaliticoPaseDocument(student);
+          const htmlContent = plainTextToHtml(textContent);
+          const title = `Certificado Analitico de Pase — ${student.lastName}, ${student.firstName}`;
+
+          if (format === "PDF") {
+            // Motor nativo: dialogo de impresion del SO → Guardar como PDF
+            printAsPdf(htmlContent, title);
+          } else {
+            // Motor DOC: Word recibe HTML y lo renderiza perfectamente
+            const filename = `analitico_pase_${student.lastName.toLowerCase()}_${student.legajo}.doc`;
+            downloadDoc(htmlContent, filename);
+          }
           resolve();
-        }, 1600);
+        }, 1200);
       }).finally(() => {
         setIsGeneratingAnalitico(false);
       });
 
       toast.promise(run, {
         loading: "Compilando Certificado Analitico de Pase...",
-        success: () => {
-          toast.success("Certificado Analitico Incompleto generado y descargado.");
-          return "Descarga iniciada.";
-        },
+        success:
+          format === "PDF"
+            ? "Dialogo de impresion abierto — guarda como PDF."
+            : "Certificado Analitico Incompleto generado y descargado.",
         error: "Error al compilar el Certificado Analitico.",
       });
     },
-    [reportScope, reportSelectedStudents, buildAnaliticoPaseDocument, triggerDownload]
+    [reportScope, reportSelectedStudents, buildAnaliticoPaseDocument]
   );
 
   const handleDownloadTemplate = useCallback(() => {
@@ -624,7 +636,7 @@ export default function StudentsPage() {
       "Email",
     ];
     const csvContent = headers.join(",") + "\n";
-    triggerDownload("plantilla_matricula.csv", csvContent, "text/csv;charset=utf-8;");
+    downloadCsv(csvContent, "plantilla_matricula.csv");
     toast.success("Plantilla base descargada", {
       description: "plantilla_matricula.csv incluye las columnas estandar requeridas para la importacion.",
     });
