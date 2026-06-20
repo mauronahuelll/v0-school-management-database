@@ -34,6 +34,8 @@ import {
   FileSearch,
   Trash2,
   Download,
+  Network,
+  Star,
 } from "lucide-react";
 import { downloadSimplePdf } from "@/lib/utils/download";
 import { toast } from "sonner";
@@ -82,6 +84,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 import { getTodayLocalISO } from "@/lib/utils/date-utils";
 import { cn } from "@/lib/utils";
 
@@ -420,6 +423,38 @@ function getDocumentStatusConfig(status: DocumentStatus): { label: string; color
 }
 
 // ============================================
+// FUNCIONES INSTITUCIONALES (Non-Academic Assignments)
+// Roles de gestion interna — separados de los cargos curriculares
+// ============================================
+
+interface InstitutionalRole {
+  id: string;
+  roleType: string;         // tipo de funcion (de catalogo o libre)
+  areaDetail: string;       // area o curso especifico (texto libre)
+  assignedAt: string;       // fecha de asignacion
+}
+
+// Catalogo base de tipos de funcion — el admin puede escribir cualquier valor
+const INSTITUTIONAL_ROLE_TYPES = [
+  "Coordinador de Area",
+  "Jefe de Departamento",
+  "Tutor de Curso",
+  "Referente Tecnologico",
+];
+
+// Mock data — miembros con funciones institucionales pre-cargadas
+const MOCK_INSTITUTIONAL_ROLES: Record<string, InstitutionalRole[]> = {
+  "1": [
+    { id: "ir_1_1", roleType: "Jefe de Departamento",   areaDetail: "Ciencias Exactas",  assignedAt: "2024-03-10" },
+    { id: "ir_1_2", roleType: "Referente Tecnologico",  areaDetail: "Laboratorio Fisica", assignedAt: "2024-07-01" },
+  ],
+  "4": [
+    { id: "ir_4_1", roleType: "Coordinador de Area",    areaDetail: "Ciencias Sociales",  assignedAt: "2024-02-15" },
+    { id: "ir_4_2", roleType: "Tutor de Curso",         areaDetail: "3er Año B",          assignedAt: "2024-03-01" },
+  ],
+};
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -470,6 +505,52 @@ export default function StaffManagementPage() {
   const [legajoMember, setLegajoMember] = useState<StaffMember | null>(null);
   const [legajoTab, setLegajoTab] = useState("datos");
   const [isValidatingDoc, setIsValidatingDoc] = useState<string | null>(null);
+
+  // ── Funciones Institucionales (Non-Academic) ──────────────────────────────
+  const [institutionalRolesStore, setInstitutionalRolesStore] = useState<Record<string, InstitutionalRole[]>>(MOCK_INSTITUTIONAL_ROLES);
+  const [isInstRoleFormOpen, setIsInstRoleFormOpen] = useState(false);
+  const [instRoleForm, setInstRoleForm] = useState({ roleType: "", areaDetail: "" });
+  const [isSavingInstRole, setIsSavingInstRole] = useState(false);
+
+  const legajoInstRoles: InstitutionalRole[] = legajoMember
+    ? institutionalRolesStore[legajoMember.id] ?? []
+    : [];
+
+  const handleSaveInstRole = useCallback(async () => {
+    if (!legajoMember) return;
+    const { roleType, areaDetail } = instRoleForm;
+    if (!roleType.trim() || !areaDetail.trim()) {
+      toast.error("Completa el tipo de funcion y el area / detalle especifico.");
+      return;
+    }
+    setIsSavingInstRole(true);
+    await new Promise(r => setTimeout(r, 700));
+    const newRole: InstitutionalRole = {
+      id: `ir_${Date.now()}`,
+      roleType: roleType.trim(),
+      areaDetail: areaDetail.trim(),
+      assignedAt: getTodayLocalISO(),
+    };
+    setInstitutionalRolesStore(prev => ({
+      ...prev,
+      [legajoMember.id]: [...(prev[legajoMember.id] ?? []), newRole],
+    }));
+    setIsSavingInstRole(false);
+    setIsInstRoleFormOpen(false);
+    setInstRoleForm({ roleType: "", areaDetail: "" });
+    toast.success("Funcion institucional asignada.", {
+      description: `${newRole.roleType} — ${newRole.areaDetail}`,
+    });
+  }, [legajoMember, instRoleForm]);
+
+  const handleDeleteInstRole = useCallback((roleId: string, label: string) => {
+    if (!legajoMember) return;
+    setInstitutionalRolesStore(prev => ({
+      ...prev,
+      [legajoMember.id]: (prev[legajoMember.id] ?? []).filter(r => r.id !== roleId),
+    }));
+    toast.success(`Funcion "${label}" removida del legajo.`);
+  }, [legajoMember]);
 
   // ── Matriz de Cargos (Teaching Positions) ────────────────────────────────
   const [positionsStore, setPositionsStore] = useState<Record<string, TeachingPosition[]>>(MOCK_POSITIONS);
@@ -1737,6 +1818,197 @@ export default function StaffManagementPage() {
                   </div>
                 )}
               </div>
+
+              {/* ── Separator ─────────────────────────────────────────────── */}
+              <Separator className="bg-white/[0.06]" />
+
+              {/* ── Funciones Institucionales / Roles Especiales ─────────── */}
+              <div className="space-y-3">
+
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Network className="size-3.5 text-amber-400/80" />
+                      <h3 className="text-xs uppercase tracking-wider text-white/50 font-medium">
+                        Funciones Institucionales / Roles Especiales
+                      </h3>
+                    </div>
+                    <p className="text-[10px] text-white/30 leading-relaxed pl-5">
+                      Roles de gestion interna — no estan atados a una materia curricular.
+                    </p>
+                  </div>
+                  {!isInstRoleFormOpen && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsInstRoleFormOpen(true)}
+                      className="h-7 text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/25 gap-1 shrink-0"
+                    >
+                      <Plus className="size-3" />
+                      Asignar Funcion
+                    </Button>
+                  )}
+                </div>
+
+                {/* Formulario inline de asignacion */}
+                {isInstRoleFormOpen && (
+                  <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.03] space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Star className="size-3.5 text-amber-400" />
+                      <p className="text-xs font-semibold text-amber-400/90">Nueva Funcion Institucional</p>
+                    </div>
+
+                    {/* Campo 1 — Tipo de Funcion (Select + opcion libre) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-white/50">
+                        Tipo de Funcion <span className="text-amber-400/70">*</span>
+                      </Label>
+                      <Select
+                        value={INSTITUTIONAL_ROLE_TYPES.includes(instRoleForm.roleType) ? instRoleForm.roleType : "__custom__"}
+                        onValueChange={(v) => {
+                          if (v !== "__custom__") setInstRoleForm(p => ({ ...p, roleType: v }));
+                          else setInstRoleForm(p => ({ ...p, roleType: "" }));
+                        }}
+                      >
+                        <SelectTrigger className={cn(
+                          "bg-white/[0.02] border h-10 transition-colors",
+                          instRoleForm.roleType ? "border-amber-500/35" : "border-white/10"
+                        )}>
+                          <SelectValue placeholder="Seleccionar tipo de funcion..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#131319] border-white/10">
+                          {INSTITUTIONAL_ROLE_TYPES.map(type => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                          ))}
+                          <SelectItem value="__custom__">
+                            <span className="text-white/50 italic">Otro (escribir abajo...)</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {/* Input libre cuando se selecciona "Otro" */}
+                      {(!INSTITUTIONAL_ROLE_TYPES.includes(instRoleForm.roleType) || instRoleForm.roleType === "") && (
+                        <Input
+                          value={instRoleForm.roleType}
+                          onChange={e => setInstRoleForm(p => ({ ...p, roleType: e.target.value }))}
+                          placeholder="Ej: Referente de Convivencia, Coordinador de Jornada..."
+                          className="bg-white/[0.02] border-white/10 focus:border-amber-500/35 h-10 text-sm placeholder:text-white/25 mt-1.5"
+                        />
+                      )}
+                    </div>
+
+                    {/* Campo 2 — Area / Detalle Especifico (texto libre) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-white/50">
+                        Area o Curso Especifico <span className="text-amber-400/70">*</span>
+                      </Label>
+                      <Input
+                        value={instRoleForm.areaDetail}
+                        onChange={e => setInstRoleForm(p => ({ ...p, areaDetail: e.target.value }))}
+                        placeholder="Ej: Ciencias Exactas, 3er Año B, Laboratorio..."
+                        className="bg-white/[0.02] border-white/10 focus:border-amber-500/35 h-10 text-sm placeholder:text-white/25"
+                      />
+                    </div>
+
+                    {/* Acciones del formulario */}
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setIsInstRoleFormOpen(false); setInstRoleForm({ roleType: "", areaDetail: "" }); }}
+                        disabled={isSavingInstRole}
+                        className="h-8 text-xs text-white/50 hover:text-white hover:bg-white/5"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveInstRole}
+                        disabled={isSavingInstRole || !instRoleForm.roleType.trim() || !instRoleForm.areaDetail.trim()}
+                        className="h-8 text-xs bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 gap-1.5 disabled:opacity-40"
+                      >
+                        {isSavingInstRole ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Check className="size-3.5" />
+                        )}
+                        {isSavingInstRole ? "Guardando..." : "Asignar Funcion"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabla de funciones */}
+                {legajoInstRoles.length === 0 && !isInstRoleFormOpen ? (
+                  <div className="text-center py-7 text-sm text-white/25 bg-white/[0.015] rounded-xl border border-white/[0.04] border-dashed">
+                    Sin funciones institucionales asignadas.
+                    <button
+                      onClick={() => setIsInstRoleFormOpen(true)}
+                      className="block mx-auto mt-2 text-amber-400/50 hover:text-amber-400 text-xs transition-colors"
+                    >
+                      + Asignar primera funcion
+                    </button>
+                  </div>
+                ) : legajoInstRoles.length > 0 ? (
+                  <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-white/[0.025] border-b border-white/[0.06]">
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-white/35 font-semibold">
+                            Tipo de Funcion
+                          </th>
+                          <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-white/35 font-semibold">
+                            Area / Detalle Especifico
+                          </th>
+                          <th className="px-2 py-2.5 text-right text-[10px] uppercase tracking-wider text-white/35 font-semibold w-16">
+                            Acc.
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {legajoInstRoles.map(role => (
+                          <tr key={role.id} className="hover:bg-white/[0.015] transition-colors group">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="size-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                                  <Network className="size-3.5 text-amber-400" />
+                                </div>
+                                <span className="text-xs font-medium text-[#e4e1ea]">{role.roleType}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-white/60">{role.areaDetail}</span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3 text-right">
+                              <button
+                                onClick={() => handleDeleteInstRole(role.id, `${role.roleType} — ${role.areaDetail}`)}
+                                className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                aria-label="Remover funcion institucional"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {/* Contador */}
+                    <div className="px-4 py-2 bg-white/[0.01] border-t border-white/[0.04] flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-white/30">
+                        {legajoInstRoles.length} funcion{legajoInstRoles.length !== 1 ? "es" : ""} institucional{legajoInstRoles.length !== 1 ? "es" : ""}
+                      </span>
+                      <button
+                        onClick={() => setIsInstRoleFormOpen(true)}
+                        className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors"
+                      >
+                        + Asignar mas
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
             </TabsContent>
 
             {/* Tab 2: Documentacion Legal - Auditoria */}
