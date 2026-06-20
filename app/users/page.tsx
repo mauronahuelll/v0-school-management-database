@@ -89,15 +89,27 @@ import { cn } from "@/lib/utils";
 // TYPES
 // ============================================
 
-type StaffRole = "DOCENTE" | "PRECEPTOR" | "ADMINISTRATIVO";
+// El rol ADMIN mantiene acceso completo (Dashboards, Reportes, IAM).
+// adminSubRole es metadata jerárquica — NO altera el RBAC subyacente.
+type StaffRole = "DOCENTE" | "PRECEPTOR" | "ADMINISTRATIVO" | "ADMIN";
+type AdminSubRole = "REPRESENTANTE_LEGAL" | "DIRECTIVO" | "SECRETARIO" | "OTRO";
 type StaffStatus = "ACTIVE" | "PENDING" | "SUSPENDED";
 type DocumentStatus = "AL_DIA" | "VENCIDO" | "FALTA_ENTREGAR" | "EN_REVISION" | "RECHAZADO";
+
+// Catálogo de sub-roles directivos — inmutable, solo ADMIN los puede ver/asignar
+const ADMIN_SUB_ROLES: { value: AdminSubRole; label: string; description: string }[] = [
+  { value: "REPRESENTANTE_LEGAL", label: "Representante Legal", description: "Firma documentos oficiales ante el Ministerio" },
+  { value: "DIRECTIVO",           label: "Directivo",           description: "Conduce la institución y toma decisiones pedagógicas" },
+  { value: "SECRETARIO",          label: "Secretario/a",        description: "Gestiona actas, legajos y comunicaciones formales" },
+  { value: "OTRO",                label: "Otro (Especificar)",   description: "Cargo directivo no contemplado en la lista" },
+];
 
 interface StaffMember {
   id: string;
   name: string;
   email: string;
   role: StaffRole;
+  adminSubRole?: AdminSubRole;  // solo presente cuando role === "ADMIN"
   status: StaffStatus;
   assignedCourses: string[];
   assignedSubjects: string[];
@@ -210,6 +222,34 @@ const MOCK_STAFF: StaffMember[] = [
     lastActivity: "Hace 30 dias",
     phone: "+54 11 5555-7890",
   },
+  {
+    id: "6",
+    name: "Suarez, Claudia Beatriz",
+    email: "suarez.directora@escuela.edu.ar",
+    role: "ADMIN",
+    adminSubRole: "DIRECTIVO",
+    status: "ACTIVE",
+    assignedCourses: [],
+    assignedSubjects: [],
+    invitedAt: "2023-03-01",
+    lastActivity: "Hace 5 min",
+    phone: "+54 11 5555-0001",
+    address: "Av. Santa Fe 2100, CABA",
+    cuil: "27-22334455-6",
+  },
+  {
+    id: "7",
+    name: "Perez, Juan Manuel",
+    email: "perez.legal@escuela.edu.ar",
+    role: "ADMIN",
+    adminSubRole: "REPRESENTANTE_LEGAL",
+    status: "ACTIVE",
+    assignedCourses: [],
+    assignedSubjects: [],
+    invitedAt: "2022-01-10",
+    lastActivity: "Hace 2 dias",
+    cuil: "20-18765432-1",
+  },
 ];
 
 // Mock documents for staff legajo
@@ -312,6 +352,15 @@ const ROLE_CARDS = [
     selectedColor: "border-amber-500 bg-amber-500/20",
     iconColor: "text-amber-400",
   },
+  {
+    value: "ADMIN" as StaffRole,
+    label: "Admin (Gestion/Direccion)",
+    description: "Acceso total. Requiere definicion de Cargo Directivo",
+    icon: Shield,
+    color: "border-rose-500/30 bg-rose-500/5 hover:border-rose-500/50 hover:bg-rose-500/10",
+    selectedColor: "border-rose-500 bg-rose-500/20",
+    iconColor: "text-rose-400",
+  },
 ];
 
 // ============================================
@@ -323,8 +372,15 @@ function getRoleLabel(role: StaffRole): string {
     DOCENTE: "Docente",
     PRECEPTOR: "Preceptor/a",
     ADMINISTRATIVO: "Administrativo",
+    ADMIN: "Admin",
   };
   return labels[role];
+}
+
+// Devuelve la etiqueta del sub-rol directivo (se muestra en lugar de "Admin" en la tabla)
+function getAdminSubRoleLabel(subRole?: AdminSubRole): string {
+  if (!subRole) return "Admin";
+  return ADMIN_SUB_ROLES.find(s => s.value === subRole)?.label ?? "Admin";
 }
 
 function getRoleColor(role: StaffRole): string {
@@ -332,6 +388,7 @@ function getRoleColor(role: StaffRole): string {
     DOCENTE: "bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/20",
     PRECEPTOR: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     ADMINISTRATIVO: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    ADMIN: "bg-rose-500/10 text-rose-400 border-rose-500/20",
   };
   return colors[role];
 }
@@ -381,15 +438,17 @@ export default function StaffManagementPage() {
     email: "",
     role: "DOCENTE" as StaffRole,
     level: "",
+    adminSubRole: "" as AdminSubRole | "",
   });
   const [isInviting, setIsInviting] = useState(false);
 
-  // Validation check
+  // Validation check — ADMIN requiere sub-rol obligatorio
   const isFormValid = useMemo(() => {
     const hasIdentity = inviteData.firstName.trim() && inviteData.lastName.trim();
     const hasEmail = inviteData.email.trim() && inviteData.email.includes("@");
-    const hasLevel = inviteData.role === "ADMINISTRATIVO" || inviteData.level !== "";
-    return hasIdentity && hasEmail && hasLevel;
+    const hasLevel = inviteData.role === "ADMINISTRATIVO" || inviteData.role === "ADMIN" || inviteData.level !== "";
+    const hasAdminSubRole = inviteData.role !== "ADMIN" || inviteData.adminSubRole !== "";
+    return hasIdentity && hasEmail && hasLevel && hasAdminSubRole;
   }, [inviteData]);
 
   // Scope management modal state
@@ -556,6 +615,10 @@ export default function StaffManagementPage() {
       name: fullName,
       email: inviteData.email.toLowerCase().trim(),
       role: inviteData.role,
+      // adminSubRole solo se persiste si el rol es ADMIN — no afecta el RBAC subyacente
+      ...(inviteData.role === "ADMIN" && inviteData.adminSubRole
+        ? { adminSubRole: inviteData.adminSubRole as AdminSubRole }
+        : {}),
       status: "PENDING",
       assignedCourses: [],
       assignedSubjects: [],
@@ -573,6 +636,7 @@ export default function StaffManagementPage() {
       email: "",
       role: "DOCENTE",
       level: "",
+      adminSubRole: "",
     });
     
     toast.success("Alta de personal registrada exitosamente", {
@@ -649,6 +713,7 @@ export default function StaffManagementPage() {
       email: "",
       role: "DOCENTE",
       level: "",
+      adminSubRole: "",
     });
   }, []);
 
@@ -967,12 +1032,19 @@ export default function StaffManagementPage() {
                         </div>
                       </td>
                       
-                      {/* Role */}
+                      {/* Role — si es ADMIN muestra el Cargo Directivo como badge secundario */}
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${getRoleColor(member.role)}`}>
-                          <Shield className="size-3" />
-                          {getRoleLabel(member.role)}
-                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border w-fit ${getRoleColor(member.role)}`}>
+                            <Shield className="size-3" />
+                            {getRoleLabel(member.role)}
+                          </span>
+                          {member.role === "ADMIN" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border bg-rose-500/8 border-rose-500/20 text-rose-300/80 w-fit font-medium">
+                              {getAdminSubRoleLabel(member.adminSubRole)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       
                       {/* Scope */}
@@ -1158,7 +1230,9 @@ export default function StaffManagementPage() {
                         setInviteData(prev => ({ 
                           ...prev, 
                           role: role.value,
-                          level: role.value === "ADMINISTRATIVO" ? "" : prev.level
+                          // Limpia campos que no aplican al nuevo rol
+                          level: (role.value === "ADMINISTRATIVO" || role.value === "ADMIN") ? "" : prev.level,
+                          adminSubRole: role.value === "ADMIN" ? prev.adminSubRole : "",
                         }));
                       }}
                       className={cn(
@@ -1176,6 +1250,51 @@ export default function StaffManagementPage() {
                 })}
               </div>
             </div>
+
+            {/* Cargo Directivo (Condicional — solo si rol es ADMIN) */}
+            {inviteData.role === "ADMIN" && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs uppercase tracking-wider text-white/50">
+                    Cargo Directivo / Jerarquia
+                  </Label>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide bg-rose-500/15 text-rose-400 border border-rose-500/25 uppercase">
+                    Requerido
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-rose-500/[0.04] border border-rose-500/15">
+                  <p className="text-[10px] text-white/40 mb-3 leading-relaxed">
+                    El Cargo Directivo define la jerarquia institucional del usuario. El nivel de acceso al sistema
+                    permanece igual para todos los <span className="text-rose-400 font-semibold">ADMIN</span>.
+                  </p>
+                  <Select
+                    value={inviteData.adminSubRole}
+                    onValueChange={(v) => setInviteData(prev => ({ ...prev, adminSubRole: v as AdminSubRole }))}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "bg-white/[0.02] border transition-colors h-11",
+                        inviteData.adminSubRole
+                          ? "border-rose-500/40 text-[#e4e1ea]"
+                          : "border-white/10 text-white/40"
+                      )}
+                    >
+                      <SelectValue placeholder="Seleccionar cargo directivo..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#131319] border-white/10">
+                      {ADMIN_SUB_ROLES.map((sub) => (
+                        <SelectItem key={sub.value} value={sub.value}>
+                          <div className="flex flex-col py-0.5">
+                            <span className="font-medium text-[#e4e1ea]">{sub.label}</span>
+                            <span className="text-[10px] text-white/40 mt-0.5">{sub.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             {/* Level Selection (Conditional) */}
             {(inviteData.role === "DOCENTE" || inviteData.role === "PRECEPTOR") && (
@@ -1227,7 +1346,15 @@ export default function StaffManagementPage() {
                       {inviteData.lastName ? `${inviteData.lastName}, ${inviteData.firstName}` : inviteData.firstName || "Sin nombre"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {getRoleLabel(inviteData.role)} {inviteData.level && `• ${EDUCATION_LEVELS.find(l => l.id === inviteData.level)?.name}`}
+                      {getRoleLabel(inviteData.role)}
+                      {inviteData.role === "ADMIN" && inviteData.adminSubRole && (
+                        <span className="ml-1 text-rose-400">
+                          • {ADMIN_SUB_ROLES.find(s => s.value === inviteData.adminSubRole)?.label}
+                        </span>
+                      )}
+                      {inviteData.role !== "ADMIN" && inviteData.level && (
+                        <span> • {EDUCATION_LEVELS.find(l => l.id === inviteData.level)?.name}</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1420,9 +1547,16 @@ export default function StaffManagementPage() {
               <div>
                 <SheetTitle className="text-[#e4e1ea] text-lg">{legajoMember?.name}</SheetTitle>
                 <SheetDescription className="text-white/50 flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${legajoMember ? getRoleColor(legajoMember.role) : ""}`}>
-                    {legajoMember ? getRoleLabel(legajoMember.role) : ""}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${legajoMember ? getRoleColor(legajoMember.role) : ""}`}>
+                      {legajoMember ? getRoleLabel(legajoMember.role) : ""}
+                    </span>
+                    {legajoMember?.role === "ADMIN" && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border bg-rose-500/8 border-rose-500/20 text-rose-300/80 font-medium">
+                        {getAdminSubRoleLabel(legajoMember.adminSubRole)}
+                      </span>
+                    )}
+                  </div>
                   {legajoMember?.cuil && <span className="text-xs font-mono">CUIL: {legajoMember.cuil}</span>}
                 </SheetDescription>
               </div>
