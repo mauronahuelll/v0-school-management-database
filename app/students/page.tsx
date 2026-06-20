@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Users, 
   Search, 
@@ -291,6 +292,8 @@ function getMockTrajectory(studentId: string): MockSubjectRecord[] {
 // ============================================
 
 export default function StudentsPage() {
+  const router = useRouter();
+
   // ── Alta Individual de Alumno (Wizard) ────────────────────────────────────
   const [isNewStudentOpen, setIsNewStudentOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
@@ -1426,20 +1429,13 @@ startxref
                             <MoreHorizontal className="size-4 text-white/60" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-[#1a1a2e] border-white/10">
-                          <DropdownMenuItem 
-                            onClick={() => toast.info(`Procesando accion de Ver Perfil de ${student.firstName} ${student.lastName}...`)}
+                        <DropdownMenuContent align="end" className="w-48 bg-[#1a1a2e] border-white/10">
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/student/${student.id}`)}
                             className="text-white/80 hover:bg-white/5 cursor-pointer"
                           >
                             <Eye className="size-4 mr-2" />
                             Ver Perfil
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => toast.info(`Procesando accion de Ver Legajo de ${student.firstName} ${student.lastName}...`)}
-                            className="text-white/80 hover:bg-white/5 cursor-pointer"
-                          >
-                            <FileText className="size-4 mr-2" />
-                            Ver Legajo
                           </DropdownMenuItem>
                           
                           {canTransfer && (
