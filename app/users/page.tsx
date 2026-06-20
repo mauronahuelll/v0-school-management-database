@@ -36,6 +36,8 @@ import {
   Download,
   Network,
   Star,
+  PlaneTakeoff,
+  ChevronRight,
 } from "lucide-react";
 import { downloadSimplePdf } from "@/lib/utils/download";
 import { toast } from "sonner";
@@ -69,6 +71,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -96,7 +101,7 @@ import { cn } from "@/lib/utils";
 // adminSubRole es metadata jerárquica — NO altera el RBAC subyacente.
 type StaffRole = "DOCENTE" | "PRECEPTOR" | "ADMINISTRATIVO" | "ADMIN";
 type AdminSubRole = "REPRESENTANTE_LEGAL" | "DIRECTIVO" | "SECRETARIO" | "OTRO";
-type StaffStatus = "ACTIVE" | "PENDING" | "SUSPENDED";
+type StaffStatus = "ACTIVE" | "PENDING" | "SUSPENDED" | "ON_LEAVE";
 type DocumentStatus = "AL_DIA" | "VENCIDO" | "FALTA_ENTREGAR" | "EN_REVISION" | "RECHAZADO";
 
 // Catálogo de sub-roles directivos — inmutable, solo ADMIN los puede ver/asignar
@@ -398,9 +403,10 @@ function getRoleColor(role: StaffRole): string {
 
 function getStatusConfig(status: StaffStatus): { label: string; color: string; icon: typeof CheckCircle } {
   const configs: Record<StaffStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
-    ACTIVE: { label: "Activo", color: "bg-[#4de082]/10 text-[#4de082]", icon: CheckCircle },
-    PENDING: { label: "Pendiente", color: "bg-yellow-500/10 text-yellow-500", icon: Clock },
-    SUSPENDED: { label: "Suspendido", color: "bg-[#ffb4ab]/10 text-[#ffb4ab]", icon: UserX },
+    ACTIVE:    { label: "Activo",      color: "bg-[#4de082]/10 text-[#4de082]",   icon: CheckCircle },
+    PENDING:   { label: "Pendiente",   color: "bg-yellow-500/10 text-yellow-500", icon: Clock },
+    SUSPENDED: { label: "Suspendido",  color: "bg-[#ffb4ab]/10 text-[#ffb4ab]",  icon: UserX },
+    ON_LEAVE:  { label: "De Licencia", color: "bg-amber-500/10 text-amber-400",   icon: PlaneTakeoff },
   };
   return configs[status];
 }
@@ -726,6 +732,16 @@ export default function StaffManagementPage() {
   }, [inviteData, isFormValid]);
 
   // Handle revoke access
+  const handleChangeStatus = useCallback((memberId: string, newStatus: StaffStatus, memberName: string) => {
+    setStaff(prev => prev.map(m =>
+      m.id === memberId ? { ...m, status: newStatus } : m
+    ));
+    const label = getStatusConfig(newStatus).label;
+    toast.success("Estado del personal actualizado.", {
+      description: `${memberName} — nuevo estado: ${label}`,
+    });
+  }, []);
+
   const handleRevokeAccess = useCallback((memberId: string, memberName: string) => {
     setStaff((prev) => 
       prev.map((m) => 
@@ -1208,6 +1224,42 @@ export default function StaffManagementPage() {
                               <Activity className="size-4" />
                               Auditar Actividad
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-white/10" />
+
+                            {/* Submenú — Cambiar Estado de RRHH */}
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="gap-2 cursor-pointer focus:bg-white/5 data-[state=open]:bg-white/5">
+                                <Activity className="size-4 text-white/60" />
+                                <span>Cambiar Estado de RRHH</span>
+                                <ChevronRight className="size-3.5 ml-auto text-white/30" />
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-44 bg-[#131319] border-white/10 p-1">
+                                {(
+                                  [
+                                    { value: "ACTIVE",    label: "Activo",      dot: "bg-[#4de082]" },
+                                    { value: "ON_LEAVE",  label: "De Licencia", dot: "bg-amber-400"  },
+                                    { value: "SUSPENDED", label: "Suspendido",  dot: "bg-[#ffb4ab]"  },
+                                  ] as const
+                                ).map(({ value, label, dot }) => {
+                                  const isCurrent = member.status === value;
+                                  return (
+                                    <DropdownMenuItem
+                                      key={value}
+                                      disabled={isCurrent}
+                                      className="gap-2.5 cursor-pointer focus:bg-white/5 disabled:opacity-40 disabled:cursor-default"
+                                      onClick={() => handleChangeStatus(member.id, value, member.name)}
+                                    >
+                                      <span className={`size-2 rounded-full shrink-0 ${dot}`} />
+                                      <span>{label}</span>
+                                      {isCurrent && (
+                                        <span className="ml-auto text-[10px] text-white/30">actual</span>
+                                      )}
+                                    </DropdownMenuItem>
+                                  );
+                                })}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer text-[#ffb4ab] focus:text-[#ffb4ab] focus:bg-[#ffb4ab]/10"
