@@ -38,6 +38,11 @@ import {
   Star,
   PlaneTakeoff,
   ChevronRight,
+  LogIn,
+  FilePen,
+  FileOutput,
+  MonitorCheck,
+  Wifi,
 } from "lucide-react";
 import { downloadSimplePdf } from "@/lib/utils/download";
 import { toast } from "sonner";
@@ -51,6 +56,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -672,14 +678,18 @@ export default function StaffManagementPage() {
   }, []);
 
   // Filter staff
-  const filteredStaff = staff.filter((member) => {
-    const matchesSearch = 
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = filterRole === "ALL" || member.role === filterRole;
-    const matchesStatus = filterStatus === "ALL" || member.status === filterStatus;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  // useMemo garantiza que la tabla se recalcule cada vez que staff, searchQuery,
+  // filterRole o filterStatus cambien — incluyendo actualizaciones via handleChangeStatus.
+  const filteredStaff = useMemo(() =>
+    staff.filter((member) => {
+      const matchesSearch =
+        member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        member.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRole   = filterRole   === "ALL" || member.role   === filterRole;
+      const matchesStatus = filterStatus === "ALL" || member.status === filterStatus;
+      return matchesSearch && matchesRole && matchesStatus;
+    }),
+  [staff, searchQuery, filterRole, filterStatus]);
 
   // Handle invite with explicit identity (Legal Compliance)
   const handleInvite = useCallback(async () => {
@@ -732,6 +742,29 @@ export default function StaffManagementPage() {
   }, [inviteData, isFormValid]);
 
   // Handle revoke access
+  // ── Auditoría de Actividad ─────────────────────────────────────────────────
+  const [auditMember, setAuditMember] = useState<StaffMember | null>(null);
+
+  type AuditEvent = {
+    id: string;
+    timestamp: string;
+    description: string;
+    icon: React.ElementType;
+    color: string;
+  };
+
+  const MOCK_AUDIT_EVENTS: AuditEvent[] = [
+    { id: "a1", timestamp: "Hoy, 08:00 AM",   description: "Inicio de sesion (IP: 192.168.1.5)",                  icon: LogIn,       color: "text-emerald-400" },
+    { id: "a2", timestamp: "Hoy, 07:58 AM",   description: "Autenticacion con credenciales correctas",            icon: MonitorCheck, color: "text-emerald-400/70" },
+    { id: "a3", timestamp: "Ayer, 15:30 PM",  description: "Modifico calificaciones en 3er Año A",               icon: FilePen,     color: "text-[#d0bcff]" },
+    { id: "a4", timestamp: "Ayer, 14:12 PM",  description: "Accedio a planilla de notas — Matematica",           icon: FileOutput,  color: "text-blue-400" },
+    { id: "a5", timestamp: "Ayer, 10:15 AM",  description: "Exporto reporte de ausentismo del trimestre",        icon: FileOutput,  color: "text-amber-400" },
+    { id: "a6", timestamp: "Ayer, 09:40 AM",  description: "Inicio de sesion (IP: 192.168.1.5)",                 icon: LogIn,       color: "text-emerald-400" },
+    { id: "a7", timestamp: "Hace 3 dias, 16:55 PM", description: "Descargo planilla mensual de asistencias",     icon: FileOutput,  color: "text-amber-400" },
+    { id: "a8", timestamp: "Hace 3 dias, 11:00 AM", description: "Accedio al legajo de alumno — Garcia, Pablo",  icon: FilePen,     color: "text-[#d0bcff]" },
+    { id: "a9", timestamp: "Hace 4 dias, 08:30 AM", description: "Sesion iniciada desde nueva IP: 10.0.0.42",    icon: Wifi,        color: "text-orange-400" },
+  ];
+
   const handleChangeStatus = useCallback((memberId: string, newStatus: StaffStatus, memberName: string) => {
     setStaff(prev => prev.map(m =>
       m.id === memberId ? { ...m, status: newStatus } : m
@@ -1063,6 +1096,7 @@ export default function StaffManagementPage() {
             <SelectItem value="ALL">Todos</SelectItem>
             <SelectItem value="ACTIVE">Activos</SelectItem>
             <SelectItem value="PENDING">Pendientes</SelectItem>
+            <SelectItem value="ON_LEAVE">De Licencia</SelectItem>
             <SelectItem value="SUSPENDED">Suspendidos</SelectItem>
           </SelectContent>
         </Select>
@@ -1217,9 +1251,9 @@ export default function StaffManagementPage() {
                               <Edit3 className="size-4" />
                               Editar Registro
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="gap-2 cursor-pointer"
-                              onClick={() => toast.info(`Procesando accion de Auditar Actividad de ${member.name}...`)}
+                              onClick={() => setAuditMember(member)}
                             >
                               <Activity className="size-4" />
                               Auditar Actividad
@@ -2628,6 +2662,130 @@ export default function StaffManagementPage() {
         </AlertDialogContent>
       </AlertDialog>
       
+      {/* ════════════════════════════════════════════════════════════════
+          SHEET — Registro de Auditoría de Actividad
+      ════════════════════════════════════════════════════════════════ */}
+      <Sheet open={!!auditMember} onOpenChange={(open) => { if (!open) setAuditMember(null); }}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-lg bg-[#0e0e16] border-l border-white/[0.06] p-0 flex flex-col [&>button]:hidden"
+        >
+          {/* Header */}
+          <SheetHeader className="px-6 pt-6 pb-4 border-b border-white/[0.06] shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center shrink-0">
+                <Activity className="size-4 text-[#d0bcff]" />
+              </div>
+              <div className="min-w-0">
+                <SheetTitle className="text-[#e4e1ea] text-sm font-semibold leading-tight">
+                  Registro de Auditoria
+                </SheetTitle>
+                <SheetDescription className="text-white/40 text-xs truncate mt-0.5">
+                  {auditMember?.name}
+                </SheetDescription>
+              </div>
+              <button
+                onClick={() => setAuditMember(null)}
+                className="ml-auto p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-colors shrink-0"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Meta: rol + estado actual */}
+            {auditMember && (() => {
+              const sc = getStatusConfig(auditMember.status);
+              const SIcon = sc.icon;
+              return (
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${getRoleColor(auditMember.role)}`}>
+                    <Shield className="size-3" />
+                    {getRoleLabel(auditMember.role)}
+                  </span>
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full ${sc.color}`}>
+                    <SIcon className="size-3" />
+                    {sc.label}
+                  </span>
+                  <span className="text-[10px] text-white/25 ml-auto font-mono">
+                    {MOCK_AUDIT_EVENTS.length} eventos registrados
+                  </span>
+                </div>
+              );
+            })()}
+          </SheetHeader>
+
+          {/* Timeline */}
+          <ScrollArea className="flex-1 px-6 py-5">
+            <div className="relative">
+              {/* Línea vertical del timeline */}
+              <div className="absolute left-[15px] top-0 bottom-0 w-px bg-gradient-to-b from-[#d0bcff]/30 via-white/10 to-transparent" />
+
+              <div className="space-y-1">
+                {MOCK_AUDIT_EVENTS.map((event, idx) => {
+                  const Icon = event.icon;
+                  const isFirst = idx === 0;
+                  return (
+                    <div key={event.id} className="flex gap-4 group">
+                      {/* Nodo del timeline */}
+                      <div className="relative z-10 shrink-0 mt-2.5">
+                        <div className={`size-[30px] rounded-full border flex items-center justify-center transition-colors
+                          ${isFirst
+                            ? "bg-[#d0bcff]/15 border-[#d0bcff]/40"
+                            : "bg-[#0e0e16] border-white/[0.08] group-hover:border-white/20"
+                          }`}>
+                          <Icon className={`size-3.5 ${event.color}`} />
+                        </div>
+                      </div>
+
+                      {/* Contenido del evento */}
+                      <div className={`flex-1 py-2.5 px-3 rounded-xl border mb-2 transition-colors
+                        ${isFirst
+                          ? "bg-[#d0bcff]/[0.04] border-[#d0bcff]/10"
+                          : "bg-white/[0.01] border-white/[0.04] hover:bg-white/[0.025] hover:border-white/[0.08]"
+                        }`}>
+                        <p className={`text-[11px] font-mono mb-0.5 ${isFirst ? "text-[#d0bcff]/70" : "text-white/30"}`}>
+                          {event.timestamp}
+                        </p>
+                        <p className="text-sm text-[#e4e1ea]/80 leading-snug">
+                          {event.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Fin del log */}
+                <div className="flex gap-4">
+                  <div className="relative z-10 shrink-0 mt-1">
+                    <div className="size-[30px] rounded-full border border-white/[0.05] bg-white/[0.01] flex items-center justify-center">
+                      <div className="size-1.5 rounded-full bg-white/15" />
+                    </div>
+                  </div>
+                  <div className="flex-1 py-2.5">
+                    <p className="text-[11px] text-white/20 italic font-mono">
+                      — Fin del registro disponible —
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+
+          {/* Footer */}
+          <div className="px-6 py-3 border-t border-white/[0.06] shrink-0 flex items-center justify-between bg-[#0a0a0f]">
+            <span className="text-[10px] text-white/25 font-mono">
+              UTC-3 — Zona horaria del servidor
+            </span>
+            <button
+              onClick={() => setAuditMember(null)}
+              className="text-xs text-white/40 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+            >
+              Cerrar
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <Toaster theme="dark" />
     </div>
   );

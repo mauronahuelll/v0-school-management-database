@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Users, 
   Search, 
@@ -45,7 +46,23 @@ import {
   UserRound as UserRoundIcon,
   ScrollText,
   AlertCircle,
+  UserPlus,
+  Mail,
+  Phone,
+  MapPin,
+  BookOpen,
+  Baby,
+  IdCard,
+  HeartPulse,
 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import {
   Command,
   CommandEmpty,
@@ -275,6 +292,103 @@ function getMockTrajectory(studentId: string): MockSubjectRecord[] {
 // ============================================
 
 export default function StudentsPage() {
+  const router = useRouter();
+
+  // ── Alta Individual de Alumno (Wizard) ────────────────────────────────────
+  const [isNewStudentOpen, setIsNewStudentOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [isSavingNewStudent, setIsSavingNewStudent] = useState(false);
+
+  const WIZARD_STEPS = [
+    { number: 1, label: "Datos Personales",   icon: Baby },
+    { number: 2, label: "Matriculacion",       icon: BookOpen },
+    { number: 3, label: "Tutor Principal",     icon: HeartPulse },
+  ] as const;
+
+  const emptyNewStudent = {
+    // Paso 1 — Datos personales
+    firstName:   "",
+    lastName:    "",
+    dniType:     "DNI",
+    dniNumber:   "",
+    birthDate:   "",
+    gender:      "",
+    email:       "",
+    phone:       "",
+    address:     "",
+    // Paso 2 — Matriculacion
+    level:       "" as "" | "PRIMARY" | "SECONDARY",
+    divisionId:  "",
+    // Paso 3 — Tutor
+    tutorName:   "",
+    tutorDni:    "",
+    tutorEmail:  "",
+    tutorRelation: "",
+  };
+  const [newStudent, setNewStudent] = useState(emptyNewStudent);
+
+  // Auto-genera email institucional a partir del nombre/apellido
+  const autoEmail = useMemo(() => {
+    if (!newStudent.firstName || !newStudent.lastName) return "";
+    const first = newStudent.firstName.trim().toLowerCase().replace(/\s+/g, ".");
+    const last  = newStudent.lastName.trim().toLowerCase().replace(/\s+/g, ".");
+    return `${first}.${last}@sequency.edu.ar`;
+  }, [newStudent.firstName, newStudent.lastName]);
+
+  // Divisiones filtradas por nivel seleccionado
+  const divisionsForLevel = useMemo(() => {
+    if (!newStudent.level) return MOCK_DIVISIONS;
+    return MOCK_DIVISIONS.filter(d => d.level === newStudent.level);
+  }, [newStudent.level]);
+
+  // Validacion por paso
+  const wizardStepValid = useMemo(() => ({
+    1: !!(newStudent.firstName.trim() && newStudent.lastName.trim() && newStudent.dniNumber.trim() && newStudent.birthDate && newStudent.gender),
+    2: !!(newStudent.level && newStudent.divisionId),
+    3: !!(newStudent.tutorName.trim() && newStudent.tutorDni.trim() && newStudent.tutorEmail.trim()),
+  }), [newStudent]);
+
+  const handleSaveNewStudent = useCallback(async () => {
+    setIsSavingNewStudent(true);
+    await new Promise(r => setTimeout(r, 1400));
+
+    const division = MOCK_DIVISIONS.find(d => d.id === newStudent.divisionId);
+    const now = new Date();
+    // Usamos el setter funcional para evitar dependencia en students antes de su declaracion
+    const legajo = `${now.getFullYear()}-${String(now.getTime()).slice(-3)}`;
+
+    const created: Student = {
+      id: `new-${Date.now()}`,
+      firstName: newStudent.firstName.trim(),
+      lastName:  newStudent.lastName.trim(),
+      legajo,
+      currentCourse:   division?.course    ?? newStudent.divisionId,
+      currentDivision: newStudent.divisionId,
+      level:  newStudent.level as "PRIMARY" | "SECONDARY",
+      status: "REGULAR",
+    };
+
+    setStudents(prev => [created, ...prev]);
+    setIsSavingNewStudent(false);
+    setIsNewStudentOpen(false);
+    setWizardStep(1);
+    setNewStudent(emptyNewStudent);
+
+    toast.success("Alumno matriculado. Se envio la invitacion al tutor.", {
+      description: `${created.lastName}, ${created.firstName} — Legajo ${legajo}`,
+    });
+  }, [newStudent, emptyNewStudent]);
+
+  const handleCloseNewStudent = useCallback(() => {
+    setIsNewStudentOpen(false);
+    setWizardStep(1);
+    setNewStudent(emptyNewStudent);
+  }, [emptyNewStudent]);
+
+  const setField = useCallback(<K extends keyof typeof emptyNewStudent>(key: K, value: typeof emptyNewStudent[K]) => {
+    setNewStudent(prev => ({ ...prev, [key]: value }));
+  }, [emptyNewStudent]);
+
   const [mounted, setMounted] = useState(false);
   const { activeContext } = useAuth();
   const [currentRole, setCurrentRole] = useState<string | null>(null);
@@ -1092,6 +1206,15 @@ startxref
         <div className="flex flex-wrap items-center justify-end gap-3">
           {isAdmin && (
             <>
+              {/* Alta individual de alumno */}
+              <Button
+                onClick={() => setIsNewStudentOpen(true)}
+                className="gap-2 bg-[#d0bcff] text-[#0e0e16] hover:bg-[#e8d5ff] font-semibold shadow-lg shadow-[#d0bcff]/20"
+              >
+                <UserPlus className="size-4" />
+                Nuevo Alumno
+              </Button>
+
               {/* Accion primaria destacada: Importar Matricula (Excel) */}
               <Button
                 onClick={() => setIsImportOpen(true)}
@@ -1306,20 +1429,13 @@ startxref
                             <MoreHorizontal className="size-4 text-white/60" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-[#1a1a2e] border-white/10">
-                          <DropdownMenuItem 
-                            onClick={() => toast.info(`Procesando accion de Ver Perfil de ${student.firstName} ${student.lastName}...`)}
+                        <DropdownMenuContent align="end" className="w-48 bg-[#1a1a2e] border-white/10">
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/student/${student.id}`)}
                             className="text-white/80 hover:bg-white/5 cursor-pointer"
                           >
                             <Eye className="size-4 mr-2" />
                             Ver Perfil
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => toast.info(`Procesando accion de Ver Legajo de ${student.firstName} ${student.lastName}...`)}
-                            className="text-white/80 hover:bg-white/5 cursor-pointer"
-                          >
-                            <FileText className="size-4 mr-2" />
-                            Ver Legajo
                           </DropdownMenuItem>
                           
                           {canTransfer && (
@@ -2708,6 +2824,452 @@ startxref
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SHEET — Alta Individual de Alumno (Wizard 3 pasos)
+      ════════════════════════════════════════════════════════════════════ */}
+      <Sheet open={isNewStudentOpen} onOpenChange={(o) => { if (!isSavingNewStudent) { if (!o) handleCloseNewStudent(); else setIsNewStudentOpen(true); } }}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-2xl bg-[#0e0e16] border-l border-white/[0.06] p-0 flex flex-col overflow-hidden [&>button]:hidden"
+        >
+          {/* Header fijo */}
+          <SheetHeader className="px-6 pt-6 pb-4 border-b border-white/[0.06] shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center">
+                <UserPlus className="size-4 text-[#d0bcff]" />
+              </div>
+              <div>
+                <SheetTitle className="text-[#e4e1ea] text-base font-semibold">
+                  Alta Individual de Alumno
+                </SheetTitle>
+                <SheetDescription className="text-white/40 text-xs">
+                  Matriculacion directa sin importador masivo
+                </SheetDescription>
+              </div>
+            </div>
+
+            {/* Indicador de pasos */}
+            <div className="flex items-center gap-0 mt-4">
+              {WIZARD_STEPS.map((step, idx) => {
+                const Icon = step.icon;
+                const isDone    = wizardStep > step.number;
+                const isCurrent = wizardStep === step.number;
+                return (
+                  <div key={step.number} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center gap-1 flex-1">
+                      <div className={cn(
+                        "size-8 rounded-full border-2 flex items-center justify-center transition-all duration-200",
+                        isDone    ? "bg-[#d0bcff] border-[#d0bcff]"      : "",
+                        isCurrent ? "bg-[#d0bcff]/10 border-[#d0bcff]"  : "",
+                        !isDone && !isCurrent ? "bg-white/[0.02] border-white/10" : "",
+                      )}>
+                        {isDone
+                          ? <Check className="size-4 text-[#0e0e16]" />
+                          : <Icon className={cn("size-3.5", isCurrent ? "text-[#d0bcff]" : "text-white/25")} />
+                        }
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-medium text-center leading-tight",
+                        isCurrent ? "text-[#d0bcff]" : isDone ? "text-white/50" : "text-white/25"
+                      )}>
+                        {step.label}
+                      </span>
+                    </div>
+                    {idx < WIZARD_STEPS.length - 1 && (
+                      <div className={cn(
+                        "h-px w-8 mb-4 shrink-0 transition-colors",
+                        wizardStep > step.number ? "bg-[#d0bcff]/50" : "bg-white/10"
+                      )} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </SheetHeader>
+
+          {/* Contenido scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+
+            {/* ── PASO 1: DATOS PERSONALES ─────────────────────────────── */}
+            {wizardStep === 1 && (
+              <div className="space-y-5">
+                <div className="flex items-center gap-2">
+                  <Baby className="size-4 text-[#d0bcff]/70" />
+                  <h3 className="text-sm font-semibold text-[#e4e1ea]">Datos Personales</h3>
+                </div>
+
+                {/* Nombres y Apellidos */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Nombres <span className="text-[#d0bcff]/70">*</span></Label>
+                    <Input
+                      value={newStudent.firstName}
+                      onChange={e => setField("firstName", e.target.value)}
+                      placeholder="Ej: Maria Jose"
+                      className="bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Apellidos <span className="text-[#d0bcff]/70">*</span></Label>
+                    <Input
+                      value={newStudent.lastName}
+                      onChange={e => setField("lastName", e.target.value)}
+                      placeholder="Ej: Gonzalez Ruiz"
+                      className="bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                    />
+                  </div>
+                </div>
+
+                {/* DNI */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Tipo Doc.</Label>
+                    <Select value={newStudent.dniType} onValueChange={v => setField("dniType", v)}>
+                      <SelectTrigger className="bg-white/[0.02] border-white/10 h-10 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#131319] border-white/10">
+                        <SelectItem value="DNI">DNI</SelectItem>
+                        <SelectItem value="PASAPORTE">Pasaporte</SelectItem>
+                        <SelectItem value="CUIL">CUIL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2 space-y-1.5">
+                    <Label className="text-xs text-white/50">Numero <span className="text-[#d0bcff]/70">*</span></Label>
+                    <div className="relative">
+                      <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+                      <Input
+                        value={newStudent.dniNumber}
+                        onChange={e => setField("dniNumber", e.target.value.replace(/\D/g, ""))}
+                        placeholder="12345678"
+                        maxLength={8}
+                        className="pl-9 bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fecha de nacimiento y Género */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Fecha de Nacimiento <span className="text-[#d0bcff]/70">*</span></Label>
+                    <Input
+                      type="date"
+                      value={newStudent.birthDate}
+                      onChange={e => setField("birthDate", e.target.value)}
+                      className="bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Genero <span className="text-[#d0bcff]/70">*</span></Label>
+                    <Select value={newStudent.gender} onValueChange={v => setField("gender", v)}>
+                      <SelectTrigger className="bg-white/[0.02] border-white/10 h-10 text-sm">
+                        <SelectValue placeholder="Seleccionar..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#131319] border-white/10">
+                        <SelectItem value="F">Femenino</SelectItem>
+                        <SelectItem value="M">Masculino</SelectItem>
+                        <SelectItem value="NB">No Binario</SelectItem>
+                        <SelectItem value="NO_INFORMA">Prefiere no informar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Separator className="bg-white/[0.05]" />
+                <div className="flex items-center gap-2">
+                  <Mail className="size-3.5 text-white/40" />
+                  <h4 className="text-xs font-medium text-white/50 uppercase tracking-wider">Datos de Contacto</h4>
+                </div>
+
+                {/* Email institucional */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-white/50">Email Institucional</Label>
+                    {autoEmail && !newStudent.email && (
+                      <button
+                        type="button"
+                        onClick={() => setField("email", autoEmail)}
+                        className="text-[10px] text-[#d0bcff]/60 hover:text-[#d0bcff] transition-colors flex items-center gap-1"
+                      >
+                        <Sparkles className="size-3" />
+                        Usar: {autoEmail}
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+                    <Input
+                      type="email"
+                      value={newStudent.email}
+                      onChange={e => setField("email", e.target.value)}
+                      placeholder={autoEmail || "alumno@sequency.edu.ar"}
+                      className="pl-9 bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/20"
+                    />
+                  </div>
+                </div>
+
+                {/* Teléfono y Dirección */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Telefono</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+                      <Input
+                        value={newStudent.phone}
+                        onChange={e => setField("phone", e.target.value)}
+                        placeholder="+54 11 ..."
+                        className="pl-9 bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Direccion</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+                      <Input
+                        value={newStudent.address}
+                        onChange={e => setField("address", e.target.value)}
+                        placeholder="Calle 123, CABA"
+                        className="pl-9 bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── PASO 2: MATRICULACION ────────────────────────────────── */}
+            {wizardStep === 2 && (
+              <div className="space-y-5">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="size-4 text-[#d0bcff]/70" />
+                  <h3 className="text-sm font-semibold text-[#e4e1ea]">Matriculacion</h3>
+                </div>
+
+                {/* Nivel */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-white/50">Nivel Educativo <span className="text-[#d0bcff]/70">*</span></Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["PRIMARY", "SECONDARY"] as const).map(lvl => {
+                      const isSelected = newStudent.level === lvl;
+                      return (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => { setField("level", lvl); setField("divisionId", ""); }}
+                          className={cn(
+                            "p-4 rounded-xl border-2 text-left transition-all duration-200 space-y-1",
+                            isSelected
+                              ? "border-[#d0bcff] bg-[#d0bcff]/10"
+                              : "border-white/[0.08] bg-white/[0.02] hover:border-white/20"
+                          )}
+                        >
+                          <GraduationCap className={cn("size-5 mb-2", isSelected ? "text-[#d0bcff]" : "text-white/30")} />
+                          <p className={cn("text-sm font-semibold", isSelected ? "text-[#d0bcff]" : "text-white/60")}>
+                            {lvl === "PRIMARY" ? "Primario" : "Secundario"}
+                          </p>
+                          <p className="text-[10px] text-white/30">
+                            {lvl === "PRIMARY" ? "1ro a 6to Grado" : "1ro a 5to Año"}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Curso / División */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-white/50">Curso / Division <span className="text-[#d0bcff]/70">*</span></Label>
+                  {!newStudent.level ? (
+                    <div className="h-10 rounded-lg border border-white/[0.06] bg-white/[0.01] flex items-center px-3 text-xs text-white/25">
+                      Selecciona primero el Nivel
+                    </div>
+                  ) : (
+                    <Select value={newStudent.divisionId} onValueChange={v => setField("divisionId", v)}>
+                      <SelectTrigger className={cn(
+                        "bg-white/[0.02] border h-10 text-sm transition-colors",
+                        newStudent.divisionId ? "border-[#d0bcff]/30" : "border-white/10"
+                      )}>
+                        <SelectValue placeholder="Seleccionar division..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#131319] border-white/10">
+                        {divisionsForLevel.map(div => (
+                          <SelectItem key={div.id} value={div.id}>
+                            <div className="flex items-center justify-between w-full gap-4">
+                              <span>{div.name}</span>
+                              <span className="text-xs text-white/30">{div.studentCount} alumnos</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                {/* Resumen de matriculacion */}
+                {newStudent.level && newStudent.divisionId && (() => {
+                  const div = MOCK_DIVISIONS.find(d => d.id === newStudent.divisionId);
+                  return div ? (
+                    <div className="rounded-xl border border-[#d0bcff]/15 bg-[#d0bcff]/[0.04] p-4 space-y-2">
+                      <p className="text-[10px] text-[#d0bcff]/50 uppercase tracking-wider font-semibold">Resumen de matriculacion</p>
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-lg bg-[#d0bcff]/10 flex items-center justify-center">
+                          <GraduationCap className="size-5 text-[#d0bcff]" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#e4e1ea]">{div.name}</p>
+                          <p className="text-xs text-white/40">
+                            {newStudent.level === "PRIMARY" ? "Nivel Primario" : "Nivel Secundario"} — {div.studentCount} alumnos actuales
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            {/* ── PASO 3: TUTOR PRINCIPAL ──────────────────────────────── */}
+            {wizardStep === 3 && (
+              <div className="space-y-5">
+                <div className="flex items-center gap-2">
+                  <HeartPulse className="size-4 text-[#d0bcff]/70" />
+                  <h3 className="text-sm font-semibold text-[#e4e1ea]">Tutor Principal</h3>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-500/[0.05] border border-amber-500/20 text-xs text-amber-300/70 leading-relaxed">
+                  El email del tutor es vital para el onboarding familiar. Se enviara la invitacion a la plataforma al crear el legajo.
+                </div>
+
+                {/* Nombre del tutor */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Nombre del Tutor <span className="text-[#d0bcff]/70">*</span></Label>
+                    <div className="relative">
+                      <UserRoundIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+                      <Input
+                        value={newStudent.tutorName}
+                        onChange={e => setField("tutorName", e.target.value)}
+                        placeholder="Ej: Ana Gomez"
+                        className="pl-9 bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-white/50">Relacion</Label>
+                    <Select value={newStudent.tutorRelation} onValueChange={v => setField("tutorRelation", v)}>
+                      <SelectTrigger className="bg-white/[0.02] border-white/10 h-10 text-sm">
+                        <SelectValue placeholder="Seleccionar..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#131319] border-white/10">
+                        <SelectItem value="MADRE">Madre</SelectItem>
+                        <SelectItem value="PADRE">Padre</SelectItem>
+                        <SelectItem value="TUTOR">Tutor Legal</SelectItem>
+                        <SelectItem value="OTRO">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* DNI del tutor */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-white/50">DNI del Tutor <span className="text-[#d0bcff]/70">*</span></Label>
+                  <div className="relative">
+                    <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+                    <Input
+                      value={newStudent.tutorDni}
+                      onChange={e => setField("tutorDni", e.target.value.replace(/\D/g, ""))}
+                      placeholder="DNI del tutor/a"
+                      maxLength={8}
+                      className="pl-9 bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                    />
+                  </div>
+                </div>
+
+                {/* Email del tutor */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-white/50">Email del Tutor <span className="text-[#d0bcff]/70">*</span></Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+                    <Input
+                      type="email"
+                      value={newStudent.tutorEmail}
+                      onChange={e => setField("tutorEmail", e.target.value)}
+                      placeholder="tutor@ejemplo.com"
+                      className="pl-9 bg-white/[0.02] border-white/10 focus:border-[#d0bcff]/40 h-10 text-sm placeholder:text-white/25"
+                    />
+                  </div>
+                </div>
+
+                {/* Resumen final antes de crear legajo */}
+                {wizardStepValid[1] && wizardStepValid[2] && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 space-y-3">
+                    <p className="text-[10px] text-emerald-400/60 uppercase tracking-wider font-semibold">Vista Previa del Legajo</p>
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-[#d0bcff]/10 border border-[#d0bcff]/20 flex items-center justify-center text-sm font-bold text-[#d0bcff]">
+                        {newStudent.firstName[0]}{newStudent.lastName[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#e4e1ea]">
+                          {newStudent.lastName.toUpperCase()}, {newStudent.firstName}
+                        </p>
+                        <p className="text-xs text-white/40">
+                          {MOCK_DIVISIONS.find(d => d.id === newStudent.divisionId)?.name} — Estado: Regular
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer fijo con navegacion */}
+          <div className="px-6 py-4 border-t border-white/[0.06] shrink-0 flex items-center justify-between gap-3 bg-[#0a0a0f]">
+            <Button
+              variant="ghost"
+              onClick={wizardStep === 1 ? handleCloseNewStudent : () => setWizardStep(s => s - 1)}
+              disabled={isSavingNewStudent}
+              className="text-white/50 hover:text-white hover:bg-white/5"
+            >
+              {wizardStep === 1 ? "Cancelar" : "Atras"}
+            </Button>
+
+            <div className="flex items-center gap-3">
+              {/* Indicador de paso */}
+              <span className="text-xs text-white/30">
+                Paso {wizardStep} de {WIZARD_STEPS.length}
+              </span>
+
+              {wizardStep < WIZARD_STEPS.length ? (
+                <Button
+                  onClick={() => setWizardStep(s => s + 1)}
+                  disabled={!wizardStepValid[wizardStep as 1 | 2 | 3]}
+                  className="gap-2 bg-[#d0bcff]/10 text-[#d0bcff] hover:bg-[#d0bcff]/20 border border-[#d0bcff]/25 disabled:opacity-35"
+                >
+                  Siguiente
+                  <ChevronRight className="size-4" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSaveNewStudent}
+                  disabled={isSavingNewStudent || !wizardStepValid[3]}
+                  className="gap-2 bg-[#d0bcff] text-[#0e0e16] hover:bg-[#e8d5ff] font-semibold disabled:opacity-35"
+                >
+                  {isSavingNewStudent ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="size-4" />
+                  )}
+                  {isSavingNewStudent ? "Creando Legajo..." : "Crear Legajo y Enviar Credenciales"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Toaster theme="dark" />
     </div>
