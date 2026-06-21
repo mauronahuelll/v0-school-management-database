@@ -1,350 +1,223 @@
 "use client";
-
-import { useState, useCallback, useRef } from "react";
-import { 
-  Megaphone, 
-  Paperclip, 
-  Send, 
-  Loader2, 
-  X, 
-  FileText,
-  Image as ImageIcon,
-  AlertTriangle,
-  Calendar,
-  BookOpen,
-  Building2
-} from "lucide-react";
+import { useState, useRef } from "react";
+import { Megaphone, Paperclip, Send, Loader2, X, FileText, Image as ImageIcon, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-
-// Tag types for posts
-const TAG_OPTIONS = [
-  { value: "institucional", label: "Institucional", icon: Building2, color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
-  { value: "alerta", label: "Alerta", icon: AlertTriangle, color: "bg-red-500/20 text-red-400 border-red-500/30" },
-  { value: "evento", label: "Evento", icon: Calendar, color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-  { value: "academico", label: "Academico", icon: BookOpen, color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-];
-
-// Audience options
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 const AUDIENCE_OPTIONS = [
-  { value: "all", label: "Toda la escuela" },
-  { value: "1-year", label: "1er Ano" },
-  { value: "2-year", label: "2do Ano" },
-  { value: "3-year", label: "3er Ano" },
-  { value: "4-year", label: "4to Ano" },
-  { value: "5-year", label: "5to Ano" },
-  { value: "6-year", label: "6to Ano" },
+  { value: "all", label: "Toda la Comunidad Educativa" },
+  { value: "parents", label: "Solo Familias" },
   { value: "teachers", label: "Solo Docentes" },
+  { value: "students", label: "Solo Alumnos" },
+  { value: "course_1A", label: "1° Año A" },
+  { value: "course_1B", label: "1° Año B" },
 ];
-
-interface AttachedFile {
-  name: string;
-  type: string;
-  size: number;
-}
-
 export function PostCreator() {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [tagType, setTagType] = useState<string>("");
-  const [audience, setAudience] = useState<string>("");
-  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isGlobalAlert, setIsGlobalAlert] = useState(false); // ESTADO CRITICO
+  
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [category, setCategory] = useState("");
+  const [audience, setAudience] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const isFormValid = title.trim() && body.trim() && tagType && audience;
-
-  const handleFileSelect = useCallback((file: File) => {
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Tipo de archivo no permitido. Solo PDF e imagenes.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("El archivo excede el limite de 10MB.");
-      return;
-    }
-    setAttachedFile({
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    });
-    toast.success(`Archivo "${file.name}" adjuntado correctamente.`);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file);
-  }, [handleFileSelect]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileSelect(file);
-  }, [handleFileSelect]);
-
-  const removeAttachment = useCallback(() => {
-    setAttachedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
-
-  const resetForm = useCallback(() => {
+  const resetForm = () => {
     setTitle("");
-    setBody("");
-    setTagType("");
+    setContent("");
+    setCategory("");
     setAudience("");
-    setAttachedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
-
-  const handleSubmit = useCallback(async () => {
-    if (!isFormValid) return;
-
-    setIsSubmitting(true);
-    try {
-      // Simulate encryption and API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      toast.success("Comunicado publicado y notificado a las familias", {
-        description: `El aviso "${title}" fue enviado a ${
-          audience === "all" ? "toda la escuela" : AUDIENCE_OPTIONS.find(a => a.value === audience)?.label
-        }.`,
-      });
-      
-      resetForm();
-    } catch (error) {
-      toast.error("Error al publicar el comunicado. Intenta nuevamente.");
-    } finally {
-      setIsSubmitting(false);
+    setFiles([]);
+    setIsGlobalAlert(false);
+  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setFiles(prev => [...prev, ...newFiles]);
     }
-  }, [isFormValid, title, audience, resetForm]);
-
-  const selectedTag = TAG_OPTIONS.find(t => t.value === tagType);
-
+  };
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !content || !category || !audience) {
+      toast.error("Por favor completa todos los campos obligatorios.");
+      return;
+    }
+    setIsSubmitting(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setIsOpen(false);
+      resetForm();
+      
+      toast.success(
+        isGlobalAlert ? "⚠️ Alerta Global emitida exitosamente" : "Comunicado publicado y notificado", 
+        { description: `El aviso "${title}" fue enviado.` }
+      );
+    }, 1500);
+  };
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-          <Megaphone className="size-6 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-foreground">Nuevo Comunicado</h2>
-          <p className="text-sm text-muted-foreground">
-            Redacta un aviso para publicar en el Muro de las Familias
-          </p>
-        </div>
-      </div>
-
-      {/* Form */}
-      <div className="space-y-5">
-        {/* Title Input */}
-        <div className="space-y-2">
-          <Label htmlFor="post-title" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Titulo del Comunicado
-          </Label>
-          <Input
-            id="post-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ej: Suspension de clases por jornada docente"
-            disabled={isSubmitting}
-            className="h-12 bg-white/[0.02] border-white/10 focus:border-primary rounded-xl text-foreground placeholder:text-muted-foreground/50"
-          />
-        </div>
-
-        {/* Body Textarea */}
-        <div className="space-y-2">
-          <Label htmlFor="post-body" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Cuerpo del Mensaje
-          </Label>
-          <Textarea
-            id="post-body"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Escriba el contenido completo del comunicado..."
-            disabled={isSubmitting}
-            className="min-h-[150px] bg-white/[0.02] border-white/10 focus:border-primary rounded-xl text-foreground placeholder:text-muted-foreground/50 resize-none"
-          />
-          <p className="text-[10px] text-muted-foreground text-right">
-            {body.length} caracteres
-          </p>
-        </div>
-
-        {/* Selectors Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Tag Type Selector */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Tipo de Etiqueta
-            </Label>
-            <Select value={tagType} onValueChange={setTagType} disabled={isSubmitting}>
-              <SelectTrigger className="h-12 bg-white/[0.02] border-white/10 rounded-xl">
-                <SelectValue placeholder="Seleccionar tipo..." />
-              </SelectTrigger>
-              <SelectContent className="bg-[#131319] border-white/10">
-                {TAG_OPTIONS.map((tag) => {
-                  const Icon = tag.icon;
-                  return (
-                    <SelectItem key={tag.value} value={tag.value}>
-                      <div className="flex items-center gap-2">
-                        <Icon className="size-4" />
-                        <span>{tag.label}</span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            {selectedTag && (
-              <div className={cn(
-                "inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border",
-                selectedTag.color
-              )}>
-                <selectedTag.icon className="size-3" />
-                {selectedTag.label}
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) resetForm();
+    }}>
+      <DialogTrigger asChild>
+        <Button className="bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black font-bold hover:scale-[1.02] shadow-[0_0_20px_rgba(208,188,255,0.4)] transition-all border-0">
+          <Megaphone className="mr-2 h-4 w-4" />
+          Nuevo Comunicado
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl bg-[#0A0A0F]/95 backdrop-blur-3xl border border-white/10 text-[#E4E1EA] max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2 border-b border-white/5">
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-[#8A2BE2]" />
+            Redactar Nuevo Comunicado
+          </DialogTitle>
+        </DialogHeader>
+        
+        <ScrollArea className="flex-1 p-6">
+          <form id="post-form" onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Categoría *</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="bg-black/20 border-white/10 focus:border-[#d0bcff]/50 focus:ring-1 focus:ring-[#d0bcff]/50 text-white">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0A0A0F]/95 backdrop-blur-3xl border-white/10 text-white">
+                    <SelectItem value="GENERAL">General</SelectItem>
+                    <SelectItem value="ACADEMICO">Académico</SelectItem>
+                    <SelectItem value="EVENTO">Evento</SelectItem>
+                    <SelectItem value="URGENTE" className="text-red-400 font-bold">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </div>
-
-          {/* Audience Selector */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Audiencia Destinataria
-            </Label>
-            <Select value={audience} onValueChange={setAudience} disabled={isSubmitting}>
-              <SelectTrigger className="h-12 bg-white/[0.02] border-white/10 rounded-xl">
-                <SelectValue placeholder="Seleccionar audiencia..." />
-              </SelectTrigger>
-              <SelectContent className="bg-[#131319] border-white/10">
-                {AUDIENCE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* File Attachment Zone */}
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Adjuntar Archivo (Opcional)
-          </Label>
-          
-          {!attachedFile ? (
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              className={cn(
-                "relative flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed transition-all cursor-pointer",
-                isDragging
-                  ? "border-primary bg-primary/5"
-                  : "border-white/10 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.02]",
-                isSubmitting && "pointer-events-none opacity-50"
-              )}
-            >
-              <div className="p-3 rounded-xl bg-white/[0.02]">
-                <Paperclip className="size-6 text-muted-foreground" />
+              <div className="space-y-2">
+                <Label htmlFor="audience">Audiencia / Destinatarios *</Label>
+                <Select value={audience} onValueChange={setAudience}>
+                  <SelectTrigger className="bg-black/20 border-white/10 focus:border-[#d0bcff]/50 focus:ring-1 focus:ring-[#d0bcff]/50 text-white">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0A0A0F]/95 backdrop-blur-3xl border-white/10 text-white">
+                    {AUDIENCE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="text-center">
-                <p className="text-sm text-foreground font-medium">
-                  Arrastra un archivo o haz clic para seleccionar
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PDF, JPG, PNG o WebP (max. 10MB)
-                </p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                onChange={handleFileInputChange}
-                className="hidden"
-                disabled={isSubmitting}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="title">Título del Comunicado *</Label>
+              <Input 
+                id="title" 
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)} 
+                placeholder="Ej. Suspensión de clases por desinfección" 
+                className="bg-black/20 border-white/10 focus:border-[#d0bcff]/50 text-white placeholder:text-white/30"
               />
             </div>
-          ) : (
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  {attachedFile.type.startsWith("image/") ? (
-                    <ImageIcon className="size-5 text-primary" />
-                  ) : (
-                    <FileText className="size-5 text-primary" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground truncate max-w-[200px]">
-                    {attachedFile.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {(attachedFile.size / 1024).toFixed(1)} KB
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={removeAttachment}
-                disabled={isSubmitting}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <X className="size-4" />
-              </Button>
+            <div className="space-y-2">
+              <Label htmlFor="content">Cuerpo del Mensaje *</Label>
+              <Textarea 
+                id="content" 
+                value={content} 
+                onChange={(e) => setContent(e.target.value)} 
+                placeholder="Escribe el contenido detallado aquí..." 
+                className="min-h-[150px] bg-black/20 border-white/10 focus:border-[#d0bcff]/50 text-white placeholder:text-white/30 resize-none"
+              />
             </div>
-          )}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Archivos Adjuntos (Opcional)</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-white/5 border-white/10 hover:bg-white/10 text-xs h-8"
+                >
+                  <Paperclip className="h-3 w-3 mr-2" /> Examinar
+                </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  className="hidden" 
+                  multiple 
+                />
+              </div>
+              
+              {files.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {files.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded-md bg-white/5 border border-white/10 text-sm">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        {file.type.includes('image') ? <ImageIcon className="h-4 w-4 text-purple-400 shrink-0" /> : <FileText className="h-4 w-4 text-blue-400 shrink-0" />}
+                        <span className="truncate max-w-[150px]">{file.name}</span>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFile(idx)} className="h-6 w-6 rounded-full hover:bg-red-500/20 hover:text-red-400">
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* AQUI ESTA EL INTERRUPTOR QUE FALTABA */}
+            <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-bold flex items-center gap-2 text-white">
+                    <AlertTriangle className="size-4 text-red-500" />
+                    Emitir como Alerta Global Urgente
+                  </Label>
+                  <p className="text-xs text-white/50">
+                    Muestra un banner rojo persistente a todos los usuarios.
+                  </p>
+                </div>
+                <Switch
+                  checked={isGlobalAlert}
+                  onCheckedChange={setIsGlobalAlert}
+                  disabled={isSubmitting}
+                  className="data-[state=checked]:bg-red-600"
+                />
+              </div>
+              
+              {isGlobalAlert && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg animate-in fade-in slide-in-from-top-2">
+                  <p className="text-xs text-red-400 font-medium flex items-center gap-2">
+                    <AlertTriangle className="size-3 flex-shrink-0" />
+                    Atención: Esto mostrará la alerta en las pantallas de toda la comunidad al instante. Úselo solo para emergencias.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+          </form>
+        </ScrollArea>
+        
+        <div className="p-6 border-t border-white/5 bg-black/20 flex justify-end gap-3">
+          <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} disabled={isSubmitting} className="hover:bg-white/5">
+            Cancelar
+          </Button>
+          <Button type="submit" form="post-form" disabled={isSubmitting} className="bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black font-bold hover:scale-[1.02]">
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+            {isSubmitting ? "Publicando..." : "Publicar Comunicado"}
+          </Button>
         </div>
-
-        {/* Submit Button */}
-        <Button
-          onClick={handleSubmit}
-          disabled={!isFormValid || isSubmitting}
-          className="w-full h-14 rounded-xl bg-[#d0bcff] hover:bg-[#c4b0f3] text-[#381e72] font-bold text-base gap-3 shadow-lg transition-all hover:shadow-xl disabled:opacity-50"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="size-5 animate-spin" />
-              Cifrando y Publicando...
-            </>
-          ) : (
-            <>
-              <Send className="size-5" />
-              Publicar en el Muro
-            </>
-          )}
-        </Button>
-
-        {/* Helper Text */}
-        <p className="text-center text-[10px] text-muted-foreground">
-          Los comunicados son encriptados y enviados a los dispositivos de las familias de forma segura.
-        </p>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
