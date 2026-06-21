@@ -803,26 +803,29 @@ export default function StaffManagementPage() {
   }, []);
 
   // ── Motor de cambio de estado con bifurcación ON_LEAVE ───────────────
-  const handleChangeStatus = useCallback((memberId: string, newStatus: StaffStatus, memberName: string) => {
+  // Firma de 2 parámetros: userId + newStatus (sin memberName para evitar closures stale)
+  const handleStatusChange = useCallback((userId: string, newStatus: "ACTIVE" | "SUSPENDED" | "ON_LEAVE") => {
     if (newStatus === "ON_LEAVE") {
-      // No muta todavía — abre el modal para capturar el rango de fechas
-      setLeaveModal({ isOpen: true, staffId: memberId });
+      setLeaveModal({ isOpen: true, staffId: userId });
       setLeaveDates({ start: "", end: "" });
       return;
     }
-    // ACTIVE o SUSPENDED: muta inmediatamente y limpia fechas de licencia
     setStaff((prev) =>
       prev.map((m) =>
-        m.id === memberId
-          ? { ...m, status: newStatus, leaveStartDate: undefined, leaveEndDate: undefined }
+        m.id === userId
+          ? { ...m, status: newStatus as StaffStatus, leaveStartDate: undefined, leaveEndDate: undefined }
           : m
       )
     );
-    const label = getStatusConfig(newStatus).label;
-    toast.success("Estado del personal actualizado.", {
-      description: `${memberName} — nuevo estado: ${label}`,
-    });
+    toast.success(`Estado actualizado a ${newStatus === "ACTIVE" ? "Activo" : "Suspendido/Baja"}`);
   }, []);
+
+  // Alias para compatibilidad con llamadas legacy que pasen 3 argumentos
+  const handleChangeStatus = useCallback((memberId: string, newStatus: StaffStatus, _memberName: string) => {
+    if (newStatus === "ACTIVE" || newStatus === "SUSPENDED" || newStatus === "ON_LEAVE") {
+      handleStatusChange(memberId, newStatus as "ACTIVE" | "SUSPENDED" | "ON_LEAVE");
+    }
+  }, [handleStatusChange]);
 
   const handleRevokeAccess = useCallback((memberId: string, memberName: string) => {
     setStaff((prev) => 
@@ -1350,16 +1353,15 @@ export default function StaffManagementPage() {
                                     { value: "SUSPENDED", label: "Suspendido",  dot: "bg-[#ffb4ab]"  },
                                   ] as const
                                 ).map(({ value, label, dot }) => {
-                                  // Leemos el status SIEMPRE desde el array de estado reactivo
-                                  // (no desde el closure de `member` que puede ser stale).
-                                  const liveStatus = staff.find(m => m.id === member.id)?.status;
-                                  const isCurrent  = liveStatus === value;
+                                  // member.status viene de filteredStaff que es reactivo a staff
+                                  // — no hace falta staff.find() que puede dar closures stale
+                                  const isCurrent = member.status === value;
                                   return (
                                     <DropdownMenuItem
                                       key={value}
                                       disabled={isCurrent}
                                       className="gap-2.5 cursor-pointer focus:bg-white/5 disabled:opacity-40 disabled:cursor-default"
-                                      onClick={() => handleChangeStatus(member.id, value, member.name)}
+                                      onClick={() => handleStatusChange(member.id, value)}
                                     >
                                       <span className={`size-2 rounded-full shrink-0 ${dot}`} />
                                       <span>{label}</span>
