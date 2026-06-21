@@ -821,23 +821,6 @@ export default function StaffManagementPage() {
     toast.success(`Estado actualizado a ${newStatus === "ACTIVE" ? "Activo" : "Suspendido/Baja"}`);
   }, []);
 
-  // Firma de 2 parámetros requerida por el submenú con DropdownMenuPortal + onSelect
-  const handleStatusChange = useCallback((userId: string, newStatus: "ACTIVE" | "SUSPENDED" | "ON_LEAVE") => {
-    if (newStatus === "ON_LEAVE") {
-      setLeaveModal({ isOpen: true, staffId: userId });
-      setLeaveDates({ start: "", end: "" });
-      return;
-    }
-    setStaff((prev) =>
-      prev.map((m) =>
-        m.id === userId
-          ? { ...m, status: newStatus as StaffStatus, leaveStartDate: undefined, leaveEndDate: undefined }
-          : m
-      )
-    );
-    toast.success(`Estado actualizado a ${newStatus === "ACTIVE" ? "Activo" : "Baja/Suspendido"}`);
-  }, []);
-
   const handleRevokeAccess = useCallback((memberId: string, memberName: string) => {
     setStaff((prev) => 
       prev.map((m) => 
