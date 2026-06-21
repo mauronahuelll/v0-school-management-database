@@ -81,6 +81,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -820,12 +821,22 @@ export default function StaffManagementPage() {
     toast.success(`Estado actualizado a ${newStatus === "ACTIVE" ? "Activo" : "Suspendido/Baja"}`);
   }, []);
 
-  // Alias para compatibilidad con llamadas legacy que pasen 3 argumentos
-  const handleChangeStatus = useCallback((memberId: string, newStatus: StaffStatus, _memberName: string) => {
-    if (newStatus === "ACTIVE" || newStatus === "SUSPENDED" || newStatus === "ON_LEAVE") {
-      handleStatusChange(memberId, newStatus as "ACTIVE" | "SUSPENDED" | "ON_LEAVE");
+  // Firma de 2 parámetros requerida por el submenú con DropdownMenuPortal + onSelect
+  const handleStatusChange = useCallback((userId: string, newStatus: "ACTIVE" | "SUSPENDED" | "ON_LEAVE") => {
+    if (newStatus === "ON_LEAVE") {
+      setLeaveModal({ isOpen: true, staffId: userId });
+      setLeaveDates({ start: "", end: "" });
+      return;
     }
-  }, [handleStatusChange]);
+    setStaff((prev) =>
+      prev.map((m) =>
+        m.id === userId
+          ? { ...m, status: newStatus as StaffStatus, leaveStartDate: undefined, leaveEndDate: undefined }
+          : m
+      )
+    );
+    toast.success(`Estado actualizado a ${newStatus === "ACTIVE" ? "Activo" : "Baja/Suspendido"}`);
+  }, []);
 
   const handleRevokeAccess = useCallback((memberId: string, memberName: string) => {
     setStaff((prev) => 
@@ -1343,35 +1354,46 @@ export default function StaffManagementPage() {
                               <DropdownMenuSubTrigger className="gap-2 cursor-pointer focus:bg-white/5 data-[state=open]:bg-white/5">
                                 <Activity className="size-4 text-white/60" />
                                 <span>Cambiar Estado de RRHH</span>
-                                <ChevronRight className="size-3.5 ml-auto text-white/30" />
                               </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-44 bg-[#131319] border-white/10 p-1">
-                                {(
-                                  [
-                                    { value: "ACTIVE",    label: "Activo",      dot: "bg-[#4de082]" },
-                                    { value: "ON_LEAVE",  label: "De Licencia", dot: "bg-amber-400"  },
-                                    { value: "SUSPENDED", label: "Suspendido",  dot: "bg-[#ffb4ab]"  },
-                                  ] as const
-                                ).map(({ value, label, dot }) => {
-                                  // member.status viene de filteredStaff que es reactivo a staff
-                                  // — no hace falta staff.find() que puede dar closures stale
-                                  const isCurrent = member.status === value;
-                                  return (
-                                    <DropdownMenuItem
-                                      key={value}
-                                      disabled={isCurrent}
-                                      className="gap-2.5 cursor-pointer focus:bg-white/5 disabled:opacity-40 disabled:cursor-default"
-                                      onClick={() => handleStatusChange(member.id, value)}
-                                    >
-                                      <span className={`size-2 rounded-full shrink-0 ${dot}`} />
-                                      <span>{label}</span>
-                                      {isCurrent && (
-                                        <span className="ml-auto text-[10px] text-white/30">actual</span>
-                                      )}
-                                    </DropdownMenuItem>
-                                  );
-                                })}
-                              </DropdownMenuSubContent>
+                              {/* DropdownMenuPortal es obligatorio para evitar el event-swallowing
+                                  de Radix UI en submenús anidados dentro de un Dialog/Sheet */}
+                              <DropdownMenuPortal>
+                                <DropdownMenuSubContent className="w-48 bg-[#1a1a2e] border-white/10 p-1 z-50">
+                                  <DropdownMenuItem
+                                    className="gap-2.5 cursor-pointer focus:bg-white/5"
+                                    disabled={member.status === "ACTIVE"}
+                                    onSelect={() => handleStatusChange(member.id, "ACTIVE")}
+                                  >
+                                    <CheckCircle className="size-4 text-[#4de082] shrink-0" />
+                                    <span>Activo</span>
+                                    {member.status === "ACTIVE" && (
+                                      <span className="ml-auto text-[10px] text-white/30">actual</span>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="gap-2.5 cursor-pointer focus:bg-white/5"
+                                    disabled={member.status === "ON_LEAVE"}
+                                    onSelect={() => handleStatusChange(member.id, "ON_LEAVE")}
+                                  >
+                                    <PlaneTakeoff className="size-4 text-amber-400 shrink-0" />
+                                    <span>De Licencia</span>
+                                    {member.status === "ON_LEAVE" && (
+                                      <span className="ml-auto text-[10px] text-white/30">actual</span>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="gap-2.5 cursor-pointer focus:bg-white/5"
+                                    disabled={member.status === "SUSPENDED"}
+                                    onSelect={() => handleStatusChange(member.id, "SUSPENDED")}
+                                  >
+                                    <Ban className="size-4 text-rose-400 shrink-0" />
+                                    <span>Baja / Suspendido</span>
+                                    {member.status === "SUSPENDED" && (
+                                      <span className="ml-auto text-[10px] text-white/30">actual</span>
+                                    )}
+                                  </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                              </DropdownMenuPortal>
                             </DropdownMenuSub>
 
                             <DropdownMenuSeparator className="bg-white/10" />
@@ -2836,7 +2858,7 @@ export default function StaffManagementPage() {
       
       {/* ════════════════════════════════════════════════════════════════
           SHEET — Registro de Auditoría de Actividad
-      ════════════════════════════════════════════════════════════════ */}
+      ════════════════��═══════════════════════════════════════════════ */}
       <Sheet open={!!auditMember} onOpenChange={(open) => { if (!open) setAuditMember(null); }}>
         <SheetContent
           side="right"
