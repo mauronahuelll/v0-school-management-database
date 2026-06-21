@@ -1275,7 +1275,10 @@ export default function StaffManagementPage() {
                                     { value: "SUSPENDED", label: "Suspendido",  dot: "bg-[#ffb4ab]"  },
                                   ] as const
                                 ).map(({ value, label, dot }) => {
-                                  const isCurrent = member.status === value;
+                                  // Leemos el status SIEMPRE desde el array de estado reactivo
+                                  // (no desde el closure de `member` que puede ser stale).
+                                  const liveStatus = staff.find(m => m.id === member.id)?.status;
+                                  const isCurrent  = liveStatus === value;
                                   return (
                                     <DropdownMenuItem
                                       key={value}
