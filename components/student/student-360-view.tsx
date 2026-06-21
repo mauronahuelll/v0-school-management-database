@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, User, History, FileText, BookOpen, Users, ShieldAlert, ClipboardList } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +15,7 @@ import { StudentTrayectoria } from "./student-trayectoria";
 import { StudentFamilyNetwork } from "./student-family-network";
 import { StudentComplementaryData } from "./student-complementary-data";
 import type { Student360Data } from "@/lib/types/student";
-import { useActiveRole } from "@/lib/context/auth-context";
+import { useActiveRole, useAuth } from "@/lib/context/auth-context";
 import { toast } from "sonner";
 
 interface Student360ViewProps {
@@ -31,6 +31,18 @@ export function Student360View({
 }: Student360ViewProps) {
   const [activeTab, setActiveTab] = useState("general");
   const { role } = useActiveRole();
+  const { activeContext } = useAuth();
+  const router = useRouter();
+
+  // RBAC: FAMILIA siempre vuelve a su dashboard multihijo; el personal vuelve
+  // a la página anterior de la que vino (Secretaría, Notas, Parte Diario, etc.)
+  const handleBack = useCallback(() => {
+    if (activeContext?.role === "FAMILIA") {
+      router.push("/dashboard");
+    } else {
+      router.back();
+    }
+  }, [activeContext?.role, router]);
 
   // Count pending subjects for badge
   const pendingSubjectsCount = 2; // This would come from data in real implementation
@@ -52,12 +64,15 @@ export function Student360View({
         animate={{ opacity: 1, x: 0 }}
         className="p-4 md:p-6"
       >
-        <Link href={backUrl}>
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="size-4" />
-            Volver
-          </Button>
-        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2"
+          onClick={handleBack}
+        >
+          <ArrowLeft className="size-4" />
+          Volver
+        </Button>
       </motion.div>
 
       {/* Main Content */}
