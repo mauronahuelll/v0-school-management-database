@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/context/auth-context"
 import {
-  Bell, Calendar, Image, ShieldAlert, Heart, Share2, Paperclip,
+  Bell, Calendar, Image, ShieldAlert, Bookmark, Share2, Paperclip,
   Clock, FileText, Sparkles, AlertTriangle, Download,
   BookOpen, UtensilsCrossed, Bus, ChevronRight, Megaphone,
   CheckCheck, Filter, ExternalLink, HelpCircle, ArrowRight,
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 // TYPES & CONFIG
 // ============================================
 
-type PostCategory = "TODOS" | "URGENTE" | "EVENTO" | "ACADEMICO"
+type PostCategory = "TODOS" | "URGENTE" | "EVENTO" | "ACADEMICO" | "GUARDADOS"
 
 interface Publicacion {
   id: number
@@ -59,6 +59,7 @@ const CATEGORY_PILLS: { key: PostCategory; label: string }[] = [
   { key: "URGENTE",   label: "Alertas" },
   { key: "EVENTO",    label: "Eventos" },
   { key: "ACADEMICO", label: "Academico" },
+  { key: "GUARDADOS", label: "Guardados" },
 ]
 
 // ============================================
@@ -224,12 +225,12 @@ function HeroPostCard({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all backdrop-blur-sm border",
                 isLiked
-                  ? "bg-[#d0bcff]/20 text-[#d0bcff] border-[#d0bcff]/30"
-                  : "bg-black/30 text-white/50 border-white/15 hover:text-[#d0bcff] hover:border-[#d0bcff]/30"
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                  : "bg-black/30 text-white/50 border-white/15 hover:text-amber-300 hover:border-amber-500/30"
               )}
             >
-              <Heart className={cn("size-3.5", isLiked && "fill-current")} />
-              {post.likes + (isLiked ? 1 : 0)}
+              <Bookmark className={cn("size-3.5", isLiked && "fill-current")} />
+              {isLiked ? "Guardado" : "Guardar"}
             </button>
           </div>
         </div>
@@ -325,15 +326,16 @@ function MediaPostCard({
           <div className="flex items-center gap-0.5">
             <button
               onClick={onLike}
+              title={isLiked ? "Quitar de guardados" : "Guardar publicacion"}
               className={cn(
-                "flex items-center gap-1 p-1.5 rounded-lg text-[11px] font-medium transition-all",
+                "flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all",
                 isLiked
-                  ? "text-[#d0bcff]"
-                  : "text-white/30 hover:text-[#d0bcff] hover:bg-white/[0.04]"
+                  ? "text-amber-300 bg-amber-500/10"
+                  : "text-white/30 hover:text-amber-300 hover:bg-amber-500/[0.07]"
               )}
             >
-              <Heart className={cn("size-3.5", isLiked && "fill-current")} />
-              <span>{post.likes + (isLiked ? 1 : 0)}</span>
+              <Bookmark className={cn("size-3.5", isLiked && "fill-current")} />
+              <span>{isLiked ? "Guardado" : "Guardar"}</span>
             </button>
             <button
               onClick={onMarkRead}
@@ -424,13 +426,16 @@ function ListPostCard({
           <div className="ml-auto flex items-center gap-0.5">
             <button
               onClick={onLike}
+              title={isLiked ? "Quitar de guardados" : "Guardar publicacion"}
               className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] transition-all",
-                isLiked ? "text-[#d0bcff]" : "text-white/25 hover:text-[#d0bcff] hover:bg-white/[0.04]"
+                "flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all",
+                isLiked
+                  ? "text-amber-300 bg-amber-500/10"
+                  : "text-white/25 hover:text-amber-300 hover:bg-amber-500/[0.07]"
               )}
             >
-              <Heart className={cn("size-3.5", isLiked && "fill-current")} />
-              {post.likes + (isLiked ? 1 : 0)}
+              <Bookmark className={cn("size-3.5", isLiked && "fill-current")} />
+              {isLiked ? "Guardado" : "Guardar"}
             </button>
             <button
               onClick={onMarkRead}
@@ -605,7 +610,7 @@ function WidgetAyuda() {
 export default function FamilyWallPage() {
   const { activeContext } = useAuth()
   const [mounted, setMounted]               = useState(false)
-  const [likedPosts, setLikedPosts]         = useState<Record<number, boolean>>({})
+  const [savedPosts, setSavedPosts]         = useState<Record<number, boolean>>({})
   const [readPosts, setReadPosts]           = useState<Record<number, boolean>>({})
   const [activeCategory, setActiveCategory] = useState<PostCategory>("TODOS")
 
@@ -614,9 +619,12 @@ export default function FamilyWallPage() {
   useEffect(() => { setMounted(true) }, [])
 
   const handleLike = useCallback((postId: number) => {
-    setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }))
-    if (!likedPosts[postId]) toast.success("Guardado en favoritos")
-  }, [likedPosts])
+    setSavedPosts(prev => {
+      const next = !prev[postId]
+      toast.success(next ? "Publicacion guardada" : "Removida de guardados")
+      return { ...prev, [postId]: next }
+    })
+  }, [])
 
   const handleMarkRead = useCallback((postId: number) => {
     setReadPosts(prev => {
@@ -642,9 +650,13 @@ export default function FamilyWallPage() {
     )
   }
 
+  const savedCount = Object.values(savedPosts).filter(Boolean).length
+
   const filtered = activeCategory === "TODOS"
     ? PUBLICACIONES_MOCK
-    : PUBLICACIONES_MOCK.filter(p => p.category === activeCategory)
+    : activeCategory === "GUARDADOS"
+      ? PUBLICACIONES_MOCK.filter(p => savedPosts[p.id])
+      : PUBLICACIONES_MOCK.filter(p => p.category === activeCategory)
 
   // Hero = primera publicacion de tipo EVENTO, o la primera disponible
   const heroPost = filtered.find(p => p.type === "EVENTO") ?? filtered[0]
@@ -672,20 +684,37 @@ export default function FamilyWallPage() {
           <div className="flex items-center gap-2">
             {/* Filtros pill — reemplazan el sidebar de categorias */}
             <nav className="hidden sm:flex items-center gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-              {CATEGORY_PILLS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveCategory(key)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150",
-                    activeCategory === key
-                      ? "bg-[#d0bcff]/20 text-[#d0bcff] border border-[#d0bcff]/25"
-                      : "text-white/40 hover:text-white/65 hover:bg-white/[0.04] border border-transparent"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+              {CATEGORY_PILLS.map(({ key, label }) => {
+                const isGuardados = key === "GUARDADOS"
+                const isActive = activeCategory === key
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveCategory(key)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150",
+                      isActive
+                        ? isGuardados
+                          ? "bg-amber-500/15 text-amber-300 border border-amber-500/25"
+                          : "bg-[#d0bcff]/20 text-[#d0bcff] border border-[#d0bcff]/25"
+                        : "text-white/40 hover:text-white/65 hover:bg-white/[0.04] border border-transparent"
+                    )}
+                  >
+                    {isGuardados && <Bookmark className="size-3" />}
+                    {label}
+                    {isGuardados && savedCount > 0 && (
+                      <span className={cn(
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded-md",
+                        isActive
+                          ? "bg-amber-500/20 text-amber-300"
+                          : "bg-white/[0.06] text-white/35"
+                      )}>
+                        {savedCount}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </nav>
 
             {/* Campana notificaciones */}
@@ -705,22 +734,41 @@ export default function FamilyWallPage() {
           <main className="lg:col-span-7 space-y-4">
 
             {filtered.length === 0 ? (
-              <div className="text-center py-20 rounded-2xl border border-white/[0.05] bg-white/[0.01]">
-                <p className="text-sm text-white/25">No hay publicaciones en esta categoria.</p>
-                <button
-                  onClick={() => setActiveCategory("TODOS")}
-                  className="mt-3 text-xs text-[#d0bcff]/50 hover:text-[#d0bcff] transition-colors"
-                >
-                  Ver todas
-                </button>
-              </div>
+              activeCategory === "GUARDADOS" ? (
+                <div className="flex flex-col items-center justify-center text-center py-20 px-8 rounded-2xl border border-amber-500/15 bg-amber-500/[0.03]">
+                  <div className="size-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                    <Bookmark className="size-7 text-amber-400/60" />
+                  </div>
+                  <p className="text-sm font-semibold text-[#e4e1ea]/60 mb-2">Sin publicaciones guardadas</p>
+                  <p className="text-xs text-white/30 leading-relaxed max-w-xs">
+                    Aun no has guardado ninguna publicacion. Usa el icono de &quot;Guardar&quot; en los comunicados para mantenerlos en esta bandeja rapida.
+                  </p>
+                  <button
+                    onClick={() => setActiveCategory("TODOS")}
+                    className="mt-5 text-xs text-amber-400/60 hover:text-amber-400 font-medium transition-colors flex items-center gap-1.5"
+                  >
+                    <ArrowRight className="size-3" />
+                    Ir al muro
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-20 rounded-2xl border border-white/[0.05] bg-white/[0.01]">
+                  <p className="text-sm text-white/25">No hay publicaciones en esta categoria.</p>
+                  <button
+                    onClick={() => setActiveCategory("TODOS")}
+                    className="mt-3 text-xs text-[#d0bcff]/50 hover:text-[#d0bcff] transition-colors"
+                  >
+                    Ver todas
+                  </button>
+                </div>
+              )
             ) : (
               <>
                 {/* Hero card */}
                 {heroPost && (
                   <HeroPostCard
                     post={heroPost}
-                    isLiked={likedPosts[heroPost.id] || false}
+                    isLiked={savedPosts[heroPost.id] || false}
                     onLike={() => handleLike(heroPost.id)}
                   />
                 )}
@@ -735,7 +783,7 @@ export default function FamilyWallPage() {
                       <MediaPostCard
                         key={post.id}
                         post={post}
-                        isLiked={likedPosts[post.id] || false}
+                        isLiked={savedPosts[post.id] || false}
                         isRead={readPosts[post.id] || false}
                         onLike={() => handleLike(post.id)}
                         onMarkRead={() => handleMarkRead(post.id)}
@@ -751,7 +799,7 @@ export default function FamilyWallPage() {
                       <ListPostCard
                         key={post.id}
                         post={post}
-                        isLiked={likedPosts[post.id] || false}
+                        isLiked={savedPosts[post.id] || false}
                         isRead={readPosts[post.id] || false}
                         onLike={() => handleLike(post.id)}
                         onMarkRead={() => handleMarkRead(post.id)}
