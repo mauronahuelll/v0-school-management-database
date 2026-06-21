@@ -12,8 +12,20 @@ import {
   MessageSquare, Inbox, Sparkles, ArrowRight,
   Stethoscope, FileWarning, GraduationCap,
   Upload, FileSpreadsheet, Megaphone, ShieldCheck,
-  ChevronRight, Mail, BellRing, UserCheck, UserX as UserXIcon
+  ChevronRight, Mail, BellRing, UserCheck, UserX as UserXIcon,
+  PenLine, CheckCheck, MapPin,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -694,6 +706,18 @@ export default function DashboardPage() {
   const [drillDownOpen, setDrillDownOpen] = useState(false)
   const [drillDownData, setDrillDownData] = useState<CriticalMetric["drillDown"] | null>(null)
 
+  // Firma digital — estado del modal y del inbox de tramites
+  const [signatureModal, setSignatureModal] = useState(false)
+  const [signatureChecked, setSignatureChecked] = useState(false)
+  const [pendingDocSigned, setPendingDocSigned] = useState(false)
+
+  const handleFirmarDocumento = useCallback(() => {
+    setPendingDocSigned(true)
+    setSignatureModal(false)
+    setSignatureChecked(false)
+    toast.success("Documento firmado exitosamente. El colegio ha sido notificado.")
+  }, [])
+
   const openDrillDown = useCallback((metric: CriticalMetric) => {
     if (!metric.drillDown) return
     setDrillDownData(metric.drillDown)
@@ -1029,6 +1053,208 @@ export default function DashboardPage() {
               {MULTI_CHILDREN_DATA.length} alumnos vinculados
             </span>
           </div>
+
+          {/* ── Widget Tramites Pendientes ── */}
+          {!pendingDocSigned ? (
+            <div className={cn(
+              "relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5 rounded-2xl border",
+              "bg-[#8A2BE2]/10 border-[#8A2BE2]/50",
+              "shadow-[0_0_24px_rgba(138,43,226,0.12)]",
+              "transition-all duration-300"
+            )}>
+              {/* Pulso de alerta */}
+              <span className="absolute top-4 right-4 flex size-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D0BCFF] opacity-60" />
+                <span className="relative inline-flex rounded-full size-2.5 bg-[#8A2BE2]" />
+              </span>
+
+              {/* Icono */}
+              <div className="shrink-0 size-12 rounded-xl bg-[#8A2BE2]/20 border border-[#8A2BE2]/30 flex items-center justify-center">
+                <PenLine className="size-6 text-[#D0BCFF]" />
+              </div>
+
+              {/* Texto */}
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#D0BCFF]/70 mb-0.5">
+                  1 documento pendiente de firma
+                </p>
+                <h3 className="text-base font-bold text-[#E4E1EA] leading-snug">
+                  Autorizacion: Viaje de Estudios a Cordoba
+                </h3>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <MapPin className="size-3 text-white/30" />
+                  <p className="text-xs text-white/40">
+                    Requiere tu firma digital para ser procesado
+                  </p>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <Button
+                onClick={() => { setSignatureModal(true); setSignatureChecked(false); }}
+                className="shrink-0 bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black font-bold hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(208,188,255,0.35)] transition-all border-0 gap-2"
+              >
+                <PenLine className="size-4" />
+                Revisar y Firmar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] transition-all duration-500">
+              <div className="shrink-0 size-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                <CheckCheck className="size-6 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-emerald-400">Estas al dia con tus tramites</p>
+                <p className="text-xs text-white/35 mt-0.5">No hay documentos pendientes de firma.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Firma Digital — DocuSign Pattern */}
+          <Dialog open={signatureModal} onOpenChange={(open) => {
+            setSignatureModal(open);
+            if (!open) setSignatureChecked(false);
+          }}>
+            <DialogContent className="max-w-3xl w-full bg-[#0A0A0F]/95 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(138,43,226,0.15)] p-0 overflow-hidden">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.07]">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-xl bg-[#8A2BE2]/20 border border-[#8A2BE2]/30 flex items-center justify-center shrink-0">
+                    <PenLine className="size-4 text-[#D0BCFF]" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-[#E4E1EA] text-base font-bold leading-tight">
+                      Autorizacion: Viaje de Estudios a Cordoba
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-white/40 mt-0.5">
+                      Documento oficial — Requiere firma digital legalmente vinculante
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="flex flex-col md:flex-row h-[480px]">
+                {/* ── Lado izquierdo: simulacion del PDF ── */}
+                <ScrollArea className="flex-1 border-b md:border-b-0 md:border-r border-white/[0.07]">
+                  <div className="p-6 space-y-5 text-xs text-white/50 leading-relaxed font-mono">
+                    {/* Header del documento */}
+                    <div className="text-center space-y-1 pb-4 border-b border-white/10">
+                      <p className="text-[10px] uppercase tracking-widest text-white/25">Instituto Educativo Sequency</p>
+                      <h4 className="text-sm font-bold text-[#E4E1EA]">AUTORIZACION PARA VIAJE EDUCATIVO</h4>
+                      <p className="text-[10px] text-white/30">Resolucion N° 2024/VEC/087 — Ciclo Lectivo 2025</p>
+                    </div>
+
+                    <p>Por medio de la presente, el/la padre/madre/tutor/a del/la alumno/a que firma el presente instrumento, AUTORIZA expresamente a su hijo/a a participar del viaje educativo organizado por el establecimiento escolar hacia la ciudad de Cordoba, Provincia de Cordoba, Republica Argentina.</p>
+
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-2">
+                      <p className="text-[10px] uppercase tracking-widest text-[#D0BCFF]/50 font-semibold">Datos del viaje</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {[
+                          ["Destino", "Ciudad de Cordoba"],
+                          ["Fecha de partida", "15 de agosto de 2025"],
+                          ["Fecha de regreso", "18 de agosto de 2025"],
+                          ["Medio de transporte", "Omnibus de larga distancia"],
+                          ["Empresa", "Crucero del Norte S.A."],
+                          ["Docentes acompanantes", "Prof. Ramirez / Prof. Diaz"],
+                          ["Costo total", "$ 85.000 (ya abonado)"],
+                          ["Seguro de viajero", "Incluido — Poliza N° 4421-B"],
+                        ].map(([k, v]) => (
+                          <div key={k}>
+                            <p className="text-[10px] text-white/30">{k}</p>
+                            <p className="text-white/60 font-medium">{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <p>El/la firmante declara conocer el itinerario completo, las normas de convivencia aplicables durante el viaje y las condiciones de la poliza de seguro contratada por la institucion. Asimismo, declara que el/la menor no presenta contraindicaciones medicas para la realizacion del viaje, o que en caso de existir, ha informado fehacientemente al establecimiento.</p>
+
+                    <p>La presente autorizacion se otorga libre y voluntariamente, sin que medie vicio alguno del consentimiento, y tiene plena validez legal en los terminos del Articulo 1320 del Codigo Civil y Comercial de la Nacion.</p>
+
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-1.5">
+                      <p className="text-[10px] uppercase tracking-widest text-[#D0BCFF]/50 font-semibold">Datos del responsable</p>
+                      <p>Nombre: <span className="text-white/70">___________________________</span></p>
+                      <p>DNI: <span className="text-white/70">___________________________</span></p>
+                      <p>Vinculo con el alumno: <span className="text-white/70">Padre / Madre / Tutor</span></p>
+                    </div>
+
+                    <p className="text-[10px] text-white/25 pt-2 border-t border-white/[0.06]">
+                      Documento generado electronicamente por el sistema Sequency ERP. Firma digital con validez juridica segun Ley 25.506 de Firma Digital (Argentina).
+                    </p>
+                  </div>
+                </ScrollArea>
+
+                {/* ── Lado derecho: Action Panel ── */}
+                <div className="w-full md:w-72 shrink-0 flex flex-col gap-5 p-6 bg-white/[0.015]">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-3">
+                      Panel de firma
+                    </p>
+                    <div className="space-y-3">
+                      {[
+                        { label: "Emisor", value: "Instituto Sequency" },
+                        { label: "Destinatario", value: "Familia vinculada" },
+                        { label: "Estado", value: "Pendiente de firma" },
+                        { label: "Vencimiento", value: "30 Jul 2025" },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="flex justify-between items-center text-xs">
+                          <span className="text-white/35">{label}</span>
+                          <span className={cn(
+                            "font-medium",
+                            label === "Estado" ? "text-amber-400" : "text-white/60"
+                          )}>{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator className="bg-white/[0.07]" />
+
+                  {/* Checkbox de consentimiento */}
+                  <div className={cn(
+                    "flex items-start gap-3 p-3 rounded-xl border transition-colors",
+                    signatureChecked
+                      ? "border-[#8A2BE2]/40 bg-[#8A2BE2]/[0.07]"
+                      : "border-white/10 bg-white/[0.02]"
+                  )}>
+                    <Checkbox
+                      id="firma-consent"
+                      checked={signatureChecked}
+                      onCheckedChange={(v) => setSignatureChecked(!!v)}
+                      className="mt-0.5 border-white/20 data-[state=checked]:bg-[#8A2BE2] data-[state=checked]:border-[#8A2BE2]"
+                    />
+                    <Label
+                      htmlFor="firma-consent"
+                      className="text-xs text-white/50 leading-relaxed cursor-pointer select-none"
+                    >
+                      Declaro haber leido el documento y autorizo mediante firma digital legalmente vinculante.
+                    </Label>
+                  </div>
+
+                  <div className="mt-auto space-y-3">
+                    <Button
+                      disabled={!signatureChecked}
+                      onClick={handleFirmarDocumento}
+                      className={cn(
+                        "w-full gap-2 font-bold border-0 transition-all",
+                        signatureChecked
+                          ? "bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black hover:scale-[1.02] hover:shadow-[0_0_24px_rgba(208,188,255,0.35)]"
+                          : "bg-white/[0.04] text-white/25 cursor-not-allowed"
+                      )}
+                    >
+                      <PenLine className="size-4" />
+                      Firmar Documento
+                    </Button>
+                    <button
+                      onClick={() => setSignatureModal(false)}
+                      className="w-full text-xs text-white/25 hover:text-white/50 transition-colors py-1"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Cards grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
