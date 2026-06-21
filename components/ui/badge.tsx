@@ -17,6 +17,17 @@ const badgeVariants = cva(
           'border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline:
           'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
+        // Neon semánticos — contraste brillante sobre fondos oscuros (brandbook)
+        success:
+          'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 [a&]:hover:bg-emerald-500/20',
+        warning:
+          'bg-amber-500/10 text-amber-400 border-amber-500/20 [a&]:hover:bg-amber-500/20',
+        danger:
+          'bg-red-500/10 text-red-400 border-red-500/20 [a&]:hover:bg-red-500/20',
+        info:
+          'bg-[#8A2BE2]/10 text-[#D0BCFF] border-[#8A2BE2]/25 [a&]:hover:bg-[#8A2BE2]/20',
+        lavender:
+          'bg-[#D0BCFF]/10 text-[#D0BCFF] border-[#D0BCFF]/20 [a&]:hover:bg-[#D0BCFF]/15',
       },
     },
     defaultVariants: {
