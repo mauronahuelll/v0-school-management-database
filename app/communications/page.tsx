@@ -1174,8 +1174,8 @@ export default function CommunicationsPage() {
 
       {/* Compose Dialog (ADMIN/DOCENTE/PRECEPTOR) */}
       <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
-        <DialogContent className="sm:max-w-[560px] bg-[#131319] border-white/10 p-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5">
+        <DialogContent className="sm:max-w-[560px] bg-[#131319] border-white/10 p-0 flex flex-col max-h-[90vh]">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5 shrink-0">
             <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
               <Megaphone className="size-5 text-[#d0bcff]" />
               Redactar Circular
@@ -1185,7 +1185,7 @@ export default function CommunicationsPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="px-6 py-5 space-y-4 flex-1 overflow-y-auto">
 
             {/* ── Selector de Tipo de Audiencia ─────────────────────────────── */}
             <div className="space-y-2">
@@ -1646,7 +1646,7 @@ export default function CommunicationsPage() {
             )}
           </div>
 
-          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01] shrink-0">
             <Button
               variant="outline"
               onClick={() => setIsComposeOpen(false)}
