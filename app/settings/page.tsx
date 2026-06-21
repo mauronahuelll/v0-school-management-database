@@ -58,6 +58,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -1599,23 +1600,35 @@ function AddRequirementModal({ open, onOpenChange, target, onSave }: AddRequirem
             </Select>
           </div>
 
-          {/* Annual Expiration */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                <CalendarClock className="size-4 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[#e4e1ea]">Requiere Vencimiento Anual</p>
-                <p className="text-[10px] text-white/40">El sistema solicitara renovacion cada ano</p>
-              </div>
-            </div>
-            <Switch
+          {/* Annual Expiration — Checkbox con label explicita */}
+          <label
+            htmlFor="req-annual-expiration"
+            className={cn(
+              "flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all select-none",
+              annualExpiration
+                ? "bg-amber-500/[0.06] border-amber-500/30"
+                : "bg-white/[0.02] border-white/5 hover:border-white/10"
+            )}
+          >
+            <Checkbox
+              id="req-annual-expiration"
               checked={annualExpiration}
-              onCheckedChange={setAnnualExpiration}
-              className="data-[state=checked]:bg-amber-500"
+              onCheckedChange={(v) => setAnnualExpiration(Boolean(v))}
+              className="mt-0.5 shrink-0 border-amber-500/50 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
             />
-          </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <CalendarClock className={cn("size-4 shrink-0", annualExpiration ? "text-amber-400" : "text-white/40")} />
+                <p className={cn("text-sm font-medium", annualExpiration ? "text-amber-300" : "text-[#e4e1ea]")}>
+                  Exige Renovacion Anual (Caduca el 31 de Diciembre)
+                </p>
+              </div>
+              <p className="text-[10px] text-white/40 mt-1 leading-relaxed">
+                El sistema notificara al personal y bloqueara el legajo si el documento no se renueva
+                antes del cierre del ciclo lectivo.
+              </p>
+            </div>
+          </label>
         </div>
 
         <DialogFooter>

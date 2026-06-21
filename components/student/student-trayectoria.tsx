@@ -22,7 +22,12 @@ import {
   Building2,
   Landmark,
   GitMerge,
+  ShieldAlert,
+  XCircle,
+  ArrowRight,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +95,18 @@ export interface TransferCredit {
   loadedAt: string;              // fecha en que el admin la cargo
 }
 
+// Tipo de condicion de inscripcion granular
+export type EnrollmentCondition = "REGULAR" | "RECURSANTE" | "PREVIA_LIBRE";
+
+export interface GranularEnrollment {
+  id: string;
+  subjectName: string;
+  originYear: number;
+  originYearLabel: string;
+  condition: EnrollmentCondition;
+  addedAt: string;
+}
+
 interface StudentTrayectoriaProps {
   studentId?: string;
   studentName: string;
@@ -100,6 +117,15 @@ interface StudentTrayectoriaProps {
 // ============================================
 // CATALOGS
 // ============================================
+
+// Inscripciones del ciclo lectivo actual (5to Año + excepciones cross-año)
+const MOCK_CURRENT_ENROLLMENTS: GranularEnrollment[] = [
+  { id: "enr-1", subjectName: "Matematica",              originYear: 5, originYearLabel: "5to Año", condition: "REGULAR",      addedAt: "01/03/2025" },
+  { id: "enr-2", subjectName: "Lengua y Literatura",     originYear: 5, originYearLabel: "5to Año", condition: "REGULAR",      addedAt: "01/03/2025" },
+  { id: "enr-3", subjectName: "Historia",                originYear: 5, originYearLabel: "5to Año", condition: "REGULAR",      addedAt: "01/03/2025" },
+  { id: "enr-4", subjectName: "Fisica",                  originYear: 4, originYearLabel: "4to Año", condition: "RECURSANTE",   addedAt: "05/03/2025" },
+  { id: "enr-5", subjectName: "Quimica",                 originYear: 3, originYearLabel: "3er Año", condition: "PREVIA_LIBRE", addedAt: "05/03/2025" },
+];
 
 const SUBJECTS_CATALOG = [
   "Matemática", "Lengua y Literatura", "Historia", "Geografía",
@@ -291,6 +317,97 @@ export function StudentTrayectoria({
     establishment: "OTRO_ESTABLECIMIENTO" as TransferCredit["establishment"],
   });
 
+  // ── Motor de Promocion por Excepcion ───────────────────────────────
+  // Mock: el alumno está retenido. Al confirmar la excepción, se limpia.
+  const [isRetained, setIsRetained] = useState(true);
+  const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
+  const [isSavingOverride, setIsSavingOverride] = useState(false);
+  const [overrideTargetCourse, setOverrideTargetCourse] = useState("");
+  // Materias que el alumno adeuda del ciclo anterior — checkboxes del modal
+  const RETAINED_SUBJECTS = [
+    { id: "ret-1", name: "Matematica",         originYearLabel: "4to Año" },
+    { id: "ret-2", name: "Fisica",              originYearLabel: "4to Año" },
+    { id: "ret-3", name: "Quimica",             originYearLabel: "4to Año" },
+  ] as const;
+  type RetainedSubjectId = typeof RETAINED_SUBJECTS[number]["id"];
+  const [checkedSubjects, setCheckedSubjects] = useState<Set<RetainedSubjectId>>(
+    new Set(["ret-1", "ret-2", "ret-3"])
+  );
+
+  const toggleRetainedSubject = useCallback((id: RetainedSubjectId) => {
+    setCheckedSubjects((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleConfirmOverride = useCallback(async () => {
+    if (!overrideTargetCourse) {
+      toast.error("Selecciona el curso/año destino antes de confirmar.");
+      return;
+    }
+    if (checkedSubjects.size === 0) {
+      toast.error("Selecciona al menos una materia para llevar como Previa.");
+      return;
+    }
+    setIsSavingOverride(true);
+    await new Promise((r) => setTimeout(r, 900));
+    setIsRetained(false);
+    setIsOverrideModalOpen(false);
+    setOverrideTargetCourse("");
+    setCheckedSubjects(new Set());
+    setIsSavingOverride(false);
+    toast.success(
+      "Alumno promovido. Las asignaturas marcadas fueron movidas a la bandeja de Previas.",
+      { description: `Destino: ${overrideTargetCourse}. Previas: ${checkedSubjects.size} materia(s).`, duration: 6000 }
+    );
+  }, [overrideTargetCourse, checkedSubjects]);
+
+  // ── Motor de Inscripcion Granular ───────────────────────────────────
+  const [currentEnrollments, setCurrentEnrollments] = useState<GranularEnrollment[]>(MOCK_CURRENT_ENROLLMENTS);
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [isSavingEnroll, setIsSavingEnroll] = useState(false);
+  const [enrollForm, setEnrollForm] = useState({
+    originYear: "",
+    subjectName: "",
+    condition: "RECURSANTE" as EnrollmentCondition,
+  });
+
+  const resetEnrollForm = useCallback(() => {
+    setEnrollForm({ originYear: "", subjectName: "", condition: "RECURSANTE" });
+  }, []);
+
+  const handleSaveEnrollment = useCallback(async () => {
+    const { originYear, subjectName, condition } = enrollForm;
+    if (!originYear || !subjectName) {
+      toast.error("Completa el Año Academico y la Asignatura antes de guardar.");
+      return;
+    }
+    setIsSavingEnroll(true);
+    await new Promise((r) => setTimeout(r, 800));
+    const yearNum   = parseInt(originYear, 10);
+    const yearLabel = ACADEMIC_YEAR_OPTIONS.find(y => y.value === yearNum)?.label ?? `${yearNum}° Año`;
+    const newEnroll: GranularEnrollment = {
+      id:              `enr-${Date.now()}`,
+      subjectName,
+      originYear:      yearNum,
+      originYearLabel: yearLabel,
+      condition,
+      addedAt:         new Date().toLocaleDateString("es-AR"),
+    };
+    setCurrentEnrollments((prev) => [...prev, newEnroll]);
+    setIsSavingEnroll(false);
+    setIsEnrollModalOpen(false);
+    resetEnrollForm();
+    toast.success(
+      condition === "RECURSANTE"
+        ? `${subjectName} inscripta como Recursante (${yearLabel}).`
+        : `${subjectName} inscripta como Previa Libre (${yearLabel}).`,
+      { description: "El legajo academico fue actualizado." }
+    );
+  }, [enrollForm, resetEnrollForm]);
+
   const resetTransferForm = useCallback(() => {
     setTransferForm({
       subjectName: "",
@@ -457,6 +574,17 @@ export function StudentTrayectoria({
     }
   };
 
+  const getEnrollmentConditionConfig = (condition: EnrollmentCondition) => {
+    switch (condition) {
+      case "REGULAR":
+        return { label: "Regular",       color: "bg-[#d0bcff]/15 text-[#d0bcff] border-[#d0bcff]/30" };
+      case "RECURSANTE":
+        return { label: "Recursante",    color: "bg-[#ffb4ab]/20 text-[#ffb4ab] border-[#ffb4ab]/40" };
+      case "PREVIA_LIBRE":
+        return { label: "Previa Libre",  color: "bg-amber-500/20 text-amber-300 border-amber-500/35"  };
+    }
+  };
+
   const getYearStatusConfig = (status: AcademicYearRecord["status"]) => {
     switch (status) {
       case "EN_CURSO":
@@ -505,12 +633,145 @@ export function StudentTrayectoria({
         )}
       </div>
 
+      {/* ── Alert de Retención — visible solo para ADMIN ────────────────── */}
+      {isAdmin && isRetained && (
+        <Alert className="border-red-500/50 bg-red-500/[0.06] backdrop-blur-sm">
+          <ShieldAlert className="size-5 text-red-400 mt-0.5" />
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 w-full">
+            <div className="min-w-0">
+              <AlertTitle className="text-red-400 font-bold text-sm flex items-center gap-2 mb-1">
+                Estado: Retenido
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-semibold bg-red-500/15 text-red-400 border-red-500/40 animate-pulse"
+                >
+                  Ciclo 2025
+                </Badge>
+              </AlertTitle>
+              <AlertDescription className="text-white/60 text-xs leading-relaxed">
+                El alumno adeuda asignaturas del ciclo anterior y{" "}
+                <span className="font-semibold text-red-300">no fue promovido automaticamente</span>{" "}
+                por el Asistente de Promocion masivo. Se requiere intervencion administrativa para
+                resolver su situacion academica.
+              </AlertDescription>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setIsOverrideModalOpen(true)}
+              className="shrink-0 bg-red-500/15 border border-red-500/40 text-red-300 hover:bg-red-500/25 hover:border-red-500/60 hover:text-red-200 gap-2 font-semibold"
+              variant="outline"
+            >
+              <ArrowRight className="size-4" />
+              Promover con Previas / Excepcion
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       {/* Family Notification Alert */}
       <div className="flex items-center gap-3 p-3 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20">
         <Bell className="size-4 text-[#d0bcff] shrink-0" />
         <p className="text-xs text-white/60">
           Informacion visible y notificada a la familia del estudiante en tiempo real.
         </p>
+      </div>
+
+      {/* ── Inscripciones del Ciclo Actual ──────────────────────────────── */}
+      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-md space-y-4">
+
+        {/* Header de la sección */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h3 className="text-sm font-semibold text-[#e4e1ea] flex items-center gap-2">
+            <BookOpen className="size-4 text-[#d0bcff]" />
+            Inscripciones — Ciclo Lectivo Actual
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono bg-white/5 text-white/40 border-white/10 ml-1"
+            >
+              {currentEnrollments.length} materia{currentEnrollments.length !== 1 ? "s" : ""}
+            </Badge>
+          </h3>
+
+          {/* Boton visible solo para ADMIN — RBAC */}
+          {isAdmin && (
+            <Button
+              onClick={() => setIsEnrollModalOpen(true)}
+              size="sm"
+              className="bg-[#ffb4ab]/10 border border-[#ffb4ab]/30 text-[#ffb4ab] hover:bg-[#ffb4ab]/20 hover:border-[#ffb4ab]/50 gap-2"
+              variant="outline"
+            >
+              <PlusCircle className="size-4" />
+              Inscribir en Materia Previa / Recursada
+            </Button>
+          )}
+        </div>
+
+        {/* Grilla de inscripciones */}
+        <div className="overflow-x-auto rounded-xl border border-white/5">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/5 bg-white/[0.02]">
+                <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                  Asignatura
+                </th>
+                <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                  Año de Origen
+                </th>
+                <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                  Condicion
+                </th>
+                <th className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider hidden sm:table-cell">
+                  Inscripto
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {currentEnrollments.map((enr) => {
+                const condConfig = getEnrollmentConditionConfig(enr.condition);
+                const isException = enr.condition !== "REGULAR";
+                return (
+                  <tr
+                    key={enr.id}
+                    className={cn(
+                      "transition-colors",
+                      isException
+                        ? "bg-[#ffb4ab]/[0.03] hover:bg-[#ffb4ab]/[0.05]"
+                        : "hover:bg-white/[0.02]"
+                    )}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {isException && (
+                          <AlertTriangle className="size-3.5 text-amber-400 shrink-0" />
+                        )}
+                        <span className={cn(
+                          "font-medium",
+                          isException ? "text-[#e4e1ea]" : "text-white/70"
+                        )}>
+                          {enr.subjectName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-white/50 text-xs">
+                      {enr.originYearLabel}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px] font-semibold border", condConfig.color)}
+                      >
+                        {condConfig.label}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-white/35 text-xs hidden sm:table-cell">
+                      {enr.addedAt}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Stats Summary */}
@@ -864,6 +1125,316 @@ export function StudentTrayectoria({
           </div>
         )}
       </div>
+
+      {/* ── Motor de Promocion por Excepcion — Dialog ──────────────────── */}
+      <Dialog
+        open={isOverrideModalOpen}
+        onOpenChange={(open) => {
+          setIsOverrideModalOpen(open);
+          if (!open) { setOverrideTargetCourse(""); }
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px] bg-[#0f0f18] border-red-500/30 p-0 flex flex-col max-h-[92vh]">
+
+          {/* Header crítico */}
+          <DialogHeader className="px-6 pt-6 pb-5 border-b border-white/[0.06] shrink-0">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/25 shrink-0">
+                <ShieldAlert className="size-5 text-red-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-[#e4e1ea] text-base font-bold leading-tight">
+                  Promocion por Excepcion
+                </DialogTitle>
+                <p className="text-[11px] text-red-400/80 font-medium mt-0.5 flex items-center gap-1.5">
+                  <XCircle className="size-3 shrink-0" />
+                  Accion administrativa critica — requiere revision
+                </p>
+              </div>
+            </div>
+            <DialogDescription className="text-white/50 text-xs leading-relaxed mt-3 bg-white/[0.02] rounded-xl p-3 border border-white/[0.05]">
+              Promover al alumno al siguiente año academico acarreando las materias adeudadas como
+              Previas. Esta accion anula la retencion automatica y queda registrada en el legajo
+              del alumno con tu firma digital.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-6 flex-1 overflow-y-auto">
+
+            {/* Selector de curso destino */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-white/60 uppercase tracking-widest">
+                Promover a que curso / año
+              </Label>
+              <Select value={overrideTargetCourse} onValueChange={setOverrideTargetCourse}>
+                <SelectTrigger className="bg-white/[0.03] border-white/10 text-[#e4e1ea] h-11 focus:ring-red-500/30 focus:border-red-500/40">
+                  <SelectValue placeholder="Seleccionar destino..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {[
+                    { value: "5to Año A", label: "5to Año — Division A" },
+                    { value: "5to Año B", label: "5to Año — Division B" },
+                    { value: "5to Año C", label: "5to Año — Division C" },
+                    { value: "6to Año A", label: "6to Año — Division A" },
+                    { value: "6to Año B", label: "6to Año — Division B" },
+                  ].map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-[#e4e1ea] focus:bg-white/10">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lista de materias a llevar como Previas */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-white/60 uppercase tracking-widest">
+                  Materias a llevar como Previa
+                </Label>
+                <span className="text-[10px] text-white/30">
+                  {checkedSubjects.size} de {RETAINED_SUBJECTS.length} seleccionada{checkedSubjects.size !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {RETAINED_SUBJECTS.map((subj) => {
+                  const checked = checkedSubjects.has(subj.id);
+                  return (
+                    <label
+                      key={subj.id}
+                      htmlFor={`override-subj-${subj.id}`}
+                      className={cn(
+                        "flex items-center gap-3.5 p-3.5 rounded-xl border cursor-pointer transition-all select-none",
+                        checked
+                          ? "bg-amber-500/[0.07] border-amber-500/35"
+                          : "bg-white/[0.02] border-white/[0.06] hover:border-white/10"
+                      )}
+                    >
+                      <Checkbox
+                        id={`override-subj-${subj.id}`}
+                        checked={checked}
+                        onCheckedChange={() => toggleRetainedSubject(subj.id)}
+                        className="border-amber-500/50 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-semibold leading-tight", checked ? "text-amber-200" : "text-white/70")}>
+                          {subj.name}
+                        </p>
+                        <p className="text-[11px] text-white/35 mt-0.5">{subj.originYearLabel}</p>
+                      </div>
+                      {checked && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] bg-amber-500/15 text-amber-300 border-amber-500/30 shrink-0"
+                        >
+                          Previa
+                        </Badge>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+
+              <p className="text-[11px] text-white/30 leading-relaxed pl-0.5">
+                Las materias marcadas pasaran al estado{" "}
+                <span className="text-amber-400 font-medium">Previa Libre</span>{" "}
+                en la grilla de inscripciones del nuevo ciclo.
+              </p>
+            </div>
+
+            {/* Resumen visual antes de confirmar */}
+            {overrideTargetCourse && checkedSubjects.size > 0 && (
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+                <p className="text-[11px] font-semibold text-white/40 uppercase tracking-widest">
+                  Resumen de la operacion
+                </p>
+                <div className="flex items-center gap-2 text-sm text-[#e4e1ea]">
+                  <ArrowRight className="size-4 text-red-400 shrink-0" />
+                  <span>
+                    Promover a{" "}
+                    <span className="font-bold text-white">{overrideTargetCourse}</span>
+                    {" "}con{" "}
+                    <span className="font-bold text-amber-300">{checkedSubjects.size} materia{checkedSubjects.size !== 1 ? "s" : ""} como Previa</span>
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/[0.06] bg-white/[0.01] shrink-0 gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => { setIsOverrideModalOpen(false); setOverrideTargetCourse(""); }}
+              disabled={isSavingOverride}
+              className="text-white/50 hover:text-white hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmOverride}
+              disabled={isSavingOverride || !overrideTargetCourse || checkedSubjects.size === 0}
+              className="bg-red-500/80 hover:bg-red-500 text-white border-0 gap-2 disabled:opacity-40 font-semibold"
+            >
+              {isSavingOverride ? (
+                <><Loader2 className="size-4 animate-spin" /> Procesando...</>
+              ) : (
+                <><ArrowRight className="size-4" /> Confirmar Promocion por Excepcion</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Motor de Inscripcion Granular — Dialog ─────────────────────── */}
+      <Dialog open={isEnrollModalOpen} onOpenChange={(open) => { setIsEnrollModalOpen(open); if (!open) resetEnrollForm(); }}>
+        <DialogContent className="sm:max-w-[480px] bg-[#131319] border-white/10 p-0 flex flex-col max-h-[90vh]">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5 shrink-0">
+            <DialogTitle className="text-[#e4e1ea] flex items-center gap-2">
+              <PlusCircle className="size-5 text-[#ffb4ab]" />
+              Inscribir en Materia Previa / Recursada
+            </DialogTitle>
+            <DialogDescription className="text-white/40 text-xs mt-1">
+              Asigna una materia de un año anterior a la cursada actual del alumno.
+              Aparecera diferenciada con un badge en la grilla de inscripciones.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5 flex-1 overflow-y-auto">
+            {/* Año Academico Origen */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                Año Academico de Origen
+              </Label>
+              <Select
+                value={enrollForm.originYear}
+                onValueChange={(v) => setEnrollForm((p) => ({ ...p, originYear: v }))}
+              >
+                <SelectTrigger className="bg-white/[0.04] border-white/10 text-[#e4e1ea] focus:ring-[#d0bcff]/30">
+                  <SelectValue placeholder="Seleccionar año..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {ACADEMIC_YEAR_OPTIONS.filter(y => y.value <= 6).map((y) => (
+                    <SelectItem key={y.value} value={String(y.value)} className="text-[#e4e1ea] focus:bg-white/10">
+                      {y.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Asignatura */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                Asignatura Pendiente
+              </Label>
+              <Select
+                value={enrollForm.subjectName}
+                onValueChange={(v) => setEnrollForm((p) => ({ ...p, subjectName: v }))}
+              >
+                <SelectTrigger className="bg-white/[0.04] border-white/10 text-[#e4e1ea] focus:ring-[#d0bcff]/30">
+                  <SelectValue placeholder="Seleccionar materia..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10 max-h-52 overflow-y-auto">
+                  {SUBJECTS_CATALOG.map((s) => (
+                    <SelectItem key={s} value={s} className="text-[#e4e1ea] focus:bg-white/10">
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Condicion de Inscripcion */}
+            <div className="space-y-3">
+              <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                Condicion de Inscripcion
+              </Label>
+              <RadioGroup
+                value={enrollForm.condition}
+                onValueChange={(v) => setEnrollForm((p) => ({ ...p, condition: v as EnrollmentCondition }))}
+                className="space-y-2"
+              >
+                <label
+                  htmlFor="cond-recursante"
+                  className={cn(
+                    "flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all",
+                    enrollForm.condition === "RECURSANTE"
+                      ? "bg-[#ffb4ab]/[0.07] border-[#ffb4ab]/35"
+                      : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                  )}
+                >
+                  <RadioGroupItem value="RECURSANTE" id="cond-recursante" className="mt-0.5 shrink-0 border-[#ffb4ab]/50 text-[#ffb4ab]" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[#ffb4ab]">Recursante (Presencial)</p>
+                    <p className="text-xs text-white/40 leading-relaxed mt-0.5">
+                      El alumno asiste a clases presenciales y rinde con el curso de origen.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  htmlFor="cond-libre"
+                  className={cn(
+                    "flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all",
+                    enrollForm.condition === "PREVIA_LIBRE"
+                      ? "bg-amber-500/[0.07] border-amber-500/35"
+                      : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                  )}
+                >
+                  <RadioGroupItem value="PREVIA_LIBRE" id="cond-libre" className="mt-0.5 shrink-0 border-amber-500/50 text-amber-400" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-300">Rinde Libre (Previa)</p>
+                    <p className="text-xs text-white/40 leading-relaxed mt-0.5">
+                      El alumno rinde en mesa examinadora sin asistir a clase.
+                    </p>
+                  </div>
+                </label>
+              </RadioGroup>
+            </div>
+
+            {/* Preview del badge resultante */}
+            {enrollForm.subjectName && enrollForm.originYear && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <AlertTriangle className="size-4 text-amber-400 shrink-0" />
+                <p className="text-xs text-white/50">
+                  Se sumara a la grilla como{" "}
+                  <span className="font-semibold text-[#e4e1ea]">{enrollForm.subjectName}</span>
+                  {" "}con el badge{" "}
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[10px] border inline-flex", getEnrollmentConditionConfig(enrollForm.condition).color)}
+                  >
+                    {getEnrollmentConditionConfig(enrollForm.condition).label}
+                  </Badge>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01] shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => { setIsEnrollModalOpen(false); resetEnrollForm(); }}
+              className="text-white/50 hover:text-white"
+              disabled={isSavingEnroll}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveEnrollment}
+              disabled={isSavingEnroll || !enrollForm.originYear || !enrollForm.subjectName}
+              className="bg-[#ffb4ab] text-[#1a0a0a] hover:bg-[#ffb4ab]/90 gap-2 disabled:opacity-50"
+            >
+              {isSavingEnroll ? (
+                <><Loader2 className="size-4 animate-spin" /> Guardando...</>
+              ) : (
+                <><PlusCircle className="size-4" /> Confirmar Inscripcion</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Update Status Modal */}
       <Dialog open={isUpdateModalOpen} onOpenChange={setIsUpdateModalOpen}>

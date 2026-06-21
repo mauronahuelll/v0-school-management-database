@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/lib/context/auth-context";
 
 // ============================================================================
 // TYPES
@@ -109,7 +110,13 @@ const DOC_TYPES = ["DNI", "LC", "LE", "CI", "Pasaporte"];
 // ============================================================================
 
 export function StudentComplementaryData({ studentName, userRole }: StudentComplementaryDataProps) {
-  const isFamily = userRole === "FAMILIA";
+  // Fuente de verdad única: activeContext.role (no la prop userRole que puede estar desactualizada)
+  const { activeContext } = useAuth();
+  const liveRole = activeContext?.role;
+
+  // RBAC invertido: FAMILIA edita (responsabilidad legal); Staff institucional solo lectura
+  const isFamily = liveRole === "FAMILIA";
+  const isStaff  = liveRole === "ADMIN" || liveRole === "DOCENTE" || liveRole === "PRECEPTOR";
 
   // Firma digital (E-Signature estilo DocuSign)
   const [signature, setSignature] = useState<SignatureRecord>({ signed: false });
@@ -120,8 +127,8 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
 
   const canSubmitSignature = consentAccepted && signatureName.trim().length > 0;
 
-  // Solo la familia puede editar, y unicamente mientras el documento NO este firmado.
-  // Una vez sellado digitalmente, el formulario queda en modo solo lectura (bloqueado).
+  // canEdit: true solo para FAMILIA mientras el documento no esté firmado.
+  // Staff siempre tiene canEdit=false (solo lectura, permisos invertidos).
   const canEdit = isFamily && !signature.signed;
 
   // Estado de campos delegados
@@ -201,10 +208,23 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
               </p>
             </div>
           </div>
-          {!canEdit && (
-            <Badge variant="outline" className="text-[10px] bg-white/5 text-muted-foreground border-white/10">
+          {/* Badge de modo según rol — tres estados posibles */}
+          {isStaff && (
+            <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20">
               <Lock className="size-3 mr-1" />
-              {isFamily && signature.signed ? "Bloqueado · Firmado" : "Solo lectura"}
+              Solo lectura · Datos familiares
+            </Badge>
+          )}
+          {isFamily && signature.signed && (
+            <Badge variant="outline" className="text-[10px] bg-[#4de082]/10 text-[#4de082] border-[#4de082]/20">
+              <Lock className="size-3 mr-1" />
+              Bloqueado · Firmado digitalmente
+            </Badge>
+          )}
+          {isFamily && !signature.signed && (
+            <Badge variant="outline" className="text-[10px] bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/20">
+              <PenLine className="size-3 mr-1" />
+              Edicion habilitada
             </Badge>
           )}
         </header>
@@ -461,18 +481,34 @@ export function StudentComplementaryData({ studentName, userRole }: StudentCompl
               <div>
                 <p className="text-sm font-semibold text-foreground">Firma de Responsabilidad</p>
                 <p className="text-[11px] text-muted-foreground max-w-md leading-relaxed">
-                  Al firmar, declaras que la informacion es correcta y autorizas el regimen de
-                  retiro seleccionado. Requiere consentimiento legal y firma electronica.
+                  {isStaff
+                    ? "Este documento es de responsabilidad exclusiva de la familia. El personal institucional puede consultarlo pero no puede firmarlo ni modificarlo."
+                    : "Al firmar, declaras que la informacion es correcta y autorizas el regimen de retiro seleccionado. Requiere consentimiento legal y firma electronica."
+                  }
                 </p>
               </div>
-              <Button
-                onClick={handleOpenSignature}
-                disabled={!canEdit}
-                className="bg-[#4de082] text-[#0a1f0d] hover:bg-[#4de082]/90 gap-2 shrink-0 disabled:opacity-40"
-              >
-                <PenLine className="size-4" />
-                Guardar y Firmar Autorizacion
-              </Button>
+
+              {/* Boton de firma — SOLO visible para FAMILIA, OCULTO para Staff */}
+              {isFamily && !signature.signed && (
+                <Button
+                  onClick={handleOpenSignature}
+                  className="bg-[#4de082] text-[#0a1f0d] hover:bg-[#4de082]/90 gap-2 shrink-0"
+                >
+                  <PenLine className="size-4" />
+                  Guardar y Firmar Autorizacion
+                </Button>
+              )}
+
+              {/* Aviso para Staff en lugar del boton */}
+              {isStaff && (
+                <Badge
+                  variant="outline"
+                  className="shrink-0 bg-amber-500/10 text-amber-400 border-amber-500/20 gap-1.5 py-2 px-3 text-[11px]"
+                >
+                  <Lock className="size-3" />
+                  Firma exclusiva de la familia
+                </Badge>
+              )}
             </div>
           )}
         </div>

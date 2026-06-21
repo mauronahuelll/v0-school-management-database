@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/lib/context/auth-context"
-import { GlobalNav } from "@/components/navigation/global-nav"
+import { GlobalNav, ChildContextSwitcher } from "@/components/navigation/global-nav"
 import { ContextSelector } from "@/components/auth/context-selector"
 import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell, Upload, FileBarChart2, Settings, Megaphone, X } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
@@ -235,6 +235,11 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Mobile Actions */}
         <div className="flex items-center gap-2">
+          {/* Child switcher — solo FAMILIA */}
+          {role === "FAMILIA" && (
+            <ChildContextSwitcher compact />
+          )}
+
           {/* Global Search Toggle (Mobile) */}
           <button
             onClick={() => setSearchOpen(true)}

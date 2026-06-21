@@ -24,9 +24,24 @@ import {
   BookOpen,
   Scale,
   UserCircle,
+  ChevronDown,
+  ChevronRight,
+  Users2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, Role } from "@/lib/context/auth-context";
+import {
+  Avatar,
+  AvatarFallback,
+} from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -100,6 +115,163 @@ const NAV_ITEMS_FAMILIA = [
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
 ];
 
+// ============================================
+// CHILD CONTEXT SWITCHER — Solo rol FAMILIA
+// ============================================
+
+export type Child = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  grade: string;
+  level: string;
+  initials: string;
+  color: string;
+};
+
+export const MOCK_CHILDREN: Child[] = [
+  {
+    id: "child-1",
+    firstName: "Tomas",
+    lastName: "Perez",
+    grade: "3er Grado",
+    level: "Primaria",
+    initials: "TP",
+    color: "from-violet-500/40 to-purple-600/40",
+  },
+  {
+    id: "child-2",
+    firstName: "Sofia",
+    lastName: "Perez",
+    grade: "2do Año",
+    level: "Secundaria",
+    initials: "SP",
+    color: "from-rose-500/40 to-pink-600/40",
+  },
+];
+
+interface ChildContextSwitcherProps {
+  /** compact=true para el header mobile (solo avatar + chevron) */
+  compact?: boolean;
+}
+
+export function ChildContextSwitcher({ compact = false }: ChildContextSwitcherProps) {
+  const { role } = useAuth();
+  const [selectedChildId, setSelectedChildId] = useState<string>(MOCK_CHILDREN[0].id);
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  if (role !== "FAMILIA") return null;
+
+  const selected = MOCK_CHILDREN.find(c => c.id === selectedChildId) ?? MOCK_CHILDREN[0];
+
+  const handleSelect = async (child: Child) => {
+    if (child.id === selectedChildId) return;
+    setIsSwitching(true);
+    toast.info(`Cambiando al perfil de ${child.firstName} ${child.lastName}...`);
+    // Simula recarga de datos del contexto del hijo
+    await new Promise(r => setTimeout(r, 900));
+    setSelectedChildId(child.id);
+    setIsSwitching(false);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          disabled={isSwitching}
+          className={cn(
+            "flex items-center gap-2.5 rounded-xl border transition-all duration-200",
+            "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50",
+            "disabled:opacity-60 disabled:cursor-wait",
+            compact ? "p-1.5" : "w-full px-3 py-2.5"
+          )}
+        >
+          <Avatar className="size-7 shrink-0">
+            <AvatarFallback
+              className={cn(
+                "text-[10px] font-bold bg-gradient-to-br text-white/90",
+                selected.color
+              )}
+            >
+              {selected.initials}
+            </AvatarFallback>
+          </Avatar>
+
+          {!compact && (
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-xs font-semibold text-foreground truncate leading-tight">
+                {selected.firstName} {selected.lastName}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate leading-tight">
+                {selected.grade} — {selected.level}
+              </p>
+            </div>
+          )}
+
+          <ChevronDown
+            className={cn(
+              "shrink-0 text-muted-foreground transition-transform duration-200",
+              compact ? "size-3.5" : "size-3.5 ml-auto"
+            )}
+          />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align={compact ? "end" : "start"}
+        sideOffset={6}
+        className="w-56 bg-[#131319] border-white/10 p-1.5"
+      >
+        <DropdownMenuLabel className="flex items-center gap-2 px-2 py-1.5 text-[10px] uppercase tracking-widest text-white/35 font-semibold">
+          <Users2 className="size-3" />
+          Perfil activo
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-white/5 my-1" />
+
+        {MOCK_CHILDREN.map(child => {
+          const isActive = child.id === selectedChildId;
+          return (
+            <DropdownMenuItem
+              key={child.id}
+              onClick={() => handleSelect(child)}
+              className={cn(
+                "flex items-center gap-3 px-2 py-2.5 rounded-lg cursor-pointer transition-colors",
+                "focus:bg-white/[0.05]",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-white/70 hover:text-white"
+              )}
+            >
+              <Avatar className="size-8 shrink-0">
+                <AvatarFallback
+                  className={cn(
+                    "text-[11px] font-bold bg-gradient-to-br text-white/90",
+                    child.color
+                  )}
+                >
+                  {child.initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-sm font-medium truncate", isActive ? "text-primary" : "text-foreground")}>
+                  {child.firstName} {child.lastName}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {child.grade} — {child.level}
+                </p>
+              </div>
+              {isActive && (
+                <ChevronRight className="size-3.5 text-primary shrink-0" />
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function getNavItems(role: Role) {
   switch (role) {
     case "ADMIN":
@@ -137,7 +309,7 @@ interface GlobalNavProps {
 export function GlobalNav({ className }: GlobalNavProps) {
   const pathname = usePathname();
   const { role } = useAuth();
-  const navItems = getNavItems(role);
+  const navItems = getNavItems(role ?? "FAMILIA");
   
   // Communication Dialog State
   const [isCommDialogOpen, setIsCommDialogOpen] = useState(false);
@@ -219,6 +391,16 @@ export function GlobalNav({ className }: GlobalNavProps) {
 
       {/* Separator */}
       <div className="h-px bg-white/5 my-3" />
+
+      {/* Child Context Switcher — solo rol FAMILIA */}
+      {role === "FAMILIA" && (
+        <div className="space-y-1.5 mb-1">
+          <p className="px-1 text-[10px] uppercase tracking-widest text-white/30 font-semibold">
+            Alumno activo
+          </p>
+          <ChildContextSwitcher />
+        </div>
+      )}
 
       {/* New Communication Button - Only for staff roles */}
       {canSendComm && (

@@ -11,10 +11,13 @@ import {
   CheckCircle2, UserX, ClipboardCheck, Phone,
   MessageSquare, Inbox, Sparkles, ArrowRight,
   Stethoscope, FileWarning, GraduationCap,
-  Upload, FileSpreadsheet, Megaphone, ShieldCheck
+  Upload, FileSpreadsheet, Megaphone, ShieldCheck,
+  ChevronRight, Mail, BellRing, UserCheck, UserX as UserXIcon
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Sheet,
   SheetContent,
@@ -396,6 +399,48 @@ const ALUMNO_DATA = {
     { nombre: "Fisica", nota: 8, estado: "TEA" },
   ]
 }
+
+// ── Multi-child data para vista de FAMILIA ──
+const MULTI_CHILDREN_DATA = [
+  {
+    id: "child-1",
+    firstName: "Tomas",
+    lastName: "Perez",
+    initials: "TP",
+    grade: "3er Grado",
+    division: "A",
+    level: "Primaria",
+    gradientFrom: "from-violet-500/30",
+    gradientTo: "to-purple-600/30",
+    accentColor: "text-violet-300",
+    ringColor: "ring-violet-500/20",
+    borderActive: "border-violet-500/20",
+    attendance: "PRESENTE" as const,
+    notifications: [
+      { type: "unread_msg" as const, text: "Tiene 1 comunicado sin leer", icon: Mail },
+    ],
+    stats: { promedio: 8.7, inasistencias: 2, limiteInasistencias: 15 },
+  },
+  {
+    id: "child-2",
+    firstName: "Sofia",
+    lastName: "Perez",
+    initials: "SP",
+    grade: "2do Año",
+    division: "B",
+    level: "Secundaria",
+    gradientFrom: "from-rose-500/25",
+    gradientTo: "to-pink-600/25",
+    accentColor: "text-rose-300",
+    ringColor: "ring-rose-500/20",
+    borderActive: "border-rose-500/20",
+    attendance: "AUSENTE" as const,
+    notifications: [
+      { type: "exam_alert" as const, text: "Examen de Matematica manana", icon: BellRing },
+    ],
+    stats: { promedio: 7.9, inasistencias: 5, limiteInasistencias: 15 },
+  },
+] as const;
 
 // ============================================
 // SCHOOL DATA
@@ -963,7 +1008,7 @@ export default function DashboardPage() {
       )}
 
       {/* ============================================ */}
-      {/* DASHBOARD FAMILIA */}
+      {/* DASHBOARD FAMILIA — Multi-Child Overview */}
       {/* ============================================ */}
       {role === "FAMILIA" && (
         <motion.div
@@ -972,68 +1017,162 @@ export default function DashboardPage() {
           transition={{ delay: 0.1 }}
           className="space-y-6"
         >
-          {/* Student Card */}
-          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#d0bcff]/30 to-[#4de082]/30 flex items-center justify-center border border-white/10">
-                <span className="text-lg font-bold text-[#e4e1ea]">VC</span>
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-[#e4e1ea]">{ALUMNO_DATA.nombre}</h2>
-                <p className="text-sm text-white/50">{ALUMNO_DATA.curso} - Division {ALUMNO_DATA.division}</p>
-                <p className="text-xs text-[#d0bcff] mt-1">{escuelaActiva.name}</p>
-              </div>
+          {/* Section header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-[#e4e1ea]">Resumen del dia</h2>
+              <p className="text-xs text-white/40 mt-0.5">
+                {escuelaActiva.name} — {today}
+              </p>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Inasistencias</p>
-                <p className="text-2xl font-bold">
-                  <span className="text-amber-400">{ALUMNO_DATA.inasistencias}</span>
-                  <span className="text-white/30 text-lg"> / {ALUMNO_DATA.limiteInasistencias}</span>
-                </p>
-                <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                  <div 
-                    className="h-full bg-amber-400 rounded-full"
-                    style={{ width: `${(ALUMNO_DATA.inasistencias / ALUMNO_DATA.limiteInasistencias) * 100}%` }}
-                  />
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Promedio General</p>
-                <p className="text-2xl font-bold text-[#4de082]">{ALUMNO_DATA.promedio}</p>
-                <div className="flex items-center gap-1 mt-2">
-                  <TrendingUp className="w-3 h-3 text-[#4de082]" />
-                  <span className="text-[10px] text-[#4de082]">+0.3 este mes</span>
-                </div>
-              </div>
-            </div>
+            <span className="text-[10px] uppercase tracking-widest text-white/25 font-semibold">
+              {MULTI_CHILDREN_DATA.length} alumnos vinculados
+            </span>
           </div>
 
-          {/* Recent Grades */}
-          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
-            <h3 className="text-sm font-bold text-[#e4e1ea] uppercase tracking-wider">Calificaciones Recientes</h3>
-            <div className="space-y-2">
-              {ALUMNO_DATA.materias.map((materia, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                  <div className="flex items-center gap-3">
-                    <BookOpen className="w-4 h-4 text-white/30" />
-                    <span className="text-sm text-[#e4e1ea]">{materia.nombre}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-bold",
-                      materia.estado === "TEA" ? "bg-[#4de082]/10 text-[#4de082]" :
-                      materia.estado === "TEP" ? "bg-[#d0bcff]/10 text-[#d0bcff]" :
-                      "bg-red-500/10 text-red-400"
-                    )}>
-                      {materia.estado}
-                    </span>
-                    <span className="text-lg font-bold text-[#e4e1ea] w-8 text-right">{materia.nota}</span>
+          {/* Cards grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {MULTI_CHILDREN_DATA.map((child) => {
+              const isPresent = child.attendance === "PRESENTE";
+              const absPercent = Math.round(
+                (child.stats.inasistencias / child.stats.limiteInasistencias) * 100
+              );
+
+              return (
+                <div
+                  key={child.id}
+                  className={cn(
+                    "relative flex flex-col rounded-2xl border overflow-hidden",
+                    "bg-white/[0.025] backdrop-blur-sm",
+                    "transition-all duration-300 hover:bg-white/[0.04]",
+                    child.borderActive
+                  )}
+                >
+                  {/* Top accent strip */}
+                  <div className={cn(
+                    "h-0.5 w-full bg-gradient-to-r",
+                    child.gradientFrom, child.gradientTo
+                  )} />
+
+                  <div className="flex flex-col gap-5 p-5">
+                    {/* ── Cabecera ── */}
+                    <div className="flex items-start gap-4">
+                      <Avatar className={cn(
+                        "size-14 rounded-xl ring-2 shrink-0",
+                        child.ringColor
+                      )}>
+                        <AvatarFallback className={cn(
+                          "rounded-xl text-base font-bold bg-gradient-to-br text-white/90",
+                          child.gradientFrom, child.gradientTo
+                        )}>
+                          {child.initials}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="text-base font-bold text-[#e4e1ea] leading-tight">
+                              {child.firstName} {child.lastName}
+                            </h3>
+                            <p className="text-xs text-white/50 mt-0.5">
+                              {child.grade} {child.division} — {child.level}
+                            </p>
+                          </div>
+                          {/* Badge de asistencia */}
+                          <span className={cn(
+                            "shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border",
+                            isPresent
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-red-500/10 text-red-400 border-red-500/20"
+                          )}>
+                            {isPresent
+                              ? <UserCheck className="size-3" />
+                              : <UserXIcon className="size-3" />
+                            }
+                            {isPresent ? "Presente hoy" : "Ausente hoy"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Stats mini ── */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                        <p className="text-[10px] text-white/35 uppercase tracking-wider">Promedio</p>
+                        <p className="text-xl font-bold text-[#4de082]">
+                          {child.stats.promedio}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <TrendingUp className="size-3 text-[#4de082]" />
+                          <span className="text-[10px] text-[#4de082]/70">Al dia</span>
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                        <p className="text-[10px] text-white/35 uppercase tracking-wider">Inasistencias</p>
+                        <p className="text-xl font-bold">
+                          <span className={absPercent > 40 ? "text-amber-400" : "text-[#e4e1ea]"}>
+                            {child.stats.inasistencias}
+                          </span>
+                          <span className="text-white/30 text-sm"> / {child.stats.limiteInasistencias}</span>
+                        </p>
+                        <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              absPercent > 40 ? "bg-amber-400" : "bg-[#4de082]"
+                            )}
+                            style={{ width: `${absPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Notificaciones ── */}
+                    {child.notifications.length > 0 && (
+                      <div className="space-y-2">
+                        {child.notifications.map((notif, i) => {
+                          const Icon = notif.icon;
+                          const isExam = notif.type === "exam_alert";
+                          return (
+                            <div
+                              key={i}
+                              className={cn(
+                                "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs",
+                                isExam
+                                  ? "bg-amber-500/[0.06] border-amber-500/20 text-amber-300"
+                                  : "bg-[#d0bcff]/[0.06] border-[#d0bcff]/20 text-[#d0bcff]"
+                              )}
+                            >
+                              <Icon className="size-3.5 shrink-0" />
+                              {notif.text}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* ── CTA ── */}
+                    <Button
+                      onClick={() => {
+                        toast.info(`Abriendo Legajo 360° de ${child.firstName} ${child.lastName}...`);
+                        router.push(`/student/${child.id}`);
+                      }}
+                      className={cn(
+                        "w-full gap-2 font-semibold justify-between group",
+                        "bg-white/[0.04] hover:bg-white/[0.08] border border-white/10",
+                        "text-[#e4e1ea] hover:text-white",
+                        `hover:${child.borderActive}`
+                      )}
+                      variant="outline"
+                    >
+                      <span>Entrar al Legajo 360°</span>
+                      <ChevronRight className="size-4 text-white/40 group-hover:text-white group-hover:translate-x-0.5 transition-transform" />
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </motion.div>
       )}

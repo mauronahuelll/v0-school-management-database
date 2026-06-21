@@ -476,7 +476,7 @@ export default function FamilyWallPage() {
   return (
     <div className="min-h-full">
       {/* ── Contenedor centrado ──────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 xl:px-8 py-6 space-y-6">
+      <div className="w-full max-w-[1600px] mx-auto px-4 md:px-8 py-6 space-y-6">
 
         {/* ── Page Header ───────────────────────────────────────────── */}
         <header className="flex items-start justify-between gap-4">
@@ -500,10 +500,10 @@ export default function FamilyWallPage() {
         </header>
 
         {/* ── Grid 3 columnas ───────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 relative items-start">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
 
           {/* ── COL IZQUIERDA: Categorias (sticky) — md:col-span-3 ─────── */}
-          <aside className="md:col-span-3 sticky top-24 h-fit space-y-4 order-2 md:order-1">
+          <aside className="hidden md:block md:col-span-3 sticky top-24 space-y-4">
             <SidebarCategorias
               active={activeCategory}
               onChange={setActiveCategory}
@@ -530,7 +530,7 @@ export default function FamilyWallPage() {
           </aside>
 
           {/* ── COL CENTRAL: Feed (fluye hacia abajo) — md:col-span-6 ──── */}
-          <main className="md:col-span-6 space-y-4 order-1 md:order-2">
+          <main className="md:col-span-6 flex flex-col gap-4">
             {/* Sub-header del feed */}
             <div className="flex items-center justify-between h-8">
               <p className="text-xs text-white/25 font-mono">
@@ -582,7 +582,7 @@ export default function FamilyWallPage() {
           </main>
 
           {/* ── COL DERECHA: Contexto (sticky) — md:col-span-3 ─────────── */}
-          <aside className="md:col-span-3 sticky top-24 h-fit space-y-4 order-3">
+          <aside className="hidden lg:block lg:col-span-3 sticky top-24 flex flex-col gap-4">
             <WidgetEventos />
             <WidgetAccesos />
           </aside>

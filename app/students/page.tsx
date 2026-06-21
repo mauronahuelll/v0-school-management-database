@@ -54,6 +54,7 @@ import {
   Baby,
   IdCard,
   HeartPulse,
+  Settings2,
 } from "lucide-react";
 import {
   Sheet,
@@ -1232,6 +1233,16 @@ startxref
               >
                 <Printer className="size-4" />
                 Emitir Boletines
+              </Button>
+
+              {/* Herramienta administrativa de fin de ciclo — solo ADMIN */}
+              <Button
+                variant="outline"
+                onClick={() => router.push("/promotion")}
+                className="gap-2 border-[#d0bcff]/60 bg-[#d0bcff]/10 text-[#d0bcff] hover:bg-[#d0bcff]/25 hover:border-[#d0bcff] shadow-sm shadow-[#d0bcff]/10 font-semibold"
+              >
+                <Settings2 className="size-4" />
+                Asistente de Promocion
               </Button>
             </>
           )}
