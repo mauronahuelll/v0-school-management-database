@@ -10,8 +10,10 @@ import {
   FileText,
   UploadCloud,
   CheckCircle2,
+  CheckCircle,
   Clock,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   X,
   FileCheck,
@@ -20,7 +22,10 @@ import {
   IdCard,
   Save,
   Info,
+  CalendarClock,
+  RefreshCw,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { downloadSimplePdf } from "@/lib/utils/download";
 import { useAuth, Role } from "@/lib/context/auth-context";
@@ -46,7 +51,7 @@ import { toast } from "sonner";
 // TYPES & MOCK DATA
 // ============================================
 
-type DocStatus = "FALTANTE" | "EN_REVISION" | "APROBADO" | "RECHAZADO";
+type DocStatus = "FALTANTE" | "EN_REVISION" | "APROBADO" | "RECHAZADO" | "VENCIDO";
 
 interface ComplianceDoc {
   id: string;
@@ -54,6 +59,10 @@ interface ComplianceDoc {
   description: string;
   status: DocStatus;
   dueDate?: string;
+  /** Si el documento tiene renovacion anual y esta APROBADO, muestra "Valido hasta X" */
+  validUntil?: string;
+  /** Si true, este documento caduca el 31/12 y exige renovacion anual */
+  annualExpiration?: boolean;
 }
 
 interface TeachingScope {
@@ -78,21 +87,25 @@ const INITIAL_DOCS: ComplianceDoc[] = [
     id: "ddjj-2026",
     name: "DD.JJ. 2026",
     description: "Declaracion Jurada de cargos y horas",
-    status: "FALTANTE",
-    dueDate: "31 Mar 2026",
+    status: "APROBADO",
+    validUntil: "31/12/2026",
+    annualExpiration: true,
   },
   {
     id: "cert-medico",
     name: "Certificado Medico",
     description: "Apto fisico anual obligatorio",
-    status: "EN_REVISION",
-    dueDate: "15 Mar 2026",
+    status: "VENCIDO",
+    dueDate: "31 Dic 2025",
+    annualExpiration: true,
   },
   {
     id: "dni",
     name: "DNI (Frente y Dorso)",
     description: "Documento Nacional de Identidad vigente",
     status: "APROBADO",
+    validUntil: "31/12/2026",
+    annualExpiration: false,
   },
   {
     id: "titulo",
@@ -107,12 +120,14 @@ const INITIAL_DOCS: ComplianceDoc[] = [
     description: "Registro Nacional de Reincidencia",
     status: "FALTANTE",
     dueDate: "30 Abr 2026",
+    annualExpiration: true,
   },
   {
     id: "domicilio",
     name: "Constancia de Domicilio",
     description: "Servicio a nombre del titular",
     status: "APROBADO",
+    annualExpiration: false,
   },
 ];
 
@@ -154,6 +169,12 @@ const STATUS_CONFIG: Record<
     className: "bg-red-500/15 text-red-400 border-red-500/30",
     icon: X,
     dot: "bg-red-400",
+  },
+  VENCIDO: {
+    label: "VENCIDO",
+    className: "bg-red-600/20 text-red-400 border-red-500/50",
+    icon: AlertTriangle,
+    dot: "bg-red-500",
   },
 };
 
@@ -274,7 +295,7 @@ export default function MyProfilePage() {
 
   // ── Compliance handlers ───────────────────────────────────────────────────
   const pendingCount = docs.filter(
-    (d) => d.status === "FALTANTE" || d.status === "RECHAZADO"
+    (d) => d.status === "FALTANTE" || d.status === "RECHAZADO" || d.status === "VENCIDO"
   ).length;
 
   const requiredPending = staffFields.filter(
@@ -675,25 +696,62 @@ export default function MyProfilePage() {
               }
             />
 
+            {/* Alert global: documentos vencidos que bloquean el perfil */}
+            {docs.some((d) => d.status === "VENCIDO") && (
+              <Alert className="mb-4 border-red-500/40 bg-red-500/[0.07] text-[#e4e1ea]">
+                <AlertTriangle className="size-4 text-red-400" />
+                <AlertTitle className="text-red-400 font-semibold text-sm">
+                  Documentacion obligatoria pendiente de renovacion
+                </AlertTitle>
+                <AlertDescription className="text-xs text-white/60 mt-1 leading-relaxed">
+                  Tenes{" "}
+                  <span className="font-semibold text-red-400">
+                    {docs.filter((d) => d.status === "VENCIDO").length} documento
+                    {docs.filter((d) => d.status === "VENCIDO").length > 1 ? "s" : ""} vencido
+                    {docs.filter((d) => d.status === "VENCIDO").length > 1 ? "s" : ""}
+                  </span>{" "}
+                  que requieren renovacion anual. Tu legajo puede quedar bloqueado si no los renuevas antes del{" "}
+                  <span className="font-semibold">31 de Diciembre</span>.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {docs.map((doc) => {
                 const config = STATUS_CONFIG[doc.status];
                 const StatusIcon = config.icon;
                 const needsAction =
-                  doc.status === "FALTANTE" || doc.status === "RECHAZADO";
+                  doc.status === "FALTANTE" || doc.status === "RECHAZADO" || doc.status === "VENCIDO";
+                const isExpired = doc.status === "VENCIDO";
+                const isApproved = doc.status === "APROBADO";
 
                 return (
                   <div
                     key={doc.id}
-                    className="flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.01] p-4"
+                    className={cn(
+                      "flex flex-col rounded-xl border p-4 transition-colors",
+                      isExpired
+                        ? "border-red-500/40 bg-red-500/[0.04] ring-1 ring-red-500/20"
+                        : "border-white/[0.06] bg-white/[0.01]"
+                    )}
                   >
                     <div className="mb-3 flex items-start justify-between gap-2">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-white/[0.03]">
-                        <FileText className="size-5 text-white/50" />
+                      <div className={cn(
+                        "flex size-10 items-center justify-center rounded-lg",
+                        isExpired ? "bg-red-500/10" : "bg-white/[0.03]"
+                      )}>
+                        {isExpired
+                          ? <AlertTriangle className="size-5 text-red-400" />
+                          : <FileText className="size-5 text-white/50" />
+                        }
                       </div>
                       <Badge
                         variant="outline"
-                        className={cn("border gap-1", config.className)}
+                        className={cn(
+                          "border gap-1 font-semibold",
+                          config.className,
+                          isExpired && "animate-pulse"
+                        )}
                       >
                         <StatusIcon className="size-3" />
                         {config.label}
@@ -705,7 +763,28 @@ export default function MyProfilePage() {
                       {doc.description}
                     </p>
 
-                    {doc.dueDate && needsAction && (
+                    {/* Vigencia para documentos aprobados con renovacion anual */}
+                    {isApproved && doc.validUntil && doc.annualExpiration && (
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <CheckCircle className="size-3 text-emerald-400 shrink-0" />
+                        <span className="text-[11px] text-emerald-400/80">
+                          Valido hasta {doc.validUntil}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Vencido: cuando venció y la fecha */}
+                    {isExpired && (
+                      <div className="mt-2 flex items-center gap-1.5 p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <CalendarClock className="size-3.5 text-red-400 shrink-0" />
+                        <span className="text-[11px] text-red-400 font-medium">
+                          Vencio el {doc.dueDate} — Requiere renovacion
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Rechazado / Faltante: fecha limite */}
+                    {!isExpired && doc.dueDate && needsAction && (
                       <p className="mt-2 text-[11px] text-red-400/70">
                         Vence: {doc.dueDate}
                       </p>
@@ -716,10 +795,17 @@ export default function MyProfilePage() {
                         <Button
                           size="sm"
                           onClick={() => handleOpenUpload(doc)}
-                          className="w-full bg-[#d0bcff]/10 text-[#d0bcff] hover:bg-[#d0bcff]/20 border border-[#d0bcff]/20"
+                          className={cn(
+                            "w-full border gap-1.5",
+                            isExpired
+                              ? "bg-red-500/10 text-red-300 hover:bg-red-500/20 border-red-500/30"
+                              : "bg-[#d0bcff]/10 text-[#d0bcff] hover:bg-[#d0bcff]/20 border-[#d0bcff]/20"
+                          )}
                         >
-                          <UploadCloud className="mr-1.5 size-3.5" />
-                          Subir Archivo
+                          {isExpired
+                            ? <><RefreshCw className="size-3.5" /> Subir Nuevo Documento</>
+                            : <><UploadCloud className="size-3.5" /> Subir Archivo</>
+                          }
                         </Button>
                       ) : (
                         <div className="flex flex-col gap-2">
@@ -727,7 +813,7 @@ export default function MyProfilePage() {
                             {doc.status === "EN_REVISION" ? (
                               <>
                                 <Clock className="size-3.5" />
-                                Esperando validacion
+                                En Revision — Esperando validacion
                               </>
                             ) : (
                               <>
