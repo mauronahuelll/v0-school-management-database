@@ -6,10 +6,59 @@ import { Student360View } from "@/components/student";
 import type { Student360Data, TimelineEvent } from "@/lib/types/student";
 
 // ============================================
+// PERFILES POR ID — fuente de verdad para el
+// enrutamiento dinámico desde el Dashboard de FAMILIA
+// ============================================
+
+const CHILD_PROFILES: Record<string, {
+  firstName: string;
+  lastName: string;
+  dni: string;
+  courseName: string;
+  divisionName: string;
+  shift: "MORNING" | "AFTERNOON" | "NIGHT";
+  generalAverage: number;
+  totalAbsences: number;
+}> = {
+  "child-1": {
+    firstName: "Tomas",
+    lastName: "Perez",
+    dni: "47.123.456",
+    courseName: "3er Grado",
+    divisionName: "A",
+    shift: "MORNING",
+    generalAverage: 8.7,
+    totalAbsences: 2,
+  },
+  "child-2": {
+    firstName: "Sofia",
+    lastName: "Perez",
+    dni: "48.654.321",
+    courseName: "2do Año",
+    divisionName: "B",
+    shift: "MORNING",
+    generalAverage: 7.9,
+    totalAbsences: 5,
+  },
+};
+
+// ============================================
 // MOCK DATA FOR DEMO
 // ============================================
 
 function generateMockData(studentId: string): Student360Data {
+  // Resolvemos datos del perfil según el id recibido.
+  // Si el id no coincide con un hijo conocido usamos un fallback genérico.
+  const profile = CHILD_PROFILES[studentId] ?? {
+    firstName: "Alumno",
+    lastName: "Demo",
+    dni: "00.000.000",
+    courseName: "1er Año",
+    divisionName: "A",
+    shift: "MORNING",
+    generalAverage: 7.0,
+    totalAbsences: 0,
+  };
   const now = new Date();
   const oneDay = 24 * 60 * 60 * 1000;
 
@@ -178,25 +227,25 @@ function generateMockData(studentId: string): Student360Data {
     profile: {
       id: studentId,
       schoolId: "school-demo-123",
-      firstName: "Joaquin",
-      lastName: "Martinez",
-      dni: "45.678.912",
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      dni: profile.dni,
       birthDate: new Date(2008, 5, 15),
       gender: "M",
       photoUrl: undefined,
       enrollmentNumber: "2024-0042",
       courseId: "course-4b",
-      courseName: "4to Ano",
+      courseName: profile.courseName,
       divisionId: "div-b",
-      divisionName: "B",
-      shift: "MORNING",
+      divisionName: profile.divisionName,
+      shift: profile.shift,
       academicYear: 2024,
       status: "ACTIVE",
       enrolledAt: new Date(2024, 2, 1),
     },
     stats: {
       attendance: {
-        totalAbsences: 8.5,
+        totalAbsences: profile.totalAbsences,
         totalTardies: 4,
         absenceLimit: 25,
         absencesByPeriod: {
@@ -208,7 +257,7 @@ function generateMockData(studentId: string): Student360Data {
         totalDays: 92,
       },
       grades: {
-        generalAverage: 7.45,
+        generalAverage: profile.generalAverage,
         averagesBySubject: [
           { subjectId: "mat", subjectName: "Matematica", average: 8.2, isPassing: true, trend: "UP" },
           { subjectId: "len", subjectName: "Lengua y Lit.", average: 6.8, isPassing: true, trend: "STABLE" },
