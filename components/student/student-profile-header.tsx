@@ -21,9 +21,11 @@ interface StudentProfileHeaderProps {
   profile: StudentProfile;
   onExportPDF?: () => void;
   onExportHistorial?: () => void;
+  /** Si true, oculta todos los botones de acción administrativa (FAMILIA) */
+  isReadOnly?: boolean;
 }
 
-export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial }: StudentProfileHeaderProps) {
+export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial, isReadOnly = false }: StudentProfileHeaderProps) {
   const initials = `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase();
   const age = new Date().getFullYear() - profile.birthDate.getFullYear();
   
@@ -80,25 +82,27 @@ export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial }
                 </div>
               </div>
 
-              {/* Export Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={onExportHistorial}
-                  className="gap-2 transition-theme bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff] hover:bg-[#d0bcff]/20"
-                >
-                  <Download className="size-4" />
-                  Exportar Analitico / Historial Completo
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={onExportPDF}
-                  className="gap-2 transition-theme"
-                >
-                  <FileText className="size-4" />
-                  Exportar Legajo PDF
-                </Button>
-              </div>
+              {/* Export Buttons — solo personal administrativo, oculto para FAMILIA */}
+              {!isReadOnly && (
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    onClick={onExportHistorial}
+                    className="gap-2 transition-theme bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff] hover:bg-[#d0bcff]/20"
+                  >
+                    <Download className="size-4" />
+                    Exportar Analitico / Historial Completo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={onExportPDF}
+                    className="gap-2 transition-theme"
+                  >
+                    <FileText className="size-4" />
+                    Exportar Legajo PDF
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Metadata Grid */}
