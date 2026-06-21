@@ -122,7 +122,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (pathname?.startsWith("/admin/setup")) {
     return (
-      <main className="w-screen h-screen overflow-y-auto bg-background">
+      <main className="w-screen h-screen overflow-y-auto bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000]">
         {children}
         <Toaster position="bottom-center" />
       </main>
@@ -135,7 +135,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (needsContextSelection) {
     return (
-      <main className="w-screen h-screen overflow-hidden bg-background">
+      <main className="w-screen h-screen overflow-hidden bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000]">
         <ContextSelector />
         <Toaster position="bottom-center" />
       </main>
@@ -148,7 +148,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (!isAuthenticated) {
     return (
-      <main className="w-screen h-screen overflow-hidden bg-background">
+      <main className="w-screen h-screen overflow-hidden bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000]">
         {children}
         <Toaster position="bottom-center" />
       </main>
@@ -162,7 +162,7 @@ export function AppShell({ children }: AppShellProps) {
   // Layout responsivo de 3 columnas (mobile-first)
   // ====================================================================
   return (
-    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-background">
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000] text-[#E4E1EA] antialiased selection:bg-[#8A2BE2]/40">
 
       {/* ── GLOBAL ALERT BANNER ─────────────────────────────────────────────
           Sticky fixed sobre todo el layout. z-[100] garantiza que nunca
@@ -211,7 +211,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* MOBILE TOP HEADER (visible only on small screens) */}
       <header
-        className="md:hidden fixed left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-background/95 backdrop-blur-xl border-b border-white/10"
+        className="md:hidden fixed left-0 right-0 z-40 h-14 px-4 flex items-center justify-between bg-[#0A0A0F]/40 backdrop-blur-2xl border-b border-white/5"
         style={{ top: showBanner ? "var(--banner-h, 42px)" : 0 }}
       >
         {/* School & Role Compact */}
@@ -272,7 +272,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* CONTEXT SELECTOR SHEET (Mobile) */}
       <Sheet open={contextSelectorOpen} onOpenChange={setContextSelectorOpen}>
-        <SheetContent side="bottom" className="h-auto max-h-[70vh] p-0 bg-background border-t border-white/5 rounded-t-2xl">
+        <SheetContent side="bottom" className="h-auto max-h-[70vh] p-0 bg-[#0A0A0F]/80 backdrop-blur-2xl border-t border-white/5 rounded-t-2xl">
           <SheetHeader className="p-4 border-b border-white/5">
             <SheetTitle className="text-left text-sm font-bold">
               Cambiar Contexto
@@ -485,7 +485,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* MOBILE NAVIGATION DRAWER (Sheet) */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[280px] p-0 bg-background border-r border-white/5">
+        <SheetContent side="left" className="w-[280px] p-0 bg-[#0A0A0F]/40 backdrop-blur-2xl border-r border-white/5">
           <SheetHeader className="p-4 border-b border-white/5">
             <SheetTitle className="text-left">
               <button 
@@ -535,7 +535,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* DESKTOP SIDEBAR (hidden on mobile, visible md+) */}
       <aside
-        className="hidden md:flex w-[15%] min-w-[240px] flex-col glass-panel border-r border-white/10 z-20 transition-[padding] duration-300"
+        className="hidden md:flex w-[15%] min-w-[240px] flex-col bg-[#0A0A0F]/40 backdrop-blur-2xl border-r border-white/5 z-20 transition-[padding] duration-300"
         style={{ paddingTop: showBanner ? "var(--banner-h, 42px)" : 0 }}
       >
         {/* Brand Isotype */}
@@ -642,7 +642,7 @@ export function AppShell({ children }: AppShellProps) {
             className="hidden md:block fixed inset-0 z-30" 
             onClick={() => setContextSelectorOpen(false)}
           />
-          <div className="hidden md:block fixed left-4 top-20 w-80 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden">
+          <div className="hidden md:block fixed left-4 top-20 w-80 bg-[#0A0A0F]/80 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_0_40px_rgba(138,43,226,0.15)] z-40 overflow-hidden">
             <div className="p-3 border-b border-white/5">
               <p className="text-xs font-bold text-foreground">Cambiar Contexto</p>
               <p className="text-[10px] text-muted-foreground">
@@ -721,7 +721,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* OPERATIVE ALERTS SHEET (replaces the old static right utility panel) */}
       <Sheet open={alertsOpen} onOpenChange={setAlertsOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 bg-background border-l border-white/5 flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 bg-[#0A0A0F]/40 backdrop-blur-2xl border-l border-white/5 flex flex-col">
           <SheetHeader className="p-6 border-b border-white/5">
             <SheetTitle className="text-left text-sm font-bold flex items-center gap-2">
               <Bell className="w-4 h-4 text-primary" />
