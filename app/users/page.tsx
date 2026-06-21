@@ -132,6 +132,10 @@ interface StaffMember {
   phone?: string;
   address?: string;
   cuil?: string;
+  /** Fecha de inicio de licencia (ISO YYYY-MM-DD) — solo cuando status === "ON_LEAVE" */
+  leaveStartDate?: string;
+  /** Fecha de fin de licencia (ISO YYYY-MM-DD) — el cron reactiva al empleado cuando vence */
+  leaveEndDate?: string;
 }
 
 interface StaffDocument {
@@ -513,6 +517,10 @@ export default function StaffManagementPage() {
   const [memberAssignments, setMemberAssignments] = useState<Assignment[]>([]);
 
   // Legajo (Staff File) Sheet state
+  // ── Motor de Licencias ──────────────────────────────────────────────
+  const [leaveModal, setLeaveModal] = useState({ isOpen: false, staffId: "" });
+  const [leaveDates, setLeaveDates] = useState({ start: "", end: "" });
+
   const [isLegajoOpen, setIsLegajoOpen] = useState(false);
   const [legajoMember, setLegajoMember] = useState<StaffMember | null>(null);
   const [legajoTab, setLegajoTab] = useState("datos");
@@ -765,10 +773,51 @@ export default function StaffManagementPage() {
     { id: "a9", timestamp: "Hace 4 dias, 08:30 AM", description: "Sesion iniciada desde nueva IP: 10.0.0.42",    icon: Wifi,        color: "text-orange-400" },
   ];
 
+  // ── Cron-job simulado: reactiva automáticamente al personal cuya licencia venció ──
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let reactivated = 0;
+    setStaff((prev) =>
+      prev.map((m) => {
+        if (m.status === "ON_LEAVE" && m.leaveEndDate) {
+          const end = new Date(m.leaveEndDate);
+          end.setHours(0, 0, 0, 0);
+          if (today > end) {
+            reactivated++;
+            return { ...m, status: "ACTIVE" as StaffStatus, leaveStartDate: undefined, leaveEndDate: undefined };
+          }
+        }
+        return m;
+      })
+    );
+
+    if (reactivated > 0) {
+      toast.info("Sistema HR: Se reactivo automaticamente personal cuya licencia ha concluido.", {
+        description: `${reactivated} empleado${reactivated > 1 ? "s" : ""} devuelto${reactivated > 1 ? "s" : ""} al estado Activo.`,
+        duration: 6000,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Motor de cambio de estado con bifurcación ON_LEAVE ───────────────
   const handleChangeStatus = useCallback((memberId: string, newStatus: StaffStatus, memberName: string) => {
-    setStaff(prev => prev.map(m =>
-      m.id === memberId ? { ...m, status: newStatus } : m
-    ));
+    if (newStatus === "ON_LEAVE") {
+      // No muta todavía — abre el modal para capturar el rango de fechas
+      setLeaveModal({ isOpen: true, staffId: memberId });
+      setLeaveDates({ start: "", end: "" });
+      return;
+    }
+    // ACTIVE o SUSPENDED: muta inmediatamente y limpia fechas de licencia
+    setStaff((prev) =>
+      prev.map((m) =>
+        m.id === memberId
+          ? { ...m, status: newStatus, leaveStartDate: undefined, leaveEndDate: undefined }
+          : m
+      )
+    );
     const label = getStatusConfig(newStatus).label;
     toast.success("Estado del personal actualizado.", {
       description: `${memberName} — nuevo estado: ${label}`,
@@ -784,7 +833,7 @@ export default function StaffManagementPage() {
     toast.success(`Acceso revocado para ${memberName}`);
   }, []);
 
-  // ── CRUD: Edit member ──────────────────────────────────────────────
+  // ── CRUD: Edit member ─���────────────────────────────────────────────
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; email: string; role: StaffRole; phone: string }>({
     name: "",
@@ -1017,6 +1066,32 @@ export default function StaffManagementPage() {
       description: "Quedo registrado y aprobado por Secretaria.",
     });
   }, [legajoMember, uploadingDoc, patchDocument]);
+
+  // Confirma la licencia: persiste fechas y cambia el estado del empleado
+  const handleConfirmLeave = useCallback(() => {
+    if (!leaveDates.start || !leaveDates.end) {
+      toast.error("Selecciona la fecha de inicio y fin de la licencia.");
+      return;
+    }
+    if (new Date(leaveDates.end) < new Date(leaveDates.start)) {
+      toast.error("La fecha de fin no puede ser anterior a la de inicio.");
+      return;
+    }
+    const member = staff.find((m) => m.id === leaveModal.staffId);
+    setStaff((prev) =>
+      prev.map((m) =>
+        m.id === leaveModal.staffId
+          ? { ...m, status: "ON_LEAVE" as StaffStatus, leaveStartDate: leaveDates.start, leaveEndDate: leaveDates.end }
+          : m
+      )
+    );
+    setLeaveModal({ isOpen: false, staffId: "" });
+    setLeaveDates({ start: "", end: "" });
+    toast.success("Licencia registrada correctamente.", {
+      description: `${member?.name ?? "Personal"} — Desde ${leaveDates.start} hasta ${leaveDates.end}. Se reactivara automaticamente al vencimiento.`,
+      duration: 6000,
+    });
+  }, [leaveDates, leaveModal.staffId, staff]);
 
   if (!mounted) return null;
 
@@ -2632,6 +2707,98 @@ export default function StaffManagementPage() {
             >
               {isSavingEdit ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               Guardar Cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Motor de Licencias — Dialog de configuracion de fechas ──────── */}
+      <Dialog
+        open={leaveModal.isOpen}
+        onOpenChange={(open) => {
+          if (!open) { setLeaveModal({ isOpen: false, staffId: "" }); setLeaveDates({ start: "", end: "" }); }
+        }}
+      >
+        <DialogContent className="sm:max-w-[440px] bg-[#0f0f18] border-amber-500/30 p-0">
+          <DialogHeader className="px-6 pt-6 pb-5 border-b border-white/[0.06]">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/25 shrink-0">
+                <PlaneTakeoff className="size-5 text-amber-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-[#e4e1ea] text-base font-bold leading-tight">
+                  Configurar Licencia
+                </DialogTitle>
+                <p className="text-[11px] text-amber-400/70 mt-0.5">
+                  {staff.find((m) => m.id === leaveModal.staffId)?.name ?? "Personal"}
+                </p>
+              </div>
+            </div>
+            <DialogDescription className="text-white/45 text-xs leading-relaxed mt-3 bg-white/[0.02] rounded-xl p-3 border border-white/[0.05]">
+              Define el rango de fechas de la licencia. El sistema reactivara al empleado
+              automaticamente el dia posterior al vencimiento.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* Fecha de inicio */}
+            <div className="space-y-2">
+              <Label htmlFor="leave-start" className="text-xs font-bold text-white/55 uppercase tracking-widest">
+                Fecha de Inicio
+              </Label>
+              <Input
+                id="leave-start"
+                type="date"
+                value={leaveDates.start}
+                onChange={(e) => setLeaveDates((p) => ({ ...p, start: e.target.value }))}
+                className="bg-white/[0.03] border-white/10 text-[#e4e1ea] focus:border-amber-500/50 focus:ring-amber-500/20 h-11"
+              />
+            </div>
+
+            {/* Fecha de fin */}
+            <div className="space-y-2">
+              <Label htmlFor="leave-end" className="text-xs font-bold text-white/55 uppercase tracking-widest">
+                Fecha de Fin (Reactivacion Automatica)
+              </Label>
+              <Input
+                id="leave-end"
+                type="date"
+                value={leaveDates.end}
+                min={leaveDates.start || undefined}
+                onChange={(e) => setLeaveDates((p) => ({ ...p, end: e.target.value }))}
+                className="bg-white/[0.03] border-white/10 text-[#e4e1ea] focus:border-amber-500/50 focus:ring-amber-500/20 h-11"
+              />
+            </div>
+
+            {/* Preview del rango seleccionado */}
+            {leaveDates.start && leaveDates.end && (
+              <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+                <PlaneTakeoff className="size-4 text-amber-400 shrink-0" />
+                <p className="text-xs text-amber-300/90 leading-relaxed">
+                  <span className="font-semibold">{leaveDates.start}</span>
+                  {" "}&rarr;{" "}
+                  <span className="font-semibold">{leaveDates.end}</span>
+                  {" — "}se reactivara el dia posterior automaticamente.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/[0.06] bg-white/[0.01] gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => { setLeaveModal({ isOpen: false, staffId: "" }); setLeaveDates({ start: "", end: "" }); }}
+              className="text-white/50 hover:text-white hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmLeave}
+              disabled={!leaveDates.start || !leaveDates.end}
+              className="bg-amber-500/80 hover:bg-amber-500 text-[#0f0f18] font-bold gap-2 disabled:opacity-40 border-0"
+            >
+              <PlaneTakeoff className="size-4" />
+              Confirmar Licencia
             </Button>
           </DialogFooter>
         </DialogContent>
