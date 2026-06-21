@@ -111,7 +111,8 @@ const NAV_ITEMS_FAMILIA = [
   { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
   { id: "community", label: "Novedades", href: "/community", icon: Megaphone },
   { id: "procedures", label: "Tramites", href: "/procedures", icon: FileText },
-  { id: "profile", label: "Perfil Alumno", href: "/student", icon: GraduationCap },
+  // "Perfil Alumno" (/student) eliminado: FAMILIA accede al perfil del hijo
+  // directamente desde el Dashboard Multihijo — el ítem era redundante y confuso.
   { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
 ];
 
