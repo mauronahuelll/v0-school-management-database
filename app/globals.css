@@ -9,146 +9,56 @@
    ============================================ */
 
 :root {
-  /* === WARM ALABASTER MODE (Light) === */
-  --background: #f7f5f2;
-  --foreground: #1a1a1f;
-  
-  --card: #ffffff;
-  --card-foreground: #1a1a1f;
-  
-  --popover: #ffffff;
-  --popover-foreground: #1a1a1f;
-  
-  /* Primary: UI Purple (Brandbook official) */
-  --primary: #8A2BE2;
-  --primary-foreground: #ffffff;
-  
-  /* Secondary */
-  --secondary: #f0ebe5;
-  --secondary-foreground: #2a2930;
-  
-  /* Muted */
-  --muted: #e8e4de;
-  --muted-foreground: #6b6577;
-  
-  /* Accent */
-  --accent: #f5f0ea;
-  --accent-foreground: #1a1a1f;
-  
-  /* Destructive: Terracotta */
-  --destructive: #c44d47;
-  --destructive-foreground: #ffffff;
-  
-  /* Success: Eucalyptus Green */
-  --success: #1a9650;
-  --success-foreground: #ffffff;
-  
-  /* Borders & Inputs */
-  --border: rgba(0, 0, 0, 0.08);
-  --input: rgba(0, 0, 0, 0.05);
-  --ring: #6d3bd7;
-  
-  /* Charts */
-  --chart-1: #6d3bd7;
-  --chart-2: #4de082;
-  --chart-3: #ffb3b0;
-  --chart-4: #d0bcff;
-  --chart-5: #00b55d;
-  
-  --radius: 0.5rem;
-  
-  /* Sidebar */
-  --sidebar: rgba(255, 255, 255, 0.6);
-  --sidebar-foreground: #1a1a1f;
-  --sidebar-primary: #6d3bd7;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(109, 59, 215, 0.08);
-  --sidebar-accent-foreground: #1a1a1f;
-  --sidebar-border: rgba(0, 0, 0, 0.06);
-  --sidebar-ring: #6d3bd7;
-  
-  /* Sequency Status Colors */
-  --status-present: #4de082;
-  --status-present-foreground: #003919;
-  --status-present-soft: rgba(77, 224, 130, 0.15);
-  
-  --status-absent: #ffb4ab;
-  --status-absent-foreground: #690005;
-  --status-absent-soft: rgba(255, 180, 171, 0.15);
-  
-  --status-tardy: #d0bcff;
-  --status-tardy-foreground: #3c0091;
-  --status-tardy-soft: rgba(208, 188, 255, 0.15);
-  
-  --status-license: #958ea0;
-  --status-license-foreground: #1a1a1f;
-  --status-license-soft: rgba(149, 142, 160, 0.15);
-  
-  /* Glass effect */
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(0, 0, 0, 0.06);
-  
-  /* Surface containers */
-  --surface: #f7f5f2;
-  --surface-dim: #e8e4de;
-  --surface-container: rgba(255, 255, 255, 0.4);
-  --surface-container-low: rgba(255, 255, 255, 0.3);
-  --surface-container-high: rgba(255, 255, 255, 0.6);
-  
-  /* On-surface variants */
-  --on-surface: #1a1a1f;
-  --on-surface-variant: #6b6577;
-}
-
-.dark {
-  /* === GALACTIC DARK MODE (Dark) ===
-     Electric Purple brand identity over deep blue-black */
+  /* === SEQUENCY GALACTIC DARK — Unico tema (forzado por ThemeProvider) ===
+     Deep Cosmic / UI Purple / Radiant Lavender brandbook */
   --background: #0a0a0f;
-  --foreground: #ececf2;
-  
+  --foreground: #e4e1ea;
+
   --card: rgba(255, 255, 255, 0.03);
-  --card-foreground: #ececf2;
-  
-  --popover: #14121c;
-  --popover-foreground: #ececf2;
-  
-  /* Primary: UI Purple — Brandbook #8A2BE2 / hover Radiant Lavender #D0BCFF */
+  --card-foreground: #e4e1ea;
+
+  --popover: #0e0e16;
+  --popover-foreground: #e4e1ea;
+
+  /* Primary: UI Purple #8A2BE2 */
   --primary: #8A2BE2;
-  --primary-foreground: #ffffff;
-  
-  /* Secondary */
+  --primary-foreground: #000000;
+
+  /* Secondary: Radiant Lavender #D0BCFF */
   --secondary: rgba(255, 255, 255, 0.05);
   --secondary-foreground: #d8d4e2;
-  
+
   /* Muted */
   --muted: rgba(255, 255, 255, 0.04);
   --muted-foreground: #9b95a8;
-  
-  /* Accent: Radiant Lavender tint */
+
+  /* Accent */
   --accent: rgba(138, 43, 226, 0.14);
   --accent-foreground: #e4e1ea;
-  
-  /* Destructive: Terracotta */
+
+  /* Destructive */
   --destructive: #ffb4ab;
   --destructive-foreground: #690005;
-  
-  /* Success: Eucalyptus Green */
+
+  /* Success */
   --success: #4de082;
   --success-foreground: #003919;
-  
+
   /* Borders & Inputs */
   --border: rgba(255, 255, 255, 0.10);
   --input: rgba(255, 255, 255, 0.05);
   --ring: #8A2BE2;
-  
+
+  --radius: 0.75rem;
+
   /* Charts */
   --chart-1: #8A2BE2;
   --chart-2: #4de082;
   --chart-3: #ffb3b0;
   --chart-4: #D0BCFF;
   --chart-5: #00b55d;
-  
-  /* Sidebar - Glassmorphism */
+
+  /* Sidebar */
   --sidebar: rgba(255, 255, 255, 0.03);
   --sidebar-foreground: #ececf2;
   --sidebar-primary: #8A2BE2;
@@ -156,40 +66,46 @@
   --sidebar-accent: rgba(138, 43, 226, 0.14);
   --sidebar-accent-foreground: #ececf2;
   --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #a855f7;
-  
-  /* Sequency Status Colors - Dark Mode */
+  --sidebar-ring: #D0BCFF;
+
+  /* Sequency Status Colors */
   --status-present: #4de082;
   --status-present-foreground: #003919;
   --status-present-soft: rgba(77, 224, 130, 0.12);
-  
+
   --status-absent: #ffb4ab;
   --status-absent-foreground: #690005;
   --status-absent-soft: rgba(255, 180, 171, 0.12);
-  
+
   --status-tardy: #d0bcff;
   --status-tardy-foreground: #3c0091;
   --status-tardy-soft: rgba(208, 188, 255, 0.12);
-  
+
   --status-license: #958ea0;
   --status-license-foreground: #e4e1ea;
   --status-license-soft: rgba(149, 142, 160, 0.12);
-  
-  /* Glass effect - Dark mode Galactic */
+
+  /* Glass effect */
   --glass-bg: rgba(255, 255, 255, 0.04);
   --glass-border: rgba(255, 255, 255, 0.10);
-  
-  /* Surface containers - Material 3 inspired */
+
+  /* Surface containers */
   --surface: #0a0a0f;
   --surface-dim: #0a0a0f;
   --surface-container: rgba(255, 255, 255, 0.03);
   --surface-container-low: rgba(255, 255, 255, 0.02);
   --surface-container-high: rgba(255, 255, 255, 0.06);
   --surface-container-highest: rgba(255, 255, 255, 0.09);
-  
+
   /* On-surface variants */
   --on-surface: #ececf2;
   --on-surface-variant: #c4bed2;
+}
+
+/* .dark hereda :root — los tokens ya son dark-first.
+   Esta regla existe solo para compatibilidad con next-themes. */
+.dark {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -274,43 +190,33 @@
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   html {
     overflow: hidden;
+    color-scheme: dark;
   }
-  
+
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
     font-family: 'Geist', system-ui, sans-serif;
     line-height: 1.5;
     letter-spacing: -0.01em;
     overflow-x: hidden;
-  }
-  
-  /* Sequency ambient backdrop — circuito tech en dark mode */
-  .dark body {
+    /* Sequency ambient backdrop — Deep Cosmic + circuito tech + halos UI Purple */
     background-color: #0a0a0f;
     background-image:
-      /* Halo central UI Purple brandbook */
-      radial-gradient(60% 50% at 50% 0%,   rgba(138, 43, 226, 0.08) 0%, transparent 65%),
-      /* Halo esquina superior izquierda */
-      radial-gradient(40% 35% at 5%  5%,   rgba(138, 43, 226, 0.06) 0%, transparent 55%),
-      /* Halo esquina inferior derecha Lavender */
+      radial-gradient(60% 50% at 50% 0%,    rgba(138, 43, 226, 0.10) 0%, transparent 65%),
+      radial-gradient(40% 35% at 5%  5%,    rgba(138, 43, 226, 0.07) 0%, transparent 55%),
       radial-gradient(35% 40% at 100% 100%, rgba(208, 188, 255, 0.05) 0%, transparent 50%),
-      /* Patrón de trazas de circuito — líneas horizontales y verticales sutiles */
       repeating-linear-gradient(
         0deg,
-        transparent,
-        transparent 39px,
-        rgba(138, 43, 226, 0.025) 39px,
-        rgba(138, 43, 226, 0.025) 40px
+        transparent, transparent 39px,
+        rgba(138, 43, 226, 0.03) 39px, rgba(138, 43, 226, 0.03) 40px
       ),
       repeating-linear-gradient(
         90deg,
-        transparent,
-        transparent 39px,
-        rgba(138, 43, 226, 0.025) 39px,
-        rgba(138, 43, 226, 0.025) 40px
+        transparent, transparent 39px,
+        rgba(138, 43, 226, 0.03) 39px, rgba(138, 43, 226, 0.03) 40px
       );
     background-attachment: fixed;
     background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
