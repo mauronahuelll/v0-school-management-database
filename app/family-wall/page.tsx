@@ -215,7 +215,7 @@ function HeroPostCard({
           <div className="flex items-center gap-3">
             <Button
               size="sm"
-              className="bg-[#d0bcff]/90 hover:bg-[#d0bcff] text-[#0d0d1a] font-bold gap-2 rounded-xl border-0 shadow-lg shadow-purple-500/20"
+              className="bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black font-bold gap-2 rounded-xl border-0 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(208,188,255,0.35)] shadow-2xl shadow-black/50 transition-all duration-300"
             >
               Ver Mas
               <ArrowRight className="size-3.5" />
@@ -268,7 +268,7 @@ function MediaPostCard({
 
   return (
     <article className={cn(
-      "group flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 hover:border-white/15 hover:-translate-y-0.5",
+      "group flex flex-col rounded-2xl border overflow-hidden transition-all duration-300 hover:border-[#8A2BE2]/50 hover:shadow-[0_0_30px_rgba(138,43,226,0.10)] hover:-translate-y-0.5",
       post.urgent
         ? "bg-red-500/[0.04] border-red-500/25"
         : "bg-white/[0.025] border-white/[0.07]",
@@ -381,7 +381,7 @@ function ListPostCard({
 
   return (
     <article className={cn(
-      "group flex items-start gap-4 p-4 rounded-2xl border transition-all duration-200 hover:border-white/12",
+      "group flex items-start gap-4 p-4 rounded-2xl border transition-all duration-300 hover:border-[#8A2BE2]/50 hover:shadow-[0_0_30px_rgba(138,43,226,0.10)]",
       post.urgent
         ? "bg-red-500/[0.04] border-red-500/25"
         : "bg-white/[0.025] border-white/[0.07]",
