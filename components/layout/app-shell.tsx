@@ -122,7 +122,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (pathname?.startsWith("/admin/setup")) {
     return (
-      <main className="w-screen h-screen overflow-y-auto bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000]">
+      <main className="w-screen h-screen overflow-y-auto">
         {children}
         <Toaster position="bottom-center" />
       </main>
@@ -135,7 +135,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (needsContextSelection) {
     return (
-      <main className="w-screen h-screen overflow-hidden bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000]">
+      <main className="w-screen h-screen overflow-hidden">
         <ContextSelector />
         <Toaster position="bottom-center" />
       </main>
@@ -148,7 +148,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (!isAuthenticated) {
     return (
-      <main className="w-screen h-screen overflow-hidden bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000]">
+      <main className="w-screen h-screen overflow-hidden">
         {children}
         <Toaster position="bottom-center" />
       </main>
@@ -557,7 +557,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="p-4 border-b border-white/10">
           <button 
             onClick={() => setContextSelectorOpen(true)}
-            className="w-full flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/5 transition-colors"
+            className="w-full flex items-center gap-3 px-2 py-2 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-white/[0.05] hover:border-[#8A2BE2]/50 text-white transition-all duration-300"
           >
             <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 shrink-0">
               <RoleIcon className="w-4 h-4 text-primary" />
@@ -588,7 +588,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="px-4 pb-2">
           <button
             onClick={() => setSearchOpen(true)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-colors text-left group"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-white/[0.05] hover:border-[#8A2BE2]/30 transition-all duration-300 text-left group"
           >
             <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
             <span className="flex-1 text-sm text-muted-foreground group-hover:text-foreground">Buscar...</span>
