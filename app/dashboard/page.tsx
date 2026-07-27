@@ -853,7 +853,7 @@ export default function DashboardPage() {
               </SheetTrigger>
               <SheetContent 
                 side="right" 
-                className="w-[380px] sm:w-[420px] bg-[#131319] border-white/10 p-0 overflow-hidden"
+                className="w-[380px] sm:w-[420px] bg-[#0A0A0F]/95 backdrop-blur-2xl border-white/10 p-0 overflow-hidden"
               >
                 <SheetHeader className="px-6 py-4 border-b border-white/5">
                   <SheetTitle className="text-[#e4e1ea] flex items-center gap-2">
@@ -1409,7 +1409,7 @@ export default function DashboardPage() {
       <Sheet open={drillDownOpen} onOpenChange={setDrillDownOpen}>
         <SheetContent
           side="right"
-          className="w-[400px] sm:w-[480px] bg-[#131319] border-white/10 p-0 overflow-hidden flex flex-col"
+          className="w-[400px] sm:w-[480px] bg-[#0A0A0F]/95 backdrop-blur-2xl border-white/10 p-0 overflow-hidden flex flex-col"
         >
           {drillDownData && (
             <>

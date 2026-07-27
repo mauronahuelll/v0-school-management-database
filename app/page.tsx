@@ -375,9 +375,6 @@ export default function LoginPage() {
                   </GradientButton>
                 </div>
 
-                <p className="text-[10px] text-white/25 text-center pt-2 leading-relaxed">
-                  Protegido con cifrado de grado militar.<br />By Sequency Technologies.
-                </p>
               </form>
             )}
 
@@ -500,7 +497,7 @@ export default function LoginPage() {
 
         {/* ════════════════════════════════════════════════════════════════
             STEP: school-select
-        ════════════════════════════════════════════════════════════════ */}
+        ═════════��══════════════════════════════════════════════════════ */}
         {step === "school-select" && (
           <div className="p-8 sm:p-10">
             <div className="text-center mb-7">

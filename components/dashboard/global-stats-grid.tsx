@@ -47,11 +47,11 @@ function StatCard({
   delay = 0,
 }: StatCardProps) {
   const colorClasses = {
-    default: "bg-card",
+    default: "bg-white/[0.02]",
     present: "bg-status-present-soft",
     absent: "bg-status-absent-soft",
     tardy: "bg-status-tardy-soft",
-    primary: "bg-primary/10",
+    primary: "bg-[#8A2BE2]/10",
   };
 
   const iconColorClasses = {
@@ -68,8 +68,8 @@ function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3 }}
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-border/50 p-6 shadow-sm transition-all duration-200",
-        "hover:shadow-md hover:border-border",
+        "relative overflow-hidden rounded-2xl border border-white/10 p-6 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all duration-300",
+        "hover:border-[#8A2BE2]/40 hover:shadow-[0_0_25px_rgba(138,43,226,0.12)]",
         colorClasses[color]
       )}
     >
@@ -82,7 +82,9 @@ function StatCard({
           <div
             className={cn(
               "p-2.5 rounded-xl",
-              color === "default" ? "bg-muted" : "bg-white/50 dark:bg-black/20"
+              color === "default"
+                ? "bg-[#8A2BE2]/20 border border-[#8A2BE2]/20"
+                : "bg-white/[0.06] border border-white/10"
             )}
           >
             <Icon className={cn("size-5", iconColorClasses[color])} />
@@ -287,7 +289,7 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55, duration: 0.3 }}
-          className="rounded-2xl border border-border/50 bg-card p-6 shadow-sm"
+          className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:border-[#8A2BE2]/30 transition-all duration-300"
         >
           <div className="flex flex-wrap items-center gap-6">
             {/* Status indicator */}

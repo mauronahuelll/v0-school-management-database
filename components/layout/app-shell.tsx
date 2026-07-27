@@ -162,7 +162,7 @@ export function AppShell({ children }: AppShellProps) {
   // Layout responsivo de 3 columnas (mobile-first)
   // ====================================================================
   return (
-    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-[#000000] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a1b4e]/30 via-[#0A0A0F] to-[#000000] text-[#E4E1EA] antialiased selection:bg-[#8A2BE2]/40">
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden text-[#E4E1EA] antialiased selection:bg-[#8A2BE2]/40">
 
       {/* ── GLOBAL ALERT BANNER ─────────────────────────────────────────────
           Sticky fixed sobre todo el layout. z-[100] garantiza que nunca
@@ -368,7 +368,7 @@ export function AppShell({ children }: AppShellProps) {
             </>
           )}
 
-          {/* ── Personal: solo ADMIN ────────────────────────────────────── */}
+          {/* ── Personal: solo ADMIN ─────────────────────────────────��──── */}
           {role === "ADMIN" && (
             <>
               <CommandGroup heading="Personal">
