@@ -580,19 +580,19 @@ function StaffAttendancePanel() {
       </div>
 
       {/* Staff Table with Expandable Rows */}
-      <div className="rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-md overflow-hidden">
+      <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/5 bg-white/[0.01]">
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider w-10"></th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Personal</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Rol</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider hidden md:table-cell">Area</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-white/60 uppercase tracking-wider">Ausencias Mes</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-white/60 uppercase tracking-wider">Accion</th>
+            <tr className="bg-[#0A0A0F]/80 backdrop-blur-xl border-b border-white/10">
+              <th className="px-4 py-3 text-left text-xs font-bold text-white/50 uppercase tracking-wider w-10"></th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-white/50 uppercase tracking-wider">Personal</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-white/50 uppercase tracking-wider">Rol</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-white/50 uppercase tracking-wider hidden md:table-cell">Area</th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-white/50 uppercase tracking-wider">Ausencias Mes</th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-white/50 uppercase tracking-wider">Accion</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-white/[0.04]">
             {filteredStaff.map((member) => {
               const isExpanded = expandedRows.has(member.id);
               const monthAbsences = getMonthAbsences(member.absences);
@@ -600,7 +600,7 @@ function StaffAttendancePanel() {
               
               return (
                 <React.Fragment key={member.id}>
-                    <tr className="hover:bg-white/[0.02] transition-colors">
+                    <tr className="transition-colors hover:bg-white/[0.04]">
                       <td className="px-4 py-3">
                         <button 
                           type="button"
@@ -641,12 +641,12 @@ function StaffAttendancePanel() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={cn(
-                          "px-2 py-1 rounded-lg text-xs font-bold",
+                          "px-2.5 py-1 rounded-lg text-xs font-bold border",
                           monthAbsences === 0 
-                            ? "bg-[#4de082]/10 text-[#4de082]" 
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
                             : monthAbsences >= 3 
-                              ? "bg-red-500/10 text-red-400"
-                              : "bg-amber-500/10 text-amber-400"
+                              ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                         )}>
                           {monthAbsences}
                         </span>
@@ -666,7 +666,7 @@ function StaffAttendancePanel() {
                     {/* Expanded Content - Individual History */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={6} className="bg-white/[0.01] border-t border-white/5">
+                        <td colSpan={6} className="bg-black/20 border-t border-white/[0.04]">
                           <div className="p-4 space-y-4">
                             {/* Stats Row */}
                             <div className="flex flex-wrap gap-4">
@@ -697,7 +697,7 @@ function StaffAttendancePanel() {
                                   {member.absences.slice(0, 5).map(absence => (
                                     <div 
                                       key={absence.id}
-                                      className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/5"
+                                      className="flex items-center justify-between p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]"
                                     >
                                       <div className="flex items-center gap-3">
                                         <div className="p-1.5 rounded bg-red-500/10">
