@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react"
 import { useAuth, MOCK_SCHOOLS, type UserContextProfile } from "@/lib/context/auth-context"
 import {
-  Lock, Mail, ArrowRight, Shield, Users, GraduationCap,
+  Lock, Mail, ArrowRight, ArrowLeft, Shield, Users, GraduationCap,
   Home, Building2, School, BookOpen, ChevronRight, Eye, EyeOff,
+  KeyRound, SendHorizonal,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 // ── Role icons ────────────────────────────────────────────────────────────────
 const ROLE_ICONS = {
@@ -136,13 +138,83 @@ function AuthInput({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Shared input field component
+// ─────────────────────────────────────────────────────────────────────────────
+function FormInput({
+  id, label, type = "text", placeholder, icon: Icon,
+  value, onChange, rightSlot,
+}: {
+  id: string; label: string; type?: string; placeholder: string
+  icon: React.ElementType; value: string; onChange: (v: string) => void
+  rightSlot?: React.ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-[10px] font-bold text-white/50 uppercase tracking-[0.12em]">
+        {label}
+      </label>
+      <div className="relative group">
+        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-white/25 group-focus-within:text-[#8A2BE2]/80 transition-colors pointer-events-none" />
+        <input
+          id={id} type={type} placeholder={placeholder} value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(
+            "w-full h-12 rounded-xl text-sm",
+            "bg-black/40 border border-white/10 text-[#E4E1EA] placeholder:text-white/20",
+            "pl-10", rightSlot ? "pr-11" : "pr-4",
+            "focus:outline-none focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/30",
+            "transition-all duration-200",
+          )}
+        />
+        {rightSlot && (
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{rightSlot}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CTA button
+// ─────────────────────────────────────────────────────────────────────────────
+function GradientButton({
+  type = "submit", disabled, loading, children,
+}: {
+  type?: "submit" | "button"; disabled?: boolean; loading?: boolean; children: React.ReactNode
+}) {
+  return (
+    <button
+      type={type} disabled={disabled || loading}
+      className={cn(
+        "w-full h-12 rounded-xl font-bold text-[15px] border-0",
+        "bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black",
+        "flex items-center justify-center gap-2",
+        "hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(138,43,226,0.45)]",
+        "active:scale-[0.99] transition-all duration-300",
+        "disabled:opacity-55 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none",
+      )}
+    >
+      {loading ? (
+        <div className="size-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+      ) : children}
+    </button>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function LoginPage() {
   const { user, availableContexts, activeContext, login, switchContext, setSchool } = useAuth()
-  const [step, setStep]     = useState<"credentials" | "context-select" | "school-select">("credentials")
-  const [mounted, setMounted] = useState(false)
+
+  // Outer step: which screen to show
+  const [step, setStep] = useState<"credentials" | "context-select" | "school-select">("credentials")
+  // Inner view within credentials step
+  const [view, setView] = useState<"login" | "forgot">("login")
+
+  const [mounted, setMounted]   = useState(false)
   const [showPass, setShowPass] = useState(false)
-  const [email, setEmail]     = useState("")
+  const [email, setEmail]       = useState("")
   const [password, setPassword] = useState("")
+  const [forgotEmail, setForgotEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
@@ -153,166 +225,214 @@ export default function LoginPage() {
     }
   }, [user, availableContexts, activeContext])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setTimeout(() => {
       login(email || "demo@sequency.edu.ar")
       setIsLoading(false)
-    }, 900)
+    }, 950)
   }
 
-  const handleContextSelect = (contextId: string) => {
-    switchContext(contextId)
+  const handleForgot = (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setTimeout(() => {
+      setIsLoading(false)
+      toast.success("Enlace enviado", {
+        description: `Revisá tu bandeja: ${forgotEmail || "tu correo registrado"}.`,
+      })
+      setForgotEmail("")
+      setView("login")
+    }, 1100)
   }
+
+  const handleContextSelect = (contextId: string) => { switchContext(contextId) }
 
   const handleSchoolSelect = (id: string) => {
     setSchool(id)
     setStep("credentials")
   }
 
+  const switchToForgot = () => {
+    setForgotEmail(email)
+    setView("forgot")
+  }
+
+  const switchToLogin = () => { setView("login") }
+
   if (!mounted) return null
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-[#050508] text-[#E4E1EA] selection:bg-[#8A2BE2]/30">
 
-      {/* Fondo inmersivo futurista con iluminación volumétrica */}
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#8A2BE2]/20 via-[#050508] to-[#050508] pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#D0BCFF]/5 via-transparent to-transparent blur-3xl pointer-events-none" />
+      {/* ── Luces volumetricas de fondo ─────────────────────────────────── */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 55% at 50% -5%, rgba(138,43,226,0.22) 0%, transparent 65%), " +
+            "radial-gradient(ellipse 55% 45% at 100% 100%, rgba(208,188,255,0.06) 0%, transparent 55%)",
+        }}
+      />
       <CircuitBackground />
 
-      {/* Tarjeta Dark Glassmorphism — adapta ancho según step */}
-      <div className={cn(
-        "relative z-10 w-full mx-4 p-8 sm:p-10 rounded-[2rem] border border-white/10",
-        "bg-white/[0.02] backdrop-blur-3xl shadow-[0_0_50px_rgba(138,43,226,0.15)] overflow-hidden",
-        "transition-all duration-500",
-        step === "context-select" ? "max-w-md" : "max-w-md",
-      )}>
-
-        {/* Reflejo superior sutil (Efecto Cristal Premium) */}
+      {/* ── Tarjeta Glassmorphism ───────────────────────────────────────── */}
+      <div
+        className={cn(
+          "relative z-10 w-full mx-4 rounded-[2rem] border border-white/10",
+          "bg-white/[0.02] backdrop-blur-3xl shadow-[0_0_50px_rgba(138,43,226,0.15)] overflow-hidden",
+          "transition-all duration-500",
+          step === "context-select" ? "max-w-md" : "max-w-md",
+        )}
+      >
+        {/* Reflejo cristal superior */}
         <div className="absolute top-0 left-1/4 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-[#D0BCFF]/50 to-transparent pointer-events-none" />
-        {/* Borde interior brillante */}
+        {/* Brillo interior degradado */}
         <div className="absolute inset-[1px] rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none" />
 
-        {/* ── STEP 1: Credentials ─────────────────────────────────────── */}
+        {/* ════════════════════════════════════════════════════════════════
+            STEP: credentials  (contiene login y forgot como sub-vistas)
+        ════════════════════════════════════════════════════════════════ */}
         {step === "credentials" && (
-          <div className="relative">
+          <div className="p-8 sm:p-10">
 
-            {/* Header / Logo */}
-            <div className="flex flex-col items-center mb-10 text-center space-y-4">
-              <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#8A2BE2]/20 to-transparent border border-[#8A2BE2]/30 shadow-[0_0_30px_rgba(138,43,226,0.3)]">
+            {/* ── Logo + header (compartido) ─────────────────────────── */}
+            <div className="flex flex-col items-center mb-8 text-center">
+              <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#8A2BE2]/20 to-transparent border border-[#8A2BE2]/30 shadow-[0_0_30px_rgba(138,43,226,0.30)] mb-5">
                 <span className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[#D0BCFF] to-[#8A2BE2]">
                   SQ
                 </span>
               </div>
-              <div className="space-y-1">
-                <h1 className="text-2xl font-bold tracking-tight text-white">Iniciar Sesion</h1>
-                <p className="text-sm text-white/50">Plataforma de Gestion Escolar Avanzada</p>
-              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-white transition-all duration-300">
+                {view === "login" ? "Iniciar Sesion" : "Recuperar Clave"}
+              </h1>
+              <p className="text-sm text-white/45 mt-1 transition-all duration-300">
+                {view === "login"
+                  ? "Plataforma de Gestion Escolar Avanzada"
+                  : "Te enviaremos instrucciones seguras"}
+              </p>
             </div>
 
-            {/* Formulario */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
+            {/* ── Vista LOGIN ────────────────────────────────────────── */}
+            {view === "login" && (
+              <form
+                key="login-form"
+                onSubmit={handleLogin}
+                className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-300"
+              >
+                <FormInput
+                  id="login-email" label="Correo Electronico" type="email"
+                  placeholder="tu@correo.com" icon={Mail}
+                  value={email} onChange={setEmail}
+                />
 
-                {/* Email */}
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-xs font-semibold text-white/70 uppercase tracking-wider block">
-                    Correo Electronico
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30 pointer-events-none" />
-                    <input
-                      id="email"
-                      type="email"
-                      placeholder="tu@correo.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className={cn(
-                        "w-full pl-10 pr-4 h-12 rounded-xl text-sm",
-                        "bg-black/40 border border-white/10 text-white placeholder:text-white/20",
-                        "focus:outline-none focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/50",
-                        "transition-all duration-200",
-                      )}
-                    />
-                  </div>
-                </div>
-
-                {/* Password */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="password" className="text-xs font-semibold text-white/70 uppercase tracking-wider">
+                    <label htmlFor="login-password" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.12em]">
                       Contrasena
                     </label>
-                    <a href="#" className="text-xs text-[#D0BCFF] hover:text-white transition-colors">
+                    <button
+                      type="button"
+                      onClick={switchToForgot}
+                      className="text-xs text-[#D0BCFF]/70 hover:text-[#D0BCFF] transition-colors"
+                    >
                       Olvidaste tu clave?
-                    </a>
+                    </button>
                   </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30 pointer-events-none" />
+                  <div className="relative group">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-white/25 group-focus-within:text-[#8A2BE2]/80 transition-colors pointer-events-none" />
                     <input
-                      id="password"
+                      id="login-password"
                       type={showPass ? "text" : "password"}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className={cn(
-                        "w-full pl-10 pr-10 h-12 rounded-xl text-sm",
-                        "bg-black/40 border border-white/10 text-white placeholder:text-white/20",
-                        "focus:outline-none focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/50",
+                        "w-full h-12 rounded-xl text-sm pl-10 pr-11",
+                        "bg-black/40 border border-white/10 text-[#E4E1EA] placeholder:text-white/20",
+                        "focus:outline-none focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/30",
                         "transition-all duration-200",
                       )}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPass((p) => !p)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/55 transition-colors"
                       aria-label={showPass ? "Ocultar contrasena" : "Mostrar contrasena"}
                     >
                       {showPass ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </button>
                   </div>
                 </div>
-              </div>
 
-              {/* CTA */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={cn(
-                  "w-full h-12 rounded-xl font-bold text-[15px] border-0",
-                  "bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black",
-                  "hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(208,188,255,0.4)]",
-                  "active:scale-[0.99] transition-all duration-300",
-                  "flex items-center justify-center group",
-                  "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100",
-                )}
-              >
-                {isLoading ? (
-                  <div className="h-5 w-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                ) : (
-                  <>
+                <div className="pt-1">
+                  <GradientButton loading={isLoading}>
                     Acceder al Sistema
-                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </button>
-            </form>
+                    <ArrowRight className="size-4" />
+                  </GradientButton>
+                </div>
 
-            {/* Footer info */}
-            <div className="mt-8 text-center">
-              <p className="text-xs text-white/30">
-                Protegido con cifrado de grado militar.<br />
-                By Sequency Technologies.
-              </p>
-            </div>
+                <p className="text-[10px] text-white/25 text-center pt-2 leading-relaxed">
+                  Protegido con cifrado de grado militar.<br />By Sequency Technologies.
+                </p>
+              </form>
+            )}
+
+            {/* ── Vista FORGOT PASSWORD ──────────────────────────────── */}
+            {view === "forgot" && (
+              <form
+                key="forgot-form"
+                onSubmit={handleForgot}
+                className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-300"
+              >
+                {/* Info box */}
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#8A2BE2]/10 border border-[#8A2BE2]/20">
+                  <KeyRound className="size-4 text-[#D0BCFF]/70 shrink-0 mt-0.5" />
+                  <p className="text-xs text-white/50 leading-relaxed">
+                    Ingresa tu correo y te enviaremos un enlace para restablecer tu contrasena de forma segura.
+                  </p>
+                </div>
+
+                <FormInput
+                  id="forgot-email" label="Correo Electronico" type="email"
+                  placeholder="tu@correo.com" icon={Mail}
+                  value={forgotEmail} onChange={setForgotEmail}
+                />
+
+                <div className="pt-1 space-y-3">
+                  <GradientButton loading={isLoading}>
+                    <SendHorizonal className="size-4" />
+                    Enviar enlace seguro
+                  </GradientButton>
+
+                  <button
+                    type="button"
+                    onClick={switchToLogin}
+                    className={cn(
+                      "w-full h-11 rounded-xl text-sm font-medium",
+                      "flex items-center justify-center gap-2",
+                      "bg-white/[0.03] border border-white/10 text-white/50",
+                      "hover:bg-white/[0.06] hover:text-[#D0BCFF] hover:border-[#8A2BE2]/30",
+                      "transition-all duration-200",
+                    )}
+                  >
+                    <ArrowLeft className="size-4" />
+                    Volver al Login
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
 
-        {/* ── STEP 2: Context Select ──────────────────────────────────── */}
+        {/* ════════════════════════════════════════════════════════════════
+            STEP: context-select
+        ════════════════════════════════════════════════════════════════ */}
         {step === "context-select" && user && (
-          <div className="relative">
-
+          <div className="p-8 sm:p-10">
             <div className="text-center mb-6">
               <div className={cn(
                 "size-14 rounded-full mx-auto flex items-center justify-center mb-3",
@@ -378,9 +498,11 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* ── STEP 3: School Select ───────────────────────────────────── */}
+        {/* ════════════════════════════════════════════════════════════════
+            STEP: school-select
+        ════════════════════════════════════════════════════════════════ */}
         {step === "school-select" && (
-          <div className="relative">
+          <div className="p-8 sm:p-10">
             <div className="text-center mb-7">
               <div className={cn(
                 "size-14 rounded-2xl mx-auto flex items-center justify-center mb-4",
