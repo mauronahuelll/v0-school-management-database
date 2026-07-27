@@ -55,11 +55,11 @@ function StatCard({
   };
 
   const iconColorClasses = {
-    default: "text-muted-foreground",
+    default: "text-[#D0BCFF]",
     present: "text-status-present",
     absent: "text-status-absent",
     tardy: "text-status-tardy",
-    primary: "text-primary",
+    primary: "text-[#D0BCFF]",
   };
 
   return (
@@ -113,15 +113,15 @@ function StatCard({
         <div className="space-y-1">
           <p
             className={cn(
-              "font-bold tracking-tight text-foreground",
+              "font-bold tracking-tight text-[#E4E1EA]",
               size === "large" ? "text-4xl" : "text-2xl"
             )}
           >
             {value}
           </p>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-sm font-medium text-white/70">{title}</p>
           {subtitle && (
-            <p className="text-xs text-muted-foreground/70">{subtitle}</p>
+            <p className="text-xs text-white/40">{subtitle}</p>
           )}
         </div>
       </div>
@@ -151,8 +151,8 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
     <div className="space-y-8">
       {/* Section: Asistencia de Hoy */}
       <section>
-        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Users className="size-5 text-primary" />
+        <h2 className="text-lg font-semibold text-[#E4E1EA] mb-4 flex items-center gap-2">
+          <Users className="size-5 text-[#8A2BE2]" />
           Asistencia de Hoy
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -192,8 +192,8 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
 
       {/* Section: Firmas Digitales */}
       <section>
-        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <FileSignature className="size-5 text-primary" />
+        <h2 className="text-lg font-semibold text-[#E4E1EA] mb-4 flex items-center gap-2">
+          <FileSignature className="size-5 text-[#8A2BE2]" />
           Estado de Firmas Digitales
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -229,8 +229,8 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
       <div className="grid md:grid-cols-2 gap-8">
         {/* Academic */}
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <GraduationCap className="size-5 text-primary" />
+          <h2 className="text-lg font-semibold text-[#E4E1EA] mb-4 flex items-center gap-2">
+            <GraduationCap className="size-5 text-[#8A2BE2]" />
             Rendimiento Academico
           </h2>
           <div className="grid grid-cols-2 gap-4">
@@ -254,8 +254,8 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
 
         {/* Transfers */}
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <ArrowRightLeft className="size-5 text-primary" />
+          <h2 className="text-lg font-semibold text-[#E4E1EA] mb-4 flex items-center gap-2">
+            <ArrowRightLeft className="size-5 text-[#8A2BE2]" />
             Pasaporte Educativo
           </h2>
           <div className="grid grid-cols-2 gap-4">
@@ -281,8 +281,8 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
 
       {/* Section: System Status */}
       <section>
-        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Server className="size-5 text-primary" />
+        <h2 className="text-lg font-semibold text-[#E4E1EA] mb-4 flex items-center gap-2">
+          <Server className="size-5 text-[#8A2BE2]" />
           Estado del Sistema
         </h2>
         <motion.div
@@ -308,9 +308,9 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
             </div>
 
             {/* Last sync */}
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-white/50">
               Ultima sincronizacion:{" "}
-              <span className="font-medium text-foreground">
+              <span className="font-medium text-[#E4E1EA]">
                 {mounted 
                   ? system.lastSync.toLocaleTimeString("es-AR", {
                       hour: "2-digit",
@@ -322,16 +322,16 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
 
             {/* Pending tasks */}
             {system.pendingTasks > 0 && (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-white/50">
                 Tareas pendientes:{" "}
-                <span className="font-medium text-foreground">{system.pendingTasks}</span>
+                <span className="font-medium text-[#E4E1EA]">{system.pendingTasks}</span>
               </div>
             )}
 
             {/* Storage */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-white/50">
               <span>Almacenamiento:</span>
-              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+              <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
                 <div
                   className={cn(
                     "h-full rounded-full transition-all",
@@ -344,7 +344,7 @@ export function GlobalStatsGrid({ stats }: GlobalStatsGridProps) {
                   style={{ width: `${system.storageUsed}%` }}
                 />
               </div>
-              <span className="font-medium text-foreground">{system.storageUsed}%</span>
+              <span className="font-medium text-[#E4E1EA]">{system.storageUsed}%</span>
             </div>
           </div>
         </motion.div>
