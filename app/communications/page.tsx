@@ -892,9 +892,9 @@ function ComposeDialog({ open, onClose, onSend, role, nivel }: {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────��─
 // MAIN COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────���─────────
 
 export default function CommunicationsPage() {
   const { activeContext } = useAuth();
@@ -1564,8 +1564,8 @@ export default function CommunicationsPage() {
           <div className="px-4 pt-4 pb-2 flex items-center justify-between shrink-0">
             <SectionLabel>Solicitudes ({documents.length})</SectionLabel>
             <Button size="sm" onClick={() => setIsUploadDocDialogOpen(true)}
-              className="h-7 gap-1 text-xs bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 shadow-none">
-              <Plus className="size-3" />Nueva
+              className="h-8 gap-1.5 text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 shadow-none hover:shadow-[0_0_16px_rgba(74,222,128,0.15)] transition-all">
+              <FilePlus2 className="size-3.5" />Solicitar Nueva Firma
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
@@ -1693,9 +1693,18 @@ export default function CommunicationsPage() {
         )}
       </div>
 
-      {/* Tab bar */}
+      {/* Tab bar — FAMILIA solo ve Comunicaciones + Documentación (+ Matriculación si hay campaña activa) */}
       <div className="flex gap-0 px-6 border-b border-white/[0.06] shrink-0">
-        {mainTabs.map(tab => (
+        {mainTabs
+          .filter(tab => {
+            if (!isFamilia) return true;
+            if (tab.id === "matriculacion") {
+              // Solo mostrar si hay una campaña de matriculación pendiente
+              return messages.some(m => m.isEnrollmentCampaign);
+            }
+            return true;
+          })
+          .map(tab => (
           <button key={tab.id} onClick={() => setMainTab(tab.id)}
             className={cn(
               "flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors",
@@ -1705,6 +1714,10 @@ export default function CommunicationsPage() {
             )}>
             <tab.icon className="size-3.5" />
             {tab.label}
+            {/* Badge para FAMILIA cuando la tab de matriculación tiene campaña activa */}
+            {isFamilia && tab.id === "matriculacion" && (
+              <span className="ml-0.5 size-1.5 rounded-full bg-amber-400 animate-pulse" />
+            )}
           </button>
         ))}
       </div>
@@ -1740,8 +1753,8 @@ export default function CommunicationsPage() {
 
       {/* Firma digital — FAMILIA */}
       <Dialog open={isSignDialogOpen} onOpenChange={setIsSignDialogOpen}>
-        <DialogContent className="sm:max-w-[420px] bg-[#0e0e14] border-[#8A2BE2]/20 shadow-[0_0_40px_rgba(138,43,226,0.15)]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[420px] bg-[#0A0A0F]/95 backdrop-blur-3xl border-white/10 text-white max-h-[85vh] flex flex-col p-0 shadow-[0_0_40px_rgba(138,43,226,0.15)]">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.07] shrink-0">
             <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
               <FileSignature className="size-5 text-[#d0bcff]" />
               Firma Digital
@@ -1750,12 +1763,16 @@ export default function CommunicationsPage() {
               Al firmar, confirma que leyo y acepta el contenido de este documento.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          {/* Área scrolleable */}
+          <div className="overflow-y-auto flex-1 p-6 space-y-4">
             <div className="px-4 py-4 rounded-xl bg-[#8A2BE2]/[0.06] border border-[#8A2BE2]/20 space-y-3">
               <p className="text-xs font-bold text-[#d0bcff] uppercase tracking-wider">Declaracion de consentimiento</p>
               <p className="text-xs text-white/55 leading-relaxed">
                 Declaro haber leido en su totalidad el documento adjunto y presto mi consentimiento
                 expreso sobre su contenido. Esta firma tiene validez legal equivalente a una firma manuscrita.
+                La presente firma tiene plena validez juridica segun Ley 25.506 de Firma Digital (Argentina),
+                y no podra ser repudiada una vez emitida. El sistema registrara la fecha, hora, y direccion IP
+                desde donde se realizó la firma.
               </p>
             </div>
             <Input
@@ -1771,14 +1788,15 @@ export default function CommunicationsPage() {
               </span>
             </label>
           </div>
-          <DialogFooter>
+          {/* Footer siempre visible — sticky al fondo */}
+          <div className="sticky bottom-0 bg-[#0A0A0F] px-6 py-4 border-t border-white/10 flex justify-end gap-3 shrink-0">
             <Button variant="outline" onClick={() => { setIsSignDialogOpen(false); setSignConsent(false); setSignName(""); }}
               className="border-white/10 text-white/60">Cancelar</Button>
             <Button onClick={handleSign} disabled={!signConsent || !signName.trim() || isSigning}
               className="gap-2 bg-[#8A2BE2]/80 hover:bg-[#8A2BE2] text-white font-bold">
               {isSigning ? <><Loader2 className="size-4 animate-spin" />Firmando...</> : <><BadgeCheck className="size-4" />Firmar</>}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

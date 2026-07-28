@@ -109,12 +109,13 @@ const NAV_ITEMS_DOCENTE = [
 ];
 
 const NAV_ITEMS_FAMILIA = [
-  { id: "dashboard", label: "Tablero", href: "/dashboard", icon: LayoutDashboard },
-  { id: "community", label: "Novedades", href: "/community", icon: Megaphone },
-  { id: "procedures", label: "Tramites", href: "/procedures", icon: FileText },
+  { id: "dashboard",       label: "Tablero",         href: "/dashboard",       icon: LayoutDashboard },
+  { id: "community",       label: "Novedades",        href: "/community",       icon: Megaphone       },
+  { id: "communications",  label: "Comunicaciones",   href: "/communications",  icon: Send            },
+  { id: "procedures",      label: "Tramites",         href: "/procedures",      icon: FileText        },
   // "Perfil Alumno" (/student) eliminado: FAMILIA accede al perfil del hijo
   // directamente desde el Dashboard Multihijo — el ítem era redundante y confuso.
-  { id: "calendar", label: "Calendario", href: "/calendar", icon: Calendar },
+  { id: "calendar",        label: "Calendario",       href: "/calendar",        icon: Calendar        },
 ];
 
 // ============================================
