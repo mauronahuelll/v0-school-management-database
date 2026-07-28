@@ -15,10 +15,14 @@ import {
   EyeOff,
   Lock,
   AlertTriangle,
+  Send,
+  PenLine,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -95,6 +99,41 @@ export function GradesGrid({
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [isPeriodLocked, setIsPeriodLocked] = useState(false);
   const [isLockDialogOpen, setIsLockDialogOpen] = useState(false);
+
+  // Draft mode state
+  const [isDraftMode, setIsDraftMode] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  // Tracks which "studentId:assessmentId" cells have been edited in draft mode
+  const [draftCells, setDraftCells] = useState<Set<string>>(new Set());
+
+  const handleDraftGradeUpdate = useCallback(
+    async (studentId: string, assessmentId: string, value: number | null) => {
+      await onGradeUpdate(studentId, assessmentId, value);
+      if (isDraftMode) {
+        setDraftCells((prev) => {
+          const next = new Set(prev);
+          next.add(`${studentId}:${assessmentId}`);
+          return next;
+        });
+      }
+    },
+    [onGradeUpdate, isDraftMode]
+  );
+
+  const handlePublishDraft = useCallback(async () => {
+    setIsPublishing(true);
+    try {
+      await onPublish();
+      setDraftCells(new Set());
+      setIsDraftMode(false);
+      toast.success("Calificaciones publicadas", {
+        description: "Las familias ya pueden ver las calificaciones actualizadas.",
+        duration: 5000,
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [onPublish]);
 
   const { subject, assessments, students, periodName, courseName, divisionName } =
     courseInfo;
@@ -249,6 +288,57 @@ export function GradesGrid({
               />
             </div>
 
+            {/* Draft mode toggle + Publish */}
+            <div className="flex items-center gap-3">
+              {canEditGrades && (
+                <div className={cn(
+                  "flex items-center gap-2.5 px-3.5 py-2 rounded-xl border transition-all duration-300",
+                  isDraftMode
+                    ? "bg-amber-500/10 border-amber-500/25"
+                    : "bg-white/[0.02] border-white/10"
+                )}>
+                  <PenLine className={cn(
+                    "size-3.5 transition-colors",
+                    isDraftMode ? "text-amber-400" : "text-white/40"
+                  )} />
+                  <Label
+                    htmlFor="draft-mode-grid"
+                    className={cn(
+                      "text-xs font-medium cursor-pointer transition-colors select-none hidden sm:block",
+                      isDraftMode ? "text-amber-300" : "text-white/50"
+                    )}
+                  >
+                    {isDraftMode ? "Borrador activo" : "Modo Borrador"}
+                  </Label>
+                  <Switch
+                    id="draft-mode-grid"
+                    checked={isDraftMode}
+                    onCheckedChange={(checked) => {
+                      setIsDraftMode(checked);
+                      if (!checked) setDraftCells(new Set());
+                    }}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </div>
+              )}
+
+              {isDraftMode && draftCells.size > 0 && (
+                <Button
+                  onClick={handlePublishDraft}
+                  disabled={isPublishing}
+                  className="gap-2 bg-[#8A2BE2] hover:bg-[#7B22D6] text-white border-0 shadow-[0_0_20px_rgba(138,43,226,0.35)] hover:shadow-[0_0_30px_rgba(138,43,226,0.5)] transition-all duration-300"
+                >
+                  <Send className="size-4" />
+                  <span className="hidden lg:inline">
+                    {isPublishing ? "Publicando..." : `Publicar Calificaciones a Familias (${draftCells.size})`}
+                  </span>
+                  <span className="lg:hidden">
+                    {isPublishing ? "..." : "Publicar"}
+                  </span>
+                </Button>
+              )}
+            </div>
+
             {/* Lock Period Button */}
             <div className="flex items-center gap-3">
               {userRole === "ADMIN" && !isPeriodLocked && (
@@ -306,6 +396,20 @@ export function GradesGrid({
       </header>
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Draft mode banner */}
+        {isDraftMode && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+            <div className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <p className="text-sm text-amber-300">
+              <span className="font-semibold">Edicion Preliminar activa.</span>{" "}
+              Las celdas editadas muestran un indicador ambar. Los cambios no son visibles para las familias hasta publicarlos.
+              {draftCells.size > 0 && (
+                <span className="ml-2 font-semibold">{draftCells.size} {draftCells.size === 1 ? "nota pendiente" : "notas pendientes"} de publicacion.</span>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Publication Banner */}
         <PublicationBanner
           periodName={periodName}
@@ -461,9 +565,11 @@ export function GradesGrid({
                     assessments={assessments}
                     scale={scale}
                     isPublished={courseInfo.publicationStatus === "PUBLISHED"}
-                    onGradeUpdate={onGradeUpdate}
+                    onGradeUpdate={handleDraftGradeUpdate}
                     isReadOnly={!canEditGrades}
                     index={index}
+                    isDraftMode={isDraftMode}
+                    draftCells={draftCells}
                   />
                 ))}
               </tbody>
@@ -509,6 +615,8 @@ interface StudentRowProps {
   ) => Promise<void>;
   isReadOnly: boolean;
   index: number;
+  isDraftMode: boolean;
+  draftCells: Set<string>;
 }
 
 function StudentRow({
@@ -519,6 +627,8 @@ function StudentRow({
   onGradeUpdate,
   isReadOnly,
   index,
+  isDraftMode,
+  draftCells,
 }: StudentRowProps) {
   const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
   const passing = student.average !== null && isPassingGrade(student.average, scale);
@@ -557,11 +667,26 @@ function StudentRow({
         </div>
       </td>
 
-      {/* Grade Cells - More padding */}
+      {/* Grade Cells */}
       {assessments.map((assessment) => {
         const grade = student.grades[assessment.id] || null;
+        const cellKey = `${student.studentId}:${assessment.id}`;
+        const isPreliminary = isDraftMode && draftCells.has(cellKey);
         return (
-          <td key={assessment.id} className="px-4 py-5 text-center border-l border-white/[0.05]">
+          <td
+            key={assessment.id}
+            className={cn(
+              "px-4 py-5 text-center border-l border-white/[0.05] relative",
+              isPreliminary && "bg-amber-500/[0.04]"
+            )}
+          >
+            {/* Indicador de nota preliminar no publicada */}
+            {isPreliminary && (
+              <span
+                className="absolute top-2 right-2 size-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"
+                aria-label="Nota preliminar no publicada"
+              />
+            )}
             <GradeCell
               grade={grade}
               assessmentId={assessment.id}

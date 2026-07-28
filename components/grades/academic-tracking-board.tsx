@@ -17,9 +17,13 @@ import {
   Percent,
   BarChart3,
   Target,
+  Send,
+  PenLine,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -28,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 // ============================================
@@ -296,6 +301,20 @@ const PREVENTION_KPIS: PreventionKPI[] = [
 
 export function AcademicTrackingBoard() {
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
+  const [isDraftMode, setIsDraftMode] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublish = async () => {
+    setIsPublishing(true);
+    // Simular latencia de red
+    await new Promise((r) => setTimeout(r, 1200));
+    setIsPublishing(false);
+    setIsDraftMode(false);
+    toast.success("Calificaciones publicadas", {
+      description: "Las familias ya pueden ver las calificaciones actualizadas.",
+      duration: 5000,
+    });
+  };
 
   const toggleExpand = (courseId: string) => {
     setExpandedCourses(prev => {
@@ -330,7 +349,7 @@ export function AcademicTrackingBoard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <header className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
             Tablero de Seguimiento Academico
@@ -339,7 +358,48 @@ export function AcademicTrackingBoard() {
             Matriz de control de cursos con metricas cruzadas y drill-down
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Draft mode toggle */}
+          <div className={cn(
+            "flex items-center gap-2.5 px-3.5 py-2 rounded-xl border transition-all duration-300",
+            isDraftMode
+              ? "bg-amber-500/10 border-amber-500/25"
+              : "bg-white/[0.02] border-white/10"
+          )}>
+            <PenLine className={cn(
+              "size-3.5 transition-colors",
+              isDraftMode ? "text-amber-400" : "text-white/40"
+            )} />
+            <Label
+              htmlFor="draft-mode-atb"
+              className={cn(
+                "text-xs font-medium cursor-pointer transition-colors select-none",
+                isDraftMode ? "text-amber-300" : "text-white/50"
+              )}
+            >
+              Modo Borrador
+            </Label>
+            <Switch
+              id="draft-mode-atb"
+              checked={isDraftMode}
+              onCheckedChange={setIsDraftMode}
+              className="data-[state=checked]:bg-amber-500"
+            />
+          </div>
+
+          {/* Publish button — visible only in draft mode */}
+          {isDraftMode && (
+            <Button
+              onClick={handlePublish}
+              disabled={isPublishing}
+              className="gap-2 bg-[#8A2BE2] hover:bg-[#7B22D6] text-white border-0 shadow-[0_0_20px_rgba(138,43,226,0.35)] hover:shadow-[0_0_30px_rgba(138,43,226,0.5)] transition-all duration-300"
+            >
+              <Send className="size-4" />
+              {isPublishing ? "Publicando..." : "Publicar Calificaciones a Familias"}
+            </Button>
+          )}
+
           <Badge variant="outline" className="bg-[#d0bcff]/10 border-[#d0bcff]/20 text-[#d0bcff]">
             <Eye className="size-3.5 mr-1.5" />
             Vista: Administrador
@@ -350,6 +410,17 @@ export function AcademicTrackingBoard() {
           </Badge>
         </div>
       </header>
+
+      {/* Draft mode banner */}
+      {isDraftMode && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+          <div className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <p className="text-sm text-amber-300">
+            <span className="font-semibold">Edicion Preliminar activa.</span>{" "}
+            Las modificaciones son borradores internos y no son visibles para las familias hasta que presiones &quot;Publicar Calificaciones a Familias&quot;.
+          </p>
+        </div>
+      )}
 
       {/* Prevention KPIs - Top Cards */}
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
