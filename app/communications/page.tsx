@@ -234,6 +234,46 @@ const MOCK_DOCENTE_AVISOS: Communication[] = [
   },
 ];
 
+// Contactos de chat familias para ADMIN/PRECEPTOR
+interface FamiliaContact {
+  id: string;
+  name: string;       // "Familia Martínez"
+  student: string;    // "Lucía — Sala de 5 Ositos"
+  nivel: "SECUNDARIO" | "PRIMARIO" | "INICIAL";
+  lastMessage: string;
+  time: string;
+  unread: number;
+}
+
+const MOCK_ADMIN_CHAT_CONTACTS: FamiliaContact[] = [
+  { id: "fc-mar", name: "Familia Martinez",  student: "Lucia — Sala de 5 Ositos",    nivel: "INICIAL",    lastMessage: "Muchas gracias por la info!",      time: "10:32",  unread: 2 },
+  { id: "fc-per", name: "Familia Perez",     student: "Tomas — 3er Grado",           nivel: "PRIMARIO",   lastMessage: "Consulta sobre el viaje",          time: "09:15",  unread: 1 },
+  { id: "fc-gon", name: "Familia Gonzalez",  student: "Santiago — 4to Ano A",        nivel: "SECUNDARIO", lastMessage: "Confirmo la asistencia",           time: "Ayer",   unread: 0 },
+  { id: "fc-rod", name: "Familia Rodriguez", student: "Valentina — 2do Grado",       nivel: "PRIMARIO",   lastMessage: "Quedamos pendiente de la fecha",  time: "Ayer",   unread: 0 },
+  { id: "fc-lop", name: "Familia Lopez",     student: "Ignacio — 5to Ano B",         nivel: "SECUNDARIO", lastMessage: "OK, entendido",                    time: "Lun",    unread: 0 },
+];
+
+const MOCK_ADMIN_CHATS: Record<string, { id: string; from: "me" | "them"; text: string; time: string; senderName?: string }[]> = {
+  "fc-mar": [
+    { id: "1", from: "them", senderName: "Familia Martinez", text: "Buenos dias, queria consultar sobre el acto del jueves.",            time: "10:15" },
+    { id: "2", from: "me",   text: "Buen dia! El acto es a las 9hs en el patio central. Los padres pueden asistir desde las 8:45.",      time: "10:20" },
+    { id: "3", from: "them", senderName: "Familia Martinez", text: "Muchas gracias por la info!",                                        time: "10:32" },
+  ],
+  "fc-per": [
+    { id: "1", from: "them", senderName: "Familia Perez", text: "Hola, queria preguntar sobre los detalles del viaje educativo.",        time: "09:10" },
+    { id: "2", from: "me",   text: "Claro, el viaje es el 15 de agosto. Ya enviamos el formulario de autorizacion por comunicado.",       time: "09:15" },
+  ],
+  "fc-gon": [
+    { id: "1", from: "me",   text: "Estimada familia, les recordamos la reunion de padres del proximo martes a las 18hs.",                time: "Ayer" },
+    { id: "2", from: "them", senderName: "Familia Gonzalez", text: "Confirmo la asistencia, gracias.",                                   time: "Ayer" },
+  ],
+  "fc-rod": [],
+  "fc-lop": [
+    { id: "1", from: "me",   text: "Les informamos que el turno de entrevista con la preceptora es el viernes a las 10hs.",              time: "Lun" },
+    { id: "2", from: "them", senderName: "Familia Lopez", text: "OK, entendido",                                                         time: "Lun" },
+  ],
+};
+
 // Chat interno para DOCENTE → Staff
 const MOCK_STAFF_CHAT: { id: string; from: "me" | "them"; text: string; time: string; senderName?: string }[] = [
   { id: "sc-1", from: "them", senderName: "Preceptoria 4to A", text: "Buen dia. Recordamos que manana hay acto por el Dia de la Bandera. Los estudiantes deben llegar a las 07:45.", time: "Hoy, 07:30" },
@@ -892,9 +932,9 @@ function ComposeDialog({ open, onClose, onSend, role, nivel }: {
   );
 }
 
-// ───────────────────────────────────────────────────────────────────────────��─
+// ───────────────────────────────────────────────────────────────────────────���─
 // MAIN COMPONENT
-// ───────────────────────────────────────────────────────────────────���─────────
+// ──────────────────────────────────────────────────────────────────������─────────
 
 export default function CommunicationsPage() {
   const { activeContext } = useAuth();
@@ -919,6 +959,13 @@ export default function CommunicationsPage() {
   // ── Sub-tab para DOCENTE ───────────────────────────────────────────────────
   type DocenteSubTab = "avisos" | "chat-staff";
   const [docenteSubTab, setDocenteSubTab] = useState<DocenteSubTab>("avisos");
+
+  // ── Sub-tab y chats para ADMIN/PRECEPTOR ──────────────────────────────────
+  type AdminSubTab = "comunicados" | "chat";
+  const [adminSubTab, setAdminSubTab]         = useState<AdminSubTab>("comunicados");
+  const [adminChatContacts, setAdminChatContacts] = useState<FamiliaContact[]>(MOCK_ADMIN_CHAT_CONTACTS);
+  const [adminChats, setAdminChats]           = useState<Record<string, { id: string; from: "me" | "them"; text: string; time: string; senderName?: string }[]>>(MOCK_ADMIN_CHATS);
+  const [activeAdminChatId, setActiveAdminChatId] = useState<string | null>(null);
 
   // ── Familia: chat con Secretaría ───────────────────────────────────────────
   const [familiaChat, setFamiliaChat] = useState(MOCK_FAMILIA_CHAT);
@@ -1263,54 +1310,160 @@ export default function CommunicationsPage() {
 
     // ── ADMIN / PRECEPTOR ───────────────────────────────────────────────────
     return (
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[340px_1fr] h-full">
-        {/* Lista */}
-        <GlassCard className="flex flex-col overflow-hidden min-h-0">
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between shrink-0">
-            <SectionLabel>Enviados ({messages.length})</SectionLabel>
-            <Button size="sm" onClick={() => setIsComposeOpen(true)}
-              className="h-7 gap-1 text-xs bg-[#8A2BE2]/20 hover:bg-[#8A2BE2]/30 border border-[#8A2BE2]/30 text-[#d0bcff] shadow-none">
-              <Plus className="size-3" />Nuevo
-            </Button>
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[300px_1fr] h-full">
+        {/* Columna izquierda: sub-tabs Comunicados / Chat */}
+        <div className="flex flex-col gap-3 overflow-hidden">
+          {/* Sub-tabs */}
+          <div className="flex gap-1 p-1 rounded-xl bg-white/[0.02] border border-white/[0.06] shrink-0">
+            {[
+              { id: "comunicados" as AdminSubTab, label: "Comunicados", icon: Mail },
+              { id: "chat"        as AdminSubTab, label: "Chat Familias", icon: MessageSquare },
+            ].map(st => (
+              <button key={st.id} onClick={() => setAdminSubTab(st.id)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all",
+                  adminSubTab === st.id ? "bg-[#8A2BE2]/25 text-[#d0bcff]" : "text-white/40 hover:text-white/60"
+                )}>
+                <st.icon className="size-3.5" />{st.label}
+                {st.id === "chat" && adminChatContacts.some(c => c.unread > 0) && (
+                  <span className="ml-0.5 size-1.5 rounded-full bg-[#d0bcff] animate-pulse" />
+                )}
+              </button>
+            ))}
           </div>
-          <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-            {messages.map(msg => {
-              const tconf = TYPE_CONFIG[msg.type];
-              const TIcon = tconf.icon;
-              return (
-                <button key={msg.id} onClick={() => setSelectedCommId(msg.id)}
-                  className={cn(
-                    "w-full text-left px-3 py-3 rounded-xl border transition-all",
-                    selectedCommId === msg.id ? "bg-[#8A2BE2]/15 border-[#8A2BE2]/30" : "border-transparent hover:bg-white/[0.03]"
-                  )}>
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <NeonBadge className={cn(tconf.color, "text-[9px]")}>
-                      <TIcon className="size-2.5" />{tconf.label}
-                    </NeonBadge>
-                    <span className="text-[10px] text-white/30 shrink-0">{msg.sentAt}</span>
-                  </div>
-                  <p className="text-xs font-semibold text-[#e4e1ea] line-clamp-1">{msg.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] text-white/35">{msg.totalRecipients ?? 0} dest.</span>
-                    {msg.signedCount !== undefined && msg.totalRecipients !== undefined && (
-                      <span className="text-[11px] text-emerald-400">{msg.signedCount}/{msg.totalRecipients} leidos</span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </GlassCard>
 
-        {/* Detalle */}
+          {/* Sub-tab: Comunicados enviados */}
+          {adminSubTab === "comunicados" && (
+            <GlassCard className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="px-4 pt-3 pb-2 flex items-center justify-between shrink-0">
+                <SectionLabel>Enviados ({messages.length})</SectionLabel>
+                <Button size="sm" onClick={() => setIsComposeOpen(true)}
+                  className="h-7 gap-1 text-xs bg-[#8A2BE2]/20 hover:bg-[#8A2BE2]/30 border border-[#8A2BE2]/30 text-[#d0bcff] shadow-none">
+                  <Plus className="size-3" />Nuevo
+                </Button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
+                {messages.map(msg => {
+                  const tconf = TYPE_CONFIG[msg.type];
+                  const TIcon = tconf.icon;
+                  return (
+                    <button key={msg.id} onClick={() => setSelectedCommId(msg.id)}
+                      className={cn(
+                        "w-full text-left px-3 py-3 rounded-xl border transition-all",
+                        selectedCommId === msg.id ? "bg-[#8A2BE2]/15 border-[#8A2BE2]/30" : "border-transparent hover:bg-white/[0.03]"
+                      )}>
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <NeonBadge className={cn(tconf.color, "text-[9px]")}>
+                          <TIcon className="size-2.5" />{tconf.label}
+                        </NeonBadge>
+                        <span className="text-[10px] text-white/30 shrink-0">{msg.sentAt}</span>
+                      </div>
+                      <p className="text-xs font-semibold text-[#e4e1ea] line-clamp-1">{msg.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[11px] text-white/35">{msg.totalRecipients ?? 0} dest.</span>
+                        {msg.signedCount !== undefined && msg.totalRecipients !== undefined && (
+                          <span className="text-[11px] text-emerald-400">{msg.signedCount}/{msg.totalRecipients} leidos</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </GlassCard>
+          )}
+
+          {/* Sub-tab: Lista de chats con familias */}
+          {adminSubTab === "chat" && (
+            <GlassCard className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="px-4 pt-3 pb-2 shrink-0">
+                <SectionLabel>Conversaciones</SectionLabel>
+              </div>
+              <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
+                {adminChatContacts.map(contact => (
+                  <button key={contact.id}
+                    onClick={() => setActiveAdminChatId(contact.id)}
+                    className={cn(
+                      "w-full text-left px-3 py-3 rounded-xl border transition-all",
+                      activeAdminChatId === contact.id
+                        ? "bg-[#8A2BE2]/15 border-[#8A2BE2]/30"
+                        : "border-transparent hover:bg-white/[0.03]"
+                    )}>
+                    <div className="flex items-start gap-3">
+                      {/* Avatar inicial */}
+                      <div className="size-9 rounded-full bg-gradient-to-br from-[#8A2BE2]/30 to-[#d0bcff]/20 border border-[#d0bcff]/15 flex items-center justify-center shrink-0 text-xs font-bold text-[#d0bcff]">
+                        {contact.name.split(" ").slice(-1)[0]?.charAt(0) ?? "F"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="text-xs font-semibold text-[#e4e1ea] line-clamp-1">{contact.name}</p>
+                          {contact.unread > 0 && (
+                            <span className="shrink-0 flex items-center justify-center size-4 rounded-full bg-[#8A2BE2] text-[9px] font-bold text-white">
+                              {contact.unread}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-white/35 mt-0.5 line-clamp-1">{contact.lastMessage}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <NeonBadge className={cn(
+                            "text-[9px]",
+                            contact.nivel === "SECUNDARIO" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                            contact.nivel === "PRIMARIO"   ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" :
+                                                             "bg-pink-500/10 text-pink-400 border-pink-500/20"
+                          )}>
+                            {contact.nivel}
+                          </NeonBadge>
+                          <span className="text-[10px] text-white/25">{contact.time}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </GlassCard>
+          )}
+        </div>
+
+        {/* Columna derecha: Detalle del comunicado o panel de chat */}
         <GlassCard className="flex flex-col overflow-hidden min-h-0">
-          {selectedComm ? (
-            <SenderMessageDetail comm={selectedComm} />
+          {adminSubTab === "comunicados" ? (
+            selectedComm ? (
+              <SenderMessageDetail comm={selectedComm} />
+            ) : (
+              <div className="flex flex-col items-center justify-center flex-1 gap-3 text-white/25">
+                <Mail className="size-10" />
+                <p className="text-sm">Selecciona un comunicado</p>
+              </div>
+            )
           ) : (
-            <div className="flex flex-col items-center justify-center flex-1 gap-3 text-white/25">
-              <Mail className="size-10" />
-              <p className="text-sm">Selecciona un comunicado</p>
-            </div>
+            activeAdminChatId ? (
+              <ChatPane
+                key={activeAdminChatId}
+                messages={adminChats[activeAdminChatId] ?? []}
+                title={adminChatContacts.find(c => c.id === activeAdminChatId)?.name ?? "Chat"}
+                subtitle={adminChatContacts.find(c => c.id === activeAdminChatId)?.student}
+                onSend={text => {
+                  setAdminChats(prev => ({
+                    ...prev,
+                    [activeAdminChatId]: [
+                      ...(prev[activeAdminChatId] ?? []),
+                      {
+                        id: `ac-${Date.now()}`, from: "me", text,
+                        time: new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+                      },
+                    ],
+                  }));
+                  // Limpiar unread al responder
+                  setAdminChatContacts(prev =>
+                    prev.map(c => c.id === activeAdminChatId ? { ...c, unread: 0, lastMessage: text, time: "Ahora" } : c)
+                  );
+                }}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center flex-1 gap-3 text-white/25">
+                <MessageSquare className="size-10" />
+                <p className="text-sm">Selecciona una conversacion</p>
+              </div>
+            )
           )}
         </GlassCard>
       </div>
@@ -1463,7 +1616,7 @@ export default function CommunicationsPage() {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────��────────────────────────────────────────
   // TAB: DOCUMENTACION
   // ─────────────────────────────────────────────────────────────────────────
 
