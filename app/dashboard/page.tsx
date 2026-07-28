@@ -1197,8 +1197,8 @@ export default function DashboardPage() {
             setSignatureModal(open);
             if (!open) setSignatureChecked(false);
           }}>
-            <DialogContent className="max-w-3xl w-full bg-[#0A0A0F]/95 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(138,43,226,0.15)] p-0 overflow-hidden">
-              <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.07]">
+            <DialogContent className="bg-[#0A0A0F]/95 backdrop-blur-3xl border-white/10 text-white max-w-2xl max-h-[85vh] flex flex-col p-0 shadow-[0_0_60px_rgba(138,43,226,0.15)]">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.07] shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="size-9 rounded-xl bg-[#8A2BE2]/20 border border-[#8A2BE2]/30 flex items-center justify-center shrink-0">
                     <PenLine className="size-4 text-[#D0BCFF]" />
@@ -1214,10 +1214,11 @@ export default function DashboardPage() {
                 </div>
               </DialogHeader>
 
-              <div className="flex flex-col md:flex-row h-[480px]">
-                {/* ── Lado izquierdo: simulacion del PDF ── */}
-                <ScrollArea className="flex-1 border-b md:border-b-0 md:border-r border-white/[0.07]">
-                  <div className="p-6 space-y-5 text-xs text-white/50 leading-relaxed font-mono">
+              {/* Cuerpo scrolleable + panel de firma */}
+              <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+                {/* ── Lado izquierdo: texto legal scrolleable ── */}
+                <div className="flex-1 overflow-y-auto border-b md:border-b-0 md:border-r border-white/[0.07] p-6 custom-scrollbar">
+                  <div className="space-y-5 text-xs text-white/50 leading-relaxed font-mono">
                     {/* Header del documento */}
                     <div className="text-center space-y-1 pb-4 border-b border-white/10">
                       <p className="text-[10px] uppercase tracking-widest text-white/25">Instituto Educativo Sequency</p>
@@ -1263,10 +1264,10 @@ export default function DashboardPage() {
                       Documento generado electronicamente por el sistema Sequency ERP. Firma digital con validez juridica segun Ley 25.506 de Firma Digital (Argentina).
                     </p>
                   </div>
-                </ScrollArea>
+                </div>
 
-                {/* ── Lado derecho: Action Panel ── */}
-                <div className="w-full md:w-72 shrink-0 flex flex-col gap-5 p-6 bg-white/[0.015]">
+                {/* ── Lado derecho: Action Panel — siempre visible, no scrollea ── */}
+                <div className="w-full md:w-72 shrink-0 flex flex-col gap-5 p-6 bg-white/[0.015] overflow-y-auto">
                   <div>
                     <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-3">
                       Panel de firma
@@ -1312,7 +1313,8 @@ export default function DashboardPage() {
                     </Label>
                   </div>
 
-                  <div className="mt-auto space-y-3">
+                  {/* Botones — sticky al fondo del panel derecho */}
+                  <div className="mt-auto pt-4 space-y-3 sticky bottom-0 bg-[#0A0A0F] pb-1">
                     <Button
                       disabled={!signatureChecked}
                       onClick={handleFirmarDocumento}
