@@ -164,11 +164,6 @@ export function ContextSelector() {
      * ─ El gradiente radial va directo en el className con bg-[radial-gradient...].
      * ─ pb-24 garantiza que la ultima tarjeta nunca toque el borde inferior.
      */
-    {/*
-     * NODO RAÍZ: sin min-h-screen — el main del AppShell ya tiene min-h-[100dvh]
-     * y es quien maneja el scroll. Poner otro min-h-screen aquí crea un segundo
-     * scroll container que bloquea el scroll nativo.
-     */}
     <div className="w-full bg-[#050508] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#8A2BE2]/15 via-[#050508] to-[#050508] text-[#E4E1EA] flex justify-center p-4 sm:p-8">
 
       {/* Contenedor central que crece hacia abajo con el contenido */}
