@@ -39,6 +39,10 @@ import {
   BriefcaseBusiness,
   UserCheck,
   Home,
+  PartyPopper,
+  XCircle,
+  BarChart3,
+  FilePlus2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +84,7 @@ import {
 // TYPES
 // ============================================
 
-type CommunicationType = "INSTITUCIONAL" | "ALERTA" | "EVENTO" | "ACADEMICO";
+type CommunicationType = "INSTITUCIONAL" | "ALERTA" | "EVENTO" | "ACADEMICO" | "MATRICULACION";
 type CommunicationStatus = "ENVIADO" | "LEIDO" | "FIRMADO" | "PENDIENTE";
 
 interface Communication {
@@ -103,15 +107,22 @@ interface Communication {
   pendingRecipients?: { id: string; name: string; course: string }[];
   // Actionable circulars (require document return)
   requiresReturn?: boolean;
-  returnTemplateName?: string; // Blank template attached by the preceptor
-  returnStatus?: "PENDIENTE" | "ENTREGADO"; // FAMILIA return state
-  // Sender-side tracking grid (one row per student of target course)
+  returnTemplateName?: string;
+  returnStatus?: "PENDIENTE" | "ENTREGADO";
   tracking?: {
     id: string;
     name: string;
     status: "PENDIENTE" | "ENTREGADO";
     fileName?: string;
   }[];
+  // ── Matriculacion ──────────────────────────────────────────────────
+  isEnrollmentCampaign?: boolean;
+  // Stats for ADMIN/PRECEPTOR sender view
+  enrollStats?: {
+    total: number;
+    confirmed: number;
+    rejected: number;
+  };
 }
 
 // ============================================
@@ -119,14 +130,60 @@ interface Communication {
 // ============================================
 
 const TYPE_CONFIG: Record<CommunicationType, { label: string; color: string; icon: typeof Building2 }> = {
-  INSTITUCIONAL: { label: "Institucional", color: "bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/20", icon: Building2 },
-  ALERTA: { label: "Alerta", color: "bg-red-500/10 text-red-400 border-red-500/20", icon: AlertTriangle },
-  EVENTO: { label: "Evento", color: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: Calendar },
-  ACADEMICO: { label: "Academico", color: "bg-[#4de082]/10 text-[#4de082] border-[#4de082]/20", icon: BookOpen },
+  INSTITUCIONAL: { label: "Institucional",  color: "bg-[#d0bcff]/10 text-[#d0bcff] border-[#d0bcff]/20",    icon: Building2     },
+  ALERTA:        { label: "Alerta",          color: "bg-red-500/10 text-red-400 border-red-500/20",           icon: AlertTriangle },
+  EVENTO:        { label: "Evento",          color: "bg-blue-500/10 text-blue-400 border-blue-500/20",        icon: Calendar      },
+  ACADEMICO:     { label: "Academico",       color: "bg-[#4de082]/10 text-[#4de082] border-[#4de082]/20",    icon: BookOpen      },
+  MATRICULACION: { label: "Matriculacion",   color: "bg-amber-500/10 text-amber-400 border-amber-500/20",    icon: GraduationCap },
+};
+
+// ── Mock de campaña de matriculación para FAMILIA ─────────────────────────────
+const MOCK_ENROLLMENT_FAMILIA: Communication = {
+  id: "enroll-fam-1",
+  type: "MATRICULACION",
+  isEnrollmentCampaign: true,
+  title: "Reserva de Vacante — Ciclo Lectivo 2027",
+  body: `Estimada familia,
+
+Les informamos que se encuentra abierto el periodo de inscripcion para el ciclo lectivo 2027.
+
+Para garantizar la continuidad educativa de su hijo/a en nuestra institucion, les solicitamos que confirmen su intencion de reservar la vacante antes del 31 de agosto de 2026.
+
+Una vez confirmada la reserva, podran descargar y completar la Planilla de Inscripcion Oficial que debera ser entregada en Secretaria junto con la documentacion requerida.
+
+Por favor, responda a la brevedad. Las vacantes son limitadas y se asignan por orden de confirmacion.
+
+Atentamente,
+Secretaria de Inscripciones
+Padre Marquez`,
+  senderName: "Secretaria Academica",
+  senderRole: "Administracion",
+  sentAt: "Hoy, 10:00",
+  priority: "ALTA",
+  status: "PENDIENTE",
+  hasAttachment: false,
+};
+
+// ── Mock de campaña de matriculación para ADMIN/PRECEPTOR ─────────────────────
+const MOCK_ENROLLMENT_SENDER: Communication = {
+  id: "enroll-adm-1",
+  type: "MATRICULACION",
+  isEnrollmentCampaign: true,
+  title: "Campaña — Reserva de Vacante Ciclo 2027",
+  body: `Campana de matriculacion enviada a todas las familias del nivel.`,
+  senderName: "Yo",
+  senderRole: "Secretaria Academica",
+  sentAt: "Hoy, 10:00",
+  priority: "ALTA",
+  totalRecipients: 150,
+  signedCount: 85,
+  pendingRecipients: [],
+  enrollStats: { total: 150, confirmed: 85, rejected: 5 },
 };
 
 // Communications for FAMILIA (receiver view)
 const MOCK_FAMILIA_COMMUNICATIONS: Communication[] = [
+  MOCK_ENROLLMENT_FAMILIA,
   {
     id: "c0",
     type: "EVENTO",
@@ -243,6 +300,7 @@ Secretaria Academica`,
 
 // Communications for ADMIN/DOCENTE/PRECEPTOR (sender view)
 const MOCK_SENDER_COMMUNICATIONS: Communication[] = [
+  MOCK_ENROLLMENT_SENDER,
   {
     id: "s0",
     type: "EVENTO",
@@ -430,6 +488,19 @@ export default function CommunicationsPage() {
   // Roles del staff seleccionados para mensajeria interna
   const [selectedStaffRoles, setSelectedStaffRoles] = useState<StaffRole[]>([]);
   
+  // ── Módulo de Matriculación ────────────────────────────────────────────────
+  // Tab activo en la columna izquierda
+  type CommTab = "bandeja" | "matriculacion";
+  const [activeCommTab, setActiveCommTab] = useState<CommTab>("bandeja");
+  // Estado de respuesta de familia por id de comunicado: null | "SI" | "NO"
+  const [enrollChoices, setEnrollChoices] = useState<Record<string, "SI" | "NO">>({});
+  // Dialog de nueva campaña (ADMIN/PRECEPTOR)
+  const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
+  const [campaignCourse, setCampaignCourse] = useState("");
+  const [campaignFile, setCampaignFile] = useState<string | null>(null);
+  const [isSendingCampaign, setIsSendingCampaign] = useState(false);
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Sign dialog state
   const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
   const [signConsent, setSignConsent] = useState(false);
@@ -679,6 +750,35 @@ export default function CommunicationsPage() {
     );
   }, [composeTitle, composeBody, composeType, composeAudience, audienceMode, selectedStudents, selectedStaffRoles, audienceTarget, requireSignedReturn]);
 
+  const handleEnrollChoice = useCallback((commId: string, choice: "SI" | "NO") => {
+    setEnrollChoices(prev => ({ ...prev, [commId]: choice }));
+    if (choice === "SI") {
+      toast.success("Reserva confirmada", {
+        description: "La vacante fue reservada. Descarga la planilla para completarla.",
+      });
+    } else {
+      toast.info("Vacante liberada", {
+        description: "Gracias por avisar. La vacante fue liberada para otro alumno.",
+      });
+    }
+  }, []);
+
+  const handleSendCampaign = useCallback(async () => {
+    if (!campaignCourse) {
+      toast.error("Selecciona el destinatario de la campana");
+      return;
+    }
+    setIsSendingCampaign(true);
+    await new Promise(resolve => setTimeout(resolve, 1400));
+    setIsSendingCampaign(false);
+    setIsCampaignDialogOpen(false);
+    setCampaignCourse("");
+    setCampaignFile(null);
+    toast.success("Campana de matriculacion enviada", {
+      description: `La campana fue enviada a ${AUDIENCE_OPTIONS.find(o => o.value === campaignCourse)?.label ?? campaignCourse}.`,
+    });
+  }, [campaignCourse]);
+
   if (!mounted) return null;
 
   return (
@@ -716,14 +816,44 @@ export default function CommunicationsPage() {
           "w-full lg:w-[30%] flex flex-col bg-white/[0.01] border border-white/5 rounded-2xl overflow-hidden",
           showMobileDetail && "hidden lg:flex"
         )}>
-          <div className="px-4 py-3 border-b border-white/5 shrink-0">
-            <p className="text-xs text-white/40 uppercase tracking-wider font-medium">
-              {isReceiver ? "Recibidos" : "Enviados"} ({communications.length})
-            </p>
+          {/* Tabs: Bandeja | Matriculación */}
+          <div className="px-3 pt-3 pb-0 border-b border-white/5 shrink-0 flex gap-1">
+            <button
+              onClick={() => setActiveCommTab("bandeja")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-xs font-semibold transition-colors border-b-2 -mb-px",
+                activeCommTab === "bandeja"
+                  ? "border-[#d0bcff] text-[#d0bcff] bg-[#d0bcff]/5"
+                  : "border-transparent text-white/40 hover:text-white/70"
+              )}
+            >
+              <Mail className="size-3.5" />
+              {isReceiver ? "Recibidos" : "Enviados"}
+              <span className="ml-0.5 text-[10px] opacity-60">
+                ({communications.filter(c => !c.isEnrollmentCampaign).length})
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveCommTab("matriculacion")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-xs font-semibold transition-colors border-b-2 -mb-px",
+                activeCommTab === "matriculacion"
+                  ? "border-amber-400 text-amber-400 bg-amber-500/5"
+                  : "border-transparent text-white/40 hover:text-white/70"
+              )}
+            >
+              <GraduationCap className="size-3.5" />
+              Matriculacion
+              <span className="ml-0.5 text-[10px] opacity-60">
+                ({communications.filter(c => c.isEnrollmentCampaign).length})
+              </span>
+            </button>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto">
-            {communications.map((comm) => {
+            {communications.filter(c =>
+              activeCommTab === "matriculacion" ? c.isEnrollmentCampaign : !c.isEnrollmentCampaign
+            ).map((comm) => {
               const typeConfig = TYPE_CONFIG[comm.type];
               const Icon = typeConfig.icon;
               const isSelected = comm.id === selectedId;
@@ -868,6 +998,173 @@ export default function CommunicationsPage() {
                     <Button variant="ghost" size="sm" className="text-xs text-[#d0bcff] hover:bg-[#d0bcff]/10">
                       Descargar
                     </Button>
+                  </div>
+                )}
+
+                {/* ════════════════════════════════════════════════════════
+                    BLOQUE INTERACTIVO — FAMILIA — Campaña de Matriculación
+                ════════════════════════════════════════════════════════ */}
+                {isReceiver && selectedCommunication.isEnrollmentCampaign && (() => {
+                  const choice = enrollChoices[selectedCommunication.id];
+                  return (
+                    <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] overflow-hidden">
+                      {/* Header del bloque */}
+                      <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-500/15">
+                        <GraduationCap className="size-4 text-amber-400 shrink-0" />
+                        <p className="text-xs font-bold uppercase tracking-widest text-amber-400">
+                          Accion Requerida — Reserva de Vacante
+                        </p>
+                      </div>
+
+                      <div className="px-5 py-5">
+                        {/* Estado: sin respuesta todavía */}
+                        {!choice && (
+                          <>
+                            <p className="text-sm text-white/70 leading-relaxed mb-5">
+                              Para continuar y acceder a la planilla de inscripcion, primero debe confirmar
+                              su intencion de reservar la vacante para el proximo ciclo lectivo.
+                            </p>
+                            <p className="text-sm font-semibold text-[#e4e1ea] mb-4">
+                              ¿Desea reservar la vacante para el proximo ciclo lectivo 2027?
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* SI */}
+                              <button
+                                onClick={() => handleEnrollChoice(selectedCommunication.id, "SI")}
+                                className="group relative flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.12] hover:border-emerald-500/60 hover:shadow-[0_0_24px_rgba(74,222,128,0.15)] transition-all duration-200"
+                              >
+                                <div className="size-10 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center group-hover:bg-emerald-500/25 transition-colors">
+                                  <Check className="size-5 text-emerald-400" />
+                                </div>
+                                <span className="text-sm font-bold text-emerald-400">SI, CONTINUAR</span>
+                                <span className="text-[11px] text-white/40 text-center leading-tight px-2">
+                                  Reservar vacante y acceder a la planilla
+                                </span>
+                              </button>
+
+                              {/* NO */}
+                              <button
+                                onClick={() => handleEnrollChoice(selectedCommunication.id, "NO")}
+                                className="group flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border-2 border-white/10 bg-white/[0.02] hover:bg-red-500/[0.06] hover:border-red-500/30 transition-all duration-200"
+                              >
+                                <div className="size-10 rounded-full bg-white/5 border border-white/15 flex items-center justify-center group-hover:bg-red-500/10 group-hover:border-red-500/25 transition-colors">
+                                  <X className="size-5 text-white/40 group-hover:text-red-400 transition-colors" />
+                                </div>
+                                <span className="text-sm font-bold text-white/50 group-hover:text-red-400 transition-colors">
+                                  NO, LIBERAR
+                                </span>
+                                <span className="text-[11px] text-white/30 text-center leading-tight px-2">
+                                  Liberar la vacante para otro alumno
+                                </span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Estado: confirmó SI */}
+                        {choice === "SI" && (
+                          <div className="space-y-4">
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+                              <div className="size-9 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                                <CheckCheck className="size-4 text-emerald-400" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-emerald-400">
+                                  Reserva confirmada exitosamente
+                                </p>
+                                <p className="text-xs text-white/50 mt-1 leading-relaxed">
+                                  Tu vacante fue reservada. Descarga la planilla de inscripcion, completala
+                                  y entregalela en Secretaria junto con la documentacion requerida.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => toast.success("Descargando Planilla_Inscripcion_2027.pdf")}
+                              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl bg-[#d0bcff] hover:bg-[#d0bcff]/90 transition-colors font-bold text-[#1b1b1f] shadow-[0_0_20px_rgba(208,188,255,0.25)]"
+                            >
+                              <Download className="size-5" />
+                              Descargar Planilla de Inscripcion 2027
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Estado: confirmó NO */}
+                        {choice === "NO" && (
+                          <div className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.03] border border-white/10">
+                            <div className="size-9 rounded-full bg-white/5 border border-white/15 flex items-center justify-center shrink-0 mt-0.5">
+                              <PartyPopper className="size-4 text-white/40" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-[#e4e1ea]">
+                                Vacante liberada. Gracias por avisar.
+                              </p>
+                              <p className="text-xs text-white/40 mt-1 leading-relaxed">
+                                Lamentamos que no continuen con nosotros. Fue un placer acompanar
+                                el camino educativo de su hijo/a. Les deseamos mucho exito.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ════════════════════════════════════════════════════════
+                    PANEL ADMIN/PRECEPTOR — Stats de campaña + nueva campaña
+                ════════════════════════════════════════════════════════ */}
+                {isSender && selectedCommunication.isEnrollmentCampaign && selectedCommunication.enrollStats && (
+                  <div className="mt-6 space-y-4">
+                    {/* Mini dashboard: 3 tarjetas de stats */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Total enviadas */}
+                      <div className="flex flex-col gap-1.5 p-4 rounded-2xl bg-[#d0bcff]/[0.04] border border-[#d0bcff]/15">
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-[#d0bcff]/60">
+                          Total Enviadas
+                        </p>
+                        <p className="text-3xl font-bold tabular-nums text-[#d0bcff]">
+                          {selectedCommunication.enrollStats.total}
+                        </p>
+                        <p className="text-[11px] text-white/30 leading-tight">
+                          Familias notificadas
+                        </p>
+                      </div>
+                      {/* Confirmaron SI */}
+                      <div className="flex flex-col gap-1.5 p-4 rounded-2xl bg-emerald-500/[0.05] border border-emerald-500/20">
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/70">
+                          Confirmaron SI
+                        </p>
+                        <p className="text-3xl font-bold tabular-nums text-emerald-400">
+                          {selectedCommunication.enrollStats.confirmed}
+                        </p>
+                        <p className="text-[11px] text-white/30 leading-tight">
+                          Faltan entregar planilla
+                        </p>
+                      </div>
+                      {/* Rechazaron NO */}
+                      <div className="flex flex-col gap-1.5 p-4 rounded-2xl bg-red-500/[0.05] border border-red-500/20">
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-red-500/60">
+                          Rechazaron NO
+                        </p>
+                        <p className="text-3xl font-bold tabular-nums text-red-400">
+                          {selectedCommunication.enrollStats.rejected}
+                        </p>
+                        <p className="text-[11px] text-white/30 leading-tight">
+                          Vacantes liberadas
+                        </p>
+                      </div>
+                    </div>
+                    {/* Barra de progreso de confirmaciones */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] text-white/40">
+                        <span>Progreso de confirmaciones</span>
+                        <span>{Math.round((selectedCommunication.enrollStats.confirmed / selectedCommunication.enrollStats.total) * 100)}%</span>
+                      </div>
+                      <Progress
+                        value={(selectedCommunication.enrollStats.confirmed / selectedCommunication.enrollStats.total) * 100}
+                        className="h-1.5 bg-white/5"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -1033,8 +1330,20 @@ export default function CommunicationsPage() {
                   </div>
                 )}
 
+                {/* ADMIN/PRECEPTOR — Botón "Nueva Campaña de Matriculación" */}
+                {canCompose && selectedCommunication.isEnrollmentCampaign && (
+                  <Button
+                    onClick={() => setIsCampaignDialogOpen(true)}
+                    className="w-full h-12 gap-2 font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 shadow-none"
+                    variant="outline"
+                  >
+                    <FilePlus2 className="size-5" />
+                    Nueva Campana de Matriculacion
+                  </Button>
+                )}
+
                 {/* ADMIN/DOCENTE/PRECEPTOR View - Signature Status (non-actionable) */}
-                {isSender && !selectedCommunication.requiresReturn && selectedCommunication.totalRecipients && (
+                {isSender && !selectedCommunication.requiresReturn && selectedCommunication.totalRecipients && !selectedCommunication.isEnrollmentCampaign && (
                   <div className="space-y-4">
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-3">
@@ -1724,6 +2033,127 @@ export default function CommunicationsPage() {
                 <>
                   <Send className="size-4" />
                   {audienceTarget === "PERSONAL" ? "Enviar al Personal" : "Enviar Circular"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Nueva Campaña de Matriculación ──────────────────────── */}
+      <Dialog open={isCampaignDialogOpen} onOpenChange={setIsCampaignDialogOpen}>
+        <DialogContent className="sm:max-w-[480px] bg-[#131319] border-amber-500/20 p-0 flex flex-col max-h-[90vh] shadow-[0_0_40px_rgba(245,158,11,0.12)]">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5 shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea]">
+              <GraduationCap className="size-5 text-amber-400" />
+              Nueva Campana de Matriculacion
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Envia la solicitud de reserva de vacante para el proximo ciclo lectivo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-4 flex-1 overflow-y-auto">
+            {/* Estadísticas actuales */}
+            <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="text-center">
+                <p className="text-lg font-bold text-[#d0bcff]">150</p>
+                <p className="text-[10px] text-white/35 uppercase tracking-wider">Familias</p>
+              </div>
+              <div className="text-center border-x border-white/5">
+                <p className="text-lg font-bold text-emerald-400">85</p>
+                <p className="text-[10px] text-white/35 uppercase tracking-wider">SI</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-red-400">5</p>
+                <p className="text-[10px] text-white/35 uppercase tracking-wider">NO</p>
+              </div>
+            </div>
+
+            {/* Selector de destinatarios */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Destinatarios
+              </Label>
+              <Select value={campaignCourse} onValueChange={setCampaignCourse}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10">
+                  <SelectValue placeholder="Seleccionar destinatarios..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  <SelectItem value="all">
+                    <span className="flex items-center gap-2">
+                      <Users className="size-4 text-amber-400" />
+                      Todas las familias del nivel
+                    </span>
+                  </SelectItem>
+                  {AUDIENCE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-white/30">
+                Selecciona &quot;Todas las familias del nivel&quot; para enviar a todos, o elige un curso especifico.
+              </p>
+            </div>
+
+            {/* Adjuntar planilla PDF */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-white/50">
+                Planilla de Inscripcion (PDF)
+              </Label>
+              {campaignFile ? (
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+                  <FileText className="size-5 text-amber-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#e4e1ea] truncate">{campaignFile}</p>
+                    <p className="text-xs text-white/40">Planilla adjunta</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCampaignFile(null)}
+                    className="text-white/40 hover:text-white hover:bg-white/5 shrink-0"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCampaignFile("Planilla_Inscripcion_2027.pdf")}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border-2 border-dashed border-amber-500/20 text-amber-400/70 hover:border-amber-500/40 hover:text-amber-400 hover:bg-amber-500/[0.04] transition-all text-sm"
+                >
+                  <Paperclip className="size-4" />
+                  Adjuntar Planilla PDF
+                </button>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/5 bg-white/[0.01] shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => { setIsCampaignDialogOpen(false); setCampaignCourse(""); setCampaignFile(null); }}
+              className="border-white/10 text-white/70"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSendCampaign}
+              disabled={!campaignCourse || isSendingCampaign}
+              className="gap-2 bg-amber-500 hover:bg-amber-400 text-[#1b1b1f] font-bold disabled:opacity-40"
+            >
+              {isSendingCampaign ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  Enviar Campana
                 </>
               )}
             </Button>
