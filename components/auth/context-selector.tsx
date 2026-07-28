@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// ── Mapeos de roles y niveles ─────────────────────────────────────────────────
+// ── Mapeos de roles ───────────────────────────────────────────────────────────
 
 const ROLE_ICONS: Record<string, React.ElementType> = {
   ADMIN:     School,
@@ -36,59 +36,44 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   FAMILIA:   "Portal de seguimiento del alumno",
 }
 
-// ── Configuracion de nivel: badge y colores ───────────────────────────────────
+// ── Configuracion de nivel: colores por nivel educativo ──────────────────────
 
 type NivelKey = "INICIAL" | "PRIMARIO" | "SECUNDARIO" | "TERCIARIO"
 
 const NIVEL_CONFIG: Record<NivelKey, {
   label:      string
   badge:      string
-  dot:        string
   iconBg:     string
-  iconBorder: string
   hoverBorder:string
   hoverGlow:  string
-  hoverBg:    string
 }> = {
   SECUNDARIO: {
     label:       "Secundario",
     badge:       "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    dot:         "bg-emerald-400",
-    iconBg:      "bg-emerald-500/10",
-    iconBorder:  "border-emerald-500/20",
+    iconBg:      "bg-emerald-500/10 border-emerald-500/20",
     hoverBorder: "hover:border-emerald-500/40",
-    hoverGlow:   "hover:shadow-[0_0_30px_rgba(16,185,129,0.12)]",
-    hoverBg:     "hover:bg-emerald-500/[0.04]",
+    hoverGlow:   "hover:shadow-[0_0_28px_rgba(16,185,129,0.10)]",
   },
   PRIMARIO: {
     label:       "Primario",
     badge:       "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20",
-    dot:         "bg-cyan-400",
-    iconBg:      "bg-cyan-500/10",
-    iconBorder:  "border-cyan-500/20",
+    iconBg:      "bg-cyan-500/10 border-cyan-500/20",
     hoverBorder: "hover:border-cyan-500/40",
-    hoverGlow:   "hover:shadow-[0_0_30px_rgba(6,182,212,0.12)]",
-    hoverBg:     "hover:bg-cyan-500/[0.04]",
+    hoverGlow:   "hover:shadow-[0_0_28px_rgba(6,182,212,0.10)]",
   },
   INICIAL: {
     label:       "Inicial",
     badge:       "bg-pink-500/10 text-pink-400 border border-pink-500/20",
-    dot:         "bg-pink-400",
-    iconBg:      "bg-pink-500/10",
-    iconBorder:  "border-pink-500/20",
+    iconBg:      "bg-pink-500/10 border-pink-500/20",
     hoverBorder: "hover:border-pink-500/40",
-    hoverGlow:   "hover:shadow-[0_0_30px_rgba(236,72,153,0.12)]",
-    hoverBg:     "hover:bg-pink-500/[0.04]",
+    hoverGlow:   "hover:shadow-[0_0_28px_rgba(236,72,153,0.10)]",
   },
   TERCIARIO: {
     label:       "Terciario",
     badge:       "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-    dot:         "bg-amber-400",
-    iconBg:      "bg-amber-500/10",
-    iconBorder:  "border-amber-500/20",
+    iconBg:      "bg-amber-500/10 border-amber-500/20",
     hoverBorder: "hover:border-amber-500/40",
-    hoverGlow:   "hover:shadow-[0_0_30px_rgba(245,158,11,0.12)]",
-    hoverBg:     "hover:bg-amber-500/[0.04]",
+    hoverGlow:   "hover:shadow-[0_0_28px_rgba(245,158,11,0.10)]",
   },
 }
 
@@ -109,18 +94,16 @@ function ProfileCard({
       type="button"
       onClick={() => onSelect(ctx.id)}
       className={cn(
-        // Base glassmorphism
         "group relative w-full text-left rounded-3xl p-6",
-        "bg-white/[0.02] backdrop-blur-2xl border border-white/10",
-        // Hover state
+        "bg-white/[0.02] backdrop-blur-md border border-white/10",
         "transition-all duration-300",
-        nivel.hoverBg,
+        "hover:bg-white/[0.04]",
         nivel.hoverBorder,
         nivel.hoverGlow,
-        "hover:-translate-y-0.5",
+        "hover:-translate-y-0.5 cursor-pointer shadow-lg",
       )}
     >
-      {/* Badge de nivel — esquina superior derecha */}
+      {/* Badge nivel — esquina superior derecha */}
       <span className={cn(
         "absolute top-4 right-4 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full",
         nivel.badge,
@@ -130,27 +113,24 @@ function ProfileCard({
 
       {/* Icono del rol */}
       <div className={cn(
-        "size-12 rounded-2xl flex items-center justify-center mb-4",
-        "border transition-colors duration-300",
+        "size-11 rounded-2xl flex items-center justify-center mb-4 border",
         nivel.iconBg,
-        nivel.iconBorder,
-        `group-hover:${nivel.iconBg.replace("/10", "/20")}`,
       )}>
-        <RoleIcon className="size-5 text-white/70 group-hover:text-white/90 transition-colors" />
+        <RoleIcon className="size-5 text-white/60 group-hover:text-white/90 transition-colors" />
       </div>
 
       {/* Rol */}
-      <p className="text-[11px] font-bold uppercase tracking-widest text-white/35 mb-1">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1">
         {ROLE_LABELS[ctx.role] ?? ctx.role}
       </p>
 
       {/* Institución */}
-      <h3 className="text-base font-semibold text-[#e4e1ea] leading-snug mb-1 group-hover:text-white transition-colors">
+      <h3 className="text-base font-semibold text-[#e4e1ea] leading-snug mb-1 group-hover:text-white transition-colors pr-16">
         {ctx.schoolName}
       </h3>
 
       {/* Descripcion */}
-      <p className="text-sm text-white/40 leading-snug line-clamp-2">
+      <p className="text-sm text-white/40 leading-snug line-clamp-2 pr-4">
         {ctx.description ?? ROLE_DESCRIPTIONS[ctx.role]}
       </p>
 
@@ -169,120 +149,94 @@ export function ContextSelector() {
 
   if (!user) return null
 
-  const handleSelect = (id: string) => switchContext(id)
-
-  // Iniciales del avatar
   const initials = user.name
     .split(" ")
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join("")
     .slice(0, 2)
     .toUpperCase()
 
   return (
     /*
-     * ROOT: min-h-[100dvh] + overflow-y-auto
-     * ─ Sin h-screen, sin max-h-screen, sin overflow-hidden, sin items-center.
-     * ─ Los fondos son `fixed` → no se mueven con el scroll bajo ninguna circunstancia.
+     * DOCUMENT FLOW NATURAL:
+     * ─ Sin overflow-y-auto interno (el AppShell main ya lo provee).
+     * ─ Sin fixed, sin absolute, sin h-screen, sin items-center.
+     * ─ El gradiente radial va directo en el className con bg-[radial-gradient...].
+     * ─ pb-24 garantiza que la ultima tarjeta nunca toque el borde inferior.
      */
-    <div className="relative min-h-[100dvh] w-full bg-[#050508] overflow-y-auto overflow-x-hidden">
+    <div className="min-h-screen w-full bg-[#050508] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#8A2BE2]/15 via-[#050508] to-[#050508] text-[#E4E1EA] flex justify-center p-4 sm:p-8">
 
-      {/* FONDO 1: gradiente radial superior púrpura */}
-      <div
-        aria-hidden="true"
-        className="fixed inset-0 z-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 45% at 50% 0%, rgba(138,43,226,0.22) 0%, transparent 70%)",
-        }}
-      />
-
-      {/* FONDO 2: halo difuso inferior derecho */}
-      <div
-        aria-hidden="true"
-        className="fixed bottom-0 right-0 w-[700px] h-[700px] z-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(circle at center, rgba(208,188,255,0.06) 0%, transparent 65%)",
-          filter: "blur(60px)",
-        }}
-      />
-
-      {/*
-       * CONTENEDOR CENTRAL
-       * ─ max-w-4xl centrado, pb-32 garantiza que la última tarjeta
-       *   nunca toque el borde del viewport.
-       */}
-      <main className="relative z-10 w-full max-w-4xl mx-auto pt-20 pb-32 px-4 md:px-8 flex flex-col">
+      {/* Contenedor central que respira y crece hacia abajo */}
+      <div className="w-full max-w-4xl pt-12 pb-24 space-y-12">
 
         {/* ── CABECERA ──────────────────────────────────────────────────── */}
-        <div className="text-center space-y-4 mb-12 mt-8">
+        <div className="flex flex-col items-center text-center space-y-4">
+
           {/* Logo SQ */}
-          <div className="mx-auto size-16 rounded-2xl flex items-center justify-center relative">
-            <div className="absolute inset-0 rounded-2xl bg-[#d0bcff]/15 blur-lg" />
-            <div className="relative size-full rounded-2xl border border-[#d0bcff]/25 bg-gradient-to-br from-[#d0bcff]/15 via-black/50 to-[#d0bcff]/8 flex items-center justify-center backdrop-blur-sm">
-              <span className="text-2xl font-bold bg-gradient-to-b from-[#e4e1ea] to-[#b89bf2] bg-clip-text text-transparent select-none">
-                SQ
-              </span>
-            </div>
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(138,43,226,0.15)]">
+            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#D0BCFF] to-[#8A2BE2]">
+              SQ
+            </span>
           </div>
 
           {/* Badge Sequency */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#8A2BE2]/10 border border-[#8A2BE2]/20">
-            <Sparkles className="size-3 text-[#d0bcff]" />
-            <span className="text-[11px] font-semibold text-[#d0bcff] tracking-wide">
+            <Sparkles className="size-3 text-[#D0BCFF]" />
+            <span className="text-[11px] font-semibold text-[#D0BCFF] tracking-wide">
               Sequency — Hub Academico
             </span>
           </div>
 
           {/* Avatar + Saludo */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="size-12 rounded-full flex items-center justify-center bg-gradient-to-br from-[#8A2BE2]/40 to-[#d0bcff]/20 border border-[#d0bcff]/20 text-sm font-bold text-[#e4e1ea]">
-              {initials}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-[#e4e1ea] tracking-tight">
-                Hola,{" "}
-                <span className="bg-gradient-to-r from-[#d0bcff] to-[#b89bf2] bg-clip-text text-transparent">
-                  {user.name.split(" ")[0]}
-                </span>
-              </h1>
-              <p className="text-sm text-white/40 mt-1">
-                Selecciona el perfil con el que queres ingresar hoy
-              </p>
-            </div>
+          <div className="size-12 rounded-full flex items-center justify-center bg-gradient-to-br from-[#8A2BE2]/40 to-[#D0BCFF]/20 border border-[#D0BCFF]/20 text-sm font-bold text-[#e4e1ea]">
+            {initials}
           </div>
 
-          {/* Email */}
-          <p className="text-[11px] text-white/25">
-            {user.email}
-          </p>
+          <div>
+            <h1 className="text-3xl font-bold text-white">
+              Hola,{" "}
+              <span className="bg-gradient-to-r from-[#D0BCFF] to-[#b89bf2] bg-clip-text text-transparent">
+                {user.name.split(" ")[0]}
+              </span>
+            </h1>
+            <p className="text-white/50 mt-2">
+              Como vas a ingresar hoy?
+            </p>
+          </div>
+
+          <p className="text-[11px] text-white/25">{user.email}</p>
         </div>
 
         {/* ── GRILLA DE TARJETAS ─────────────────────────────────────────── */}
         {/*
-         * grid sin restriccion de altura — crece hacia abajo libremente.
-         * El scroll del documento (min-h-[100dvh] overflow-y-auto) es el árbitro.
+         * Sin max-h ni overflow — crece libremente.
+         * El scroll lo maneja el main del AppShell (overflow-y-auto).
          */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {availableContexts.map((ctx) => (
-            <ProfileCard key={ctx.id} ctx={ctx} onSelect={handleSelect} />
+            <ProfileCard key={ctx.id} ctx={ctx} onSelect={switchContext} />
           ))}
         </div>
 
         {/* ── FOOTER / LOGOUT ────────────────────────────────────────────── */}
-        <div className="mt-12 flex justify-center">
-          <button
-            type="button"
-            onClick={logout}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm text-white/30 hover:text-red-400 hover:bg-red-500/[0.07] transition-all duration-200"
-          >
-            <LogOut className="size-4" />
-            Cerrar sesion y cambiar cuenta
-          </button>
+        <div className="flex justify-center mt-12">
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-xs text-white/20">
+              Ingresando como{" "}
+              <span className="text-white/40 font-medium">{user.email}</span>
+            </p>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm text-white/30 hover:text-red-400 hover:bg-red-500/[0.07] transition-all duration-200"
+            >
+              <LogOut className="size-4" />
+              Cerrar sesion y cambiar cuenta
+            </button>
+          </div>
         </div>
 
-      </main>
+      </div>
     </div>
   )
 }
