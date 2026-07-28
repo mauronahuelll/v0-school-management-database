@@ -164,47 +164,53 @@ export function ContextSelector() {
      * ─ El gradiente radial va directo en el className con bg-[radial-gradient...].
      * ─ pb-24 garantiza que la ultima tarjeta nunca toque el borde inferior.
      */
-    <div className="min-h-screen w-full bg-[#050508] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#8A2BE2]/15 via-[#050508] to-[#050508] text-[#E4E1EA] flex justify-center p-4 sm:p-8">
+    {/*
+     * NODO RAÍZ: sin min-h-screen — el main del AppShell ya tiene min-h-[100dvh]
+     * y es quien maneja el scroll. Poner otro min-h-screen aquí crea un segundo
+     * scroll container que bloquea el scroll nativo.
+     */}
+    <div className="w-full bg-[#050508] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#8A2BE2]/15 via-[#050508] to-[#050508] text-[#E4E1EA] flex justify-center p-4 sm:p-8">
 
-      {/* Contenedor central que respira y crece hacia abajo */}
-      <div className="w-full max-w-4xl pt-12 pb-24 space-y-12">
+      {/* Contenedor central que crece hacia abajo con el contenido */}
+      <div className="w-full max-w-4xl pt-8 pb-24 space-y-8">
 
-        {/* ── CABECERA ──────────────────────────────────────────────────── */}
-        <div className="flex flex-col items-center text-center space-y-4">
+        {/* ── CABECERA COMPACTA ─────────────────────────────────────────── */}
+        <div className="flex flex-col items-center text-center space-y-3">
 
-          {/* Logo SQ */}
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(138,43,226,0.15)]">
-            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#D0BCFF] to-[#8A2BE2]">
-              SQ
-            </span>
-          </div>
-
-          {/* Badge Sequency */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#8A2BE2]/10 border border-[#8A2BE2]/20">
-            <Sparkles className="size-3 text-[#D0BCFF]" />
-            <span className="text-[11px] font-semibold text-[#D0BCFF] tracking-wide">
-              Sequency — Hub Academico
-            </span>
-          </div>
-
-          {/* Avatar + Saludo */}
-          <div className="size-12 rounded-full flex items-center justify-center bg-gradient-to-br from-[#8A2BE2]/40 to-[#D0BCFF]/20 border border-[#D0BCFF]/20 text-sm font-bold text-[#e4e1ea]">
-            {initials}
-          </div>
-
-          <div>
-            <h1 className="text-3xl font-bold text-white">
-              Hola,{" "}
-              <span className="bg-gradient-to-r from-[#D0BCFF] to-[#b89bf2] bg-clip-text text-transparent">
-                {user.name.split(" ")[0]}
+          {/* Logo + Badge en una sola fila */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/10 flex items-center justify-center shadow-[0_0_20px_rgba(138,43,226,0.15)]">
+              <span className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#D0BCFF] to-[#8A2BE2]">
+                SQ
               </span>
-            </h1>
-            <p className="text-white/50 mt-2">
-              Como vas a ingresar hoy?
-            </p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#8A2BE2]/10 border border-[#8A2BE2]/20">
+              <Sparkles className="size-3 text-[#D0BCFF]" />
+              <span className="text-[11px] font-semibold text-[#D0BCFF] tracking-wide">
+                Sequency — Hub Academico
+              </span>
+            </div>
           </div>
 
-          <p className="text-[11px] text-white/25">{user.email}</p>
+          {/* Avatar + nombre + subtítulo en fila compacta */}
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-full flex items-center justify-center bg-gradient-to-br from-[#8A2BE2]/40 to-[#D0BCFF]/20 border border-[#D0BCFF]/20 text-xs font-bold text-[#e4e1ea] shrink-0">
+              {initials}
+            </div>
+            <div className="text-left">
+              <h1 className="text-xl font-bold text-white leading-tight">
+                Hola,{" "}
+                <span className="bg-gradient-to-r from-[#D0BCFF] to-[#b89bf2] bg-clip-text text-transparent">
+                  {user.name.split(" ")[0]}
+                </span>
+              </h1>
+              <p className="text-xs text-white/40 leading-tight">
+                {user.email}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-sm text-white/50">Como vas a ingresar hoy?</p>
         </div>
 
         {/* ── GRILLA DE TARJETAS ─────────────────────────────────────────── */}
@@ -219,7 +225,7 @@ export function ContextSelector() {
         </div>
 
         {/* ── FOOTER / LOGOUT ────────────────────────────────────────────── */}
-        <div className="flex justify-center mt-12">
+        <div className="flex justify-center mt-6">
           <div className="flex flex-col items-center gap-3">
             <p className="text-xs text-white/20">
               Ingresando como{" "}
