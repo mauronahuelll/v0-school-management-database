@@ -373,16 +373,15 @@ export function GlobalNav({ className }: GlobalNavProps) {
             href={item.href}
             className={cn(
               "relative flex items-center gap-3 px-3 py-2.5 rounded-xl",
-              "text-sm transition-all duration-200",
-              "hover:bg-white/5",
+              "text-sm transition-all duration-300",
               "active:scale-[0.98]",
               isActive
-                ? "text-primary bg-primary/15 font-medium border border-primary/20"
-                : "text-muted-foreground hover:text-foreground border border-transparent"
+                ? "bg-white/10 text-[#D0BCFF] font-semibold border-r-2 border-[#8A2BE2] border-t border-t-transparent border-b border-b-transparent border-l border-l-transparent"
+                : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"
             )}
           >
             {isActive && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-full" />
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#8A2BE2] rounded-r-full shadow-[0_0_8px_rgba(138,43,226,0.7)]" />
             )}
             <Icon className="size-[18px] shrink-0" />
             <span className="truncate">{item.label}</span>

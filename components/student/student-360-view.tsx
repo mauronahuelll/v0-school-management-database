@@ -91,21 +91,21 @@ export function Student360View({
         {/* ── Tabs estandarizadas ── */}
         {/* Orden definitivo: Resumen · Calificaciones · Asistencia · Comportamiento · Red Familiar · Datos Complementarios/Médicos */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full justify-start bg-white/[0.02] border border-white/5 rounded-xl p-1 gap-1 flex-wrap h-auto">
+          <TabsList className="w-full justify-start bg-black/40 border border-white/10 rounded-xl p-1 gap-1 flex-wrap h-auto">
 
             {/* 1 — Resumen */}
             <TabsTrigger
               value="resumen"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+              className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#D0BCFF] data-[state=active]:shadow-[0_0_15px_rgba(138,43,226,0.2)]"
             >
               <User className="h-4 w-4 mr-2" />
               Resumen
             </TabsTrigger>
 
-            {/* 2 — Calificaciones (Trayectoria académica) */}
+            {/* 2 — Calificaciones */}
             <TabsTrigger
               value="calificaciones"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+              className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#D0BCFF] data-[state=active]:shadow-[0_0_15px_rgba(138,43,226,0.2)]"
             >
               <BarChart2 className="h-4 w-4 mr-2" />
               Calificaciones
@@ -122,7 +122,7 @@ export function Student360View({
             {/* 3 — Asistencia */}
             <TabsTrigger
               value="asistencia"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+              className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#D0BCFF] data-[state=active]:shadow-[0_0_15px_rgba(138,43,226,0.2)]"
             >
               <CalendarCheck className="h-4 w-4 mr-2" />
               Asistencia
@@ -131,7 +131,7 @@ export function Student360View({
             {/* 4 — Comportamiento */}
             <TabsTrigger
               value="comportamiento"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+              className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#D0BCFF] data-[state=active]:shadow-[0_0_15px_rgba(138,43,226,0.2)]"
             >
               <ShieldCheck className="h-4 w-4 mr-2" />
               Comportamiento
@@ -140,7 +140,7 @@ export function Student360View({
             {/* 5 — Red Familiar */}
             <TabsTrigger
               value="red-familiar"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+              className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#D0BCFF] data-[state=active]:shadow-[0_0_15px_rgba(138,43,226,0.2)]"
             >
               <Users className="h-4 w-4 mr-2" />
               Red Familiar
@@ -152,7 +152,7 @@ export function Student360View({
             {/* 6 — Datos Complementarios / Médicos */}
             <TabsTrigger
               value="datos-complementarios"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-lg"
+              className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#D0BCFF] data-[state=active]:shadow-[0_0_15px_rgba(138,43,226,0.2)]"
             >
               <ClipboardList className="h-4 w-4 mr-2" />
               Datos Complementarios
@@ -185,10 +185,10 @@ export function Student360View({
 
           {/* ── Tab 3: Asistencia ── */}
           <TabsContent value="asistencia" className="mt-6">
-            <div className="p-6 rounded-xl bg-white/[0.02] border border-white/5 space-y-4">
+            <div className="p-6 rounded-xl bg-white/[0.02] backdrop-blur-xl border border-white/10 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <CalendarCheck className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-[#E4E1EA] flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-[#8A2BE2]" />
                   Registro de Asistencia
                 </h3>
                 {/* Botón de nueva sanción — solo personal administrativo */}
@@ -210,10 +210,10 @@ export function Student360View({
 
           {/* ── Tab 4: Comportamiento ── */}
           <TabsContent value="comportamiento" className="mt-6">
-            <div className="p-6 rounded-xl bg-white/[0.02] border border-white/5 space-y-4">
+            <div className="p-6 rounded-xl bg-white/[0.02] backdrop-blur-xl border border-white/10 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-[#E4E1EA] flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-[#8A2BE2]" />
                   Registro de Comportamiento
                 </h3>
                 {/* Botón "+ Nueva Sanción" — solo personal NO familia */}

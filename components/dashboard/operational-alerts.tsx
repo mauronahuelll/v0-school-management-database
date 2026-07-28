@@ -137,12 +137,12 @@ export function OperationalAlerts({ role, className }: OperationalAlertsProps) {
       transition={{ duration: 0.3 }}
       className={cn(
         "h-fit rounded-2xl overflow-hidden",
-        "bg-white/[0.02] border border-white/5 backdrop-blur-md",
+        "bg-white/[0.02] border border-white/10 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.4)]",
         className
       )}
     >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-white/5">
+      <div className="px-5 py-4 border-b border-white/10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
@@ -167,8 +167,8 @@ export function OperationalAlerts({ role, className }: OperationalAlertsProps) {
                 key={category.id}
                 value={category.id}
                 className={cn(
-                  "border-l-[3px] rounded-xl overflow-hidden",
-                  "bg-white/[0.01] border border-white/5",
+                  "border-l-[3px] rounded-xl overflow-hidden transition-all duration-200",
+                  "bg-white/[0.02] border border-white/10 hover:border-white/15",
                   category.borderColor
                 )}
               >

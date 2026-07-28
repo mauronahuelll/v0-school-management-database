@@ -239,8 +239,10 @@ export const GradeCell = memo(function GradeCell({
             >
               <SelectTrigger
                 className={cn(
-                  "w-20 h-10 text-center font-bold text-sm transition-all duration-200",
-                  "bg-white/[0.02] border-white/10 hover:border-white/20",
+                  "w-20 h-10 text-center font-bold text-sm transition-all duration-200 rounded-lg",
+                  "bg-black/40 border-white/10 text-white/60",
+                  "focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/50",
+                  "hover:border-white/20",
                   conceptualInfo && `${conceptualInfo.bg} ${conceptualInfo.color} border-current/30`,
                   disabled && "opacity-50 cursor-not-allowed"
                 )}
@@ -279,15 +281,15 @@ export const GradeCell = memo(function GradeCell({
               placeholder="-"
               className={cn(
                 "w-16 h-10 text-center font-bold text-base transition-all duration-200",
-                "bg-white/[0.02] border-white/10",
-                "focus:ring-2 focus:ring-[#d0bcff]/30 focus:border-[#d0bcff]",
-                // Color based on passing status (>= 7 green, < 7 red)
+                "bg-black/40 border-white/10 text-white",
+                "focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/50 rounded-lg",
+                // Color basado en aprobado/desaprobado
                 numericValue !== null && passing !== null && (
                   passing
-                    ? "bg-[#4de082]/10 border-[#4de082]/30 text-[#4de082]"
-                    : "bg-[#ffb4ab]/10 border-[#ffb4ab]/30 text-[#ffb4ab]"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    : "bg-red-500/10 border-red-500/20 text-red-400"
                 ),
-                error && "border-[#ffb4ab] bg-[#ffb4ab]/10",
+                error && "border-red-500/50 bg-red-500/10",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
             />

@@ -358,16 +358,16 @@ export default function StudentPage({ params }: PageProps) {
     <div className="space-y-6">
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Legajo 360 del Alumno</h1>
-          <p className="text-sm text-muted-foreground">Historial unificado de calificaciones, salud y convivencia.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#E4E1EA]">Legajo 360 del Alumno</h1>
+          <p className="text-sm text-white/50">Historial unificado de calificaciones, salud y convivencia.</p>
         </div>
-        <div className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">ID Sistema</p>
-          <p className="text-xs font-mono text-primary font-bold">{id}</p>
+        <div className="px-3 py-1.5 bg-[#8A2BE2]/10 border border-[#8A2BE2]/20 rounded-xl">
+          <p className="text-[10px] text-white/40 uppercase tracking-widest">ID Sistema</p>
+          <p className="text-xs font-mono text-[#D0BCFF] font-bold">{id}</p>
         </div>
       </header>
 
-      <main className="bg-card/30 rounded-2xl">
+      <main className="rounded-2xl">
         <Student360View
           data={studentData}
           backUrl="/attendance"

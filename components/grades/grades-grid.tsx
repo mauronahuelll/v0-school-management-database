@@ -368,7 +368,7 @@ export function GradesGrid({
 
         {/* Grades Table */}
         <div className={cn(
-          "bg-card rounded-xl border border-border overflow-hidden shadow-sm transition-theme relative",
+          "bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative",
           isPeriodLocked && "opacity-60 pointer-events-none"
         )}>
           {/* Period Locked Overlay */}
@@ -385,48 +385,48 @@ export function GradesGrid({
           )}
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-[#0A0A0F]/80 backdrop-blur-xl border-b border-white/10">
                   {/* Student Name Column */}
-                  <th className="sticky left-0 z-20 bg-muted/30 backdrop-blur-sm">
+                  <th className="sticky left-0 z-30 bg-[#0A0A0F]/90 backdrop-blur-xl border-r border-white/[0.05]">
                     <button
                       onClick={() => toggleSort("name")}
-                      className="flex items-center gap-2 px-4 py-4 text-left text-sm font-semibold text-foreground hover:text-primary transition-colors w-full"
+                      className="flex items-center gap-2 px-4 py-4 text-left text-xs font-bold text-white/50 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
                     >
                       Alumno
                       {sortField === "name" &&
                         (sortDirection === "asc" ? (
-                          <SortAsc className="size-4" />
+                          <SortAsc className="size-3.5" />
                         ) : (
-                          <SortDesc className="size-4" />
+                          <SortDesc className="size-3.5" />
                         ))}
                     </button>
                   </th>
 
-                  {/* Assessment Columns - Clean headers without weight indicators */}
+                  {/* Assessment Columns */}
                   {assessments.map((assessment) => (
                     <th
                       key={assessment.id}
-                      className="px-4 py-5 text-center min-w-[100px]"
+                      className="px-4 py-4 text-center min-w-[100px] border-l border-white/[0.05]"
                     >
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="space-y-1.5">
-                              <p className="text-sm font-semibold text-foreground truncate max-w-[120px]">
+                              <p className="text-xs font-bold text-white/50 uppercase tracking-wider truncate max-w-[120px]">
                                 {assessment.name}
                               </p>
                               <Badge
                                 variant="outline"
-                                className="text-[10px] px-2 py-0.5 font-medium"
+                                className="text-[10px] px-2 py-0.5 font-medium border-white/10 text-white/40 bg-transparent"
                               >
                                 {ASSESSMENT_TYPE_LABELS[assessment.type]}
                               </Badge>
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="font-medium">{assessment.name}</p>
-                            <p className="text-xs text-muted-foreground">
+                          <TooltipContent className="bg-[#131319] border-white/10">
+                            <p className="font-medium text-white/90">{assessment.name}</p>
+                            <p className="text-xs text-white/50">
                               {ASSESSMENT_TYPE_LABELS[assessment.type]} | Nota maxima: {assessment.maxValue}
                             </p>
                           </TooltipContent>
@@ -436,24 +436,24 @@ export function GradesGrid({
                   ))}
 
                   {/* Average Column */}
-                  <th className="px-4 py-4 text-center min-w-[100px] bg-accent/30">
+                  <th className="px-4 py-4 text-center min-w-[100px] border-l border-white/[0.05] bg-[#8A2BE2]/[0.06]">
                     <button
                       onClick={() => toggleSort("average")}
-                      className="flex items-center justify-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors w-full"
+                      className="flex items-center justify-center gap-2 text-xs font-bold text-white/50 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
                     >
                       Promedio
                       {sortField === "average" &&
                         (sortDirection === "asc" ? (
-                          <SortAsc className="size-4" />
+                          <SortAsc className="size-3.5" />
                         ) : (
-                          <SortDesc className="size-4" />
+                          <SortDesc className="size-3.5" />
                         ))}
                     </button>
                   </th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-border/30">
+              <tbody className="divide-y divide-white/[0.04]">
                 {filteredStudents.map((student, index) => (
                   <StudentRow
                     key={student.studentId}
@@ -529,15 +529,13 @@ function StudentRow({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.02 }}
       className={cn(
-        "group transition-all duration-200",
-        // Hover state with subtle highlight for "focus mode"
-        "hover:bg-accent/40 hover:shadow-[inset_0_0_0_1px_rgba(var(--primary)/0.1)]",
-        // Incomplete indicator
-        !student.isComplete && "bg-status-tardy-soft/10"
+        "group transition-colors duration-200",
+        "hover:bg-white/[0.04]",
+        !student.isComplete && "bg-amber-500/[0.03]"
       )}
     >
       {/* Student Info - Increased padding for breathing room */}
-      <td className="sticky left-0 z-10 bg-card group-hover:bg-accent/40 backdrop-blur-sm transition-all">
+      <td className="sticky left-0 z-10 bg-[#0d0d14] group-hover:bg-[#0d0d14] backdrop-blur-xl transition-all border-r border-white/[0.05]">
         <div className="flex items-center gap-4 px-5 py-5">
           <Avatar className="size-11 ring-2 ring-border/40 shadow-sm">
             <AvatarImage src={student.photoUrl} alt={student.firstName} />
@@ -563,7 +561,7 @@ function StudentRow({
       {assessments.map((assessment) => {
         const grade = student.grades[assessment.id] || null;
         return (
-          <td key={assessment.id} className="px-4 py-5 text-center">
+          <td key={assessment.id} className="px-4 py-5 text-center border-l border-white/[0.05]">
             <GradeCell
               grade={grade}
               assessmentId={assessment.id}
@@ -578,16 +576,16 @@ function StudentRow({
         );
       })}
 
-      {/* Average - Slightly larger display */}
-      <td className="px-5 py-5 text-center bg-accent/15">
+      {/* Average */}
+      <td className="px-5 py-5 text-center border-l border-white/[0.05] bg-[#8A2BE2]/[0.04]">
         <div
           className={cn(
             "inline-flex items-center justify-center size-14 rounded-2xl font-bold text-xl transition-all shadow-sm",
             student.average !== null
               ? passing
-                ? "bg-status-present text-status-present-foreground"
-                : "bg-status-absent text-status-absent-foreground"
-              : "bg-muted text-muted-foreground"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-emerald-500/10"
+                : "bg-red-500/10 text-red-400 border border-red-500/20 shadow-red-500/10"
+              : "bg-white/[0.04] text-white/30 border border-white/[0.06]"
           )}
         >
           {student.average !== null

@@ -69,7 +69,7 @@ export function ContextSelector() {
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">Sequency v4.2</span>
+            <span className="text-xs font-medium text-primary">Bienvenido a Sequency</span>
           </div>
           
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">

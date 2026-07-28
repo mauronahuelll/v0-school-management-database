@@ -533,8 +533,8 @@ function CriticalMetricCard({
         type="button"
         onClick={onClick}
         className={cn(
-          "group w-full text-left p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3",
-          "transition-all duration-200 hover:bg-white/[0.04] hover:-translate-y-0.5",
+          "group w-full text-left p-5 rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/10 space-y-3",
+          "transition-all duration-300 hover:bg-white/[0.04] hover:-translate-y-0.5 shadow-[0_8px_30px_rgb(0,0,0,0.3)]",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d0bcff]/40",
           hoverBorder[metric.status]
         )}
@@ -545,7 +545,7 @@ function CriticalMetricCard({
   }
 
   return (
-    <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+    <div className="p-5 rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/10 space-y-3 shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
       {content}
     </div>
   );
@@ -560,7 +560,7 @@ function ActionItemCard({ item }: { item: ActionItem }) {
   const config = typeConfig[item.type];
 
   return (
-    <div className="group p-4 rounded-xl bg-white/[0.015] border border-white/5 hover:border-white/10 hover:bg-white/[0.025] transition-all">
+    <div className="group p-4 rounded-xl bg-white/[0.02] border border-white/10 hover:border-[#8A2BE2]/25 hover:bg-white/[0.03] hover:shadow-[0_0_20px_rgba(138,43,226,0.08)] transition-all duration-300">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 flex-1">
           <div className={cn("size-2 rounded-full mt-2 shrink-0", config.dot)} />
@@ -672,7 +672,7 @@ function QuickActionCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div
-          className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] transition-colors group-hover:bg-white/[0.06]"
+          className="p-2.5 rounded-xl bg-[#8A2BE2]/15 border border-[#8A2BE2]/25 transition-colors group-hover:bg-[#8A2BE2]/25 group-hover:border-[#8A2BE2]/40"
           style={{ color: "var(--qa-color)" }}
         >
           <Icon className="size-5" />
@@ -853,7 +853,7 @@ export default function DashboardPage() {
               </SheetTrigger>
               <SheetContent 
                 side="right" 
-                className="w-[380px] sm:w-[420px] bg-[#131319] border-white/10 p-0 overflow-hidden"
+                className="w-[380px] sm:w-[420px] bg-[#0A0A0F]/95 backdrop-blur-2xl border-white/10 p-0 overflow-hidden"
               >
                 <SheetHeader className="px-6 py-4 border-b border-white/5">
                   <SheetTitle className="text-[#e4e1ea] flex items-center gap-2">
@@ -1409,7 +1409,7 @@ export default function DashboardPage() {
       <Sheet open={drillDownOpen} onOpenChange={setDrillDownOpen}>
         <SheetContent
           side="right"
-          className="w-[400px] sm:w-[480px] bg-[#131319] border-white/10 p-0 overflow-hidden flex flex-col"
+          className="w-[400px] sm:w-[480px] bg-[#0A0A0F]/95 backdrop-blur-2xl border-white/10 p-0 overflow-hidden flex flex-col"
         >
           {drillDownData && (
             <>

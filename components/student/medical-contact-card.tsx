@@ -41,22 +41,22 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6 }}
-      className="rounded-2xl bg-card border border-border/50 shadow-sm overflow-hidden"
+      className="rounded-2xl bg-white/[0.02] backdrop-blur-2xl border border-white/10 shadow-xl overflow-hidden hover:border-[#8A2BE2]/25 transition-all duration-300"
     >
       {/* Collapsible Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-5 text-left hover:bg-accent/30 transition-colors"
+        className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.03] transition-all duration-200"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-primary/10">
-            <Heart className="size-5 text-primary" />
+          <div className="p-2 rounded-xl bg-[#8A2BE2]/20 border border-[#8A2BE2]/30">
+            <Heart className="size-5 text-[#D0BCFF]" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-foreground">
+            <h3 className="text-base font-semibold text-[#E4E1EA]">
               Ficha Medica y Contactos
             </h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-white/50">
               {tutors.length} contacto{tutors.length !== 1 ? "s" : ""} de emergencia
               {hasAllergies && " - Tiene alergias"}
             </p>
@@ -65,7 +65,7 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
         
         <ChevronDown 
           className={cn(
-            "size-5 text-muted-foreground transition-transform duration-200",
+            "size-5 text-white/40 transition-transform duration-200",
             isExpanded && "rotate-180"
           )} 
         />
@@ -81,23 +81,23 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-5 pb-5 space-y-6 border-t border-border/50 pt-5">
+            <div className="px-5 pb-5 space-y-6 border-t border-white/10 pt-5">
               {/* Medical Info */}
               {hasMedicalInfo && (
                 <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Shield className="size-4 text-muted-foreground" />
+                  <h4 className="text-sm font-semibold text-[#E4E1EA] flex items-center gap-2">
+                    <Shield className="size-4 text-[#D0BCFF]/60" />
                     Informacion Medica
                   </h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Blood Type */}
                     {medical.bloodType && (
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-accent/30 border border-border/30">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/10">
                         <Droplets className="size-5 text-status-absent" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Grupo Sanguineo</p>
-                          <p className="text-sm font-semibold text-foreground">
+                          <p className="text-xs text-white/40">Grupo Sanguineo</p>
+                          <p className="text-sm font-semibold text-[#E4E1EA]">
                             {medical.bloodType}
                           </p>
                         </div>
@@ -106,14 +106,14 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
 
                     {/* Health Insurance */}
                     {medical.healthInsurance && (
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-accent/30 border border-border/30">
-                        <Shield className="size-5 text-primary" />
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                        <Shield className="size-5 text-[#D0BCFF]" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Obra Social</p>
-                          <p className="text-sm font-semibold text-foreground">
+                          <p className="text-xs text-white/40">Obra Social</p>
+                          <p className="text-sm font-semibold text-[#E4E1EA]">
                             {medical.healthInsurance.provider}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-white/40">
                             N° {medical.healthInsurance.memberId}
                           </p>
                         </div>
@@ -135,7 +135,7 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
                           <Badge 
                             key={i}
                             variant="outline"
-                            className="bg-white/50 dark:bg-black/20 border-status-absent/30"
+                            className="bg-red-500/10 text-red-300 border-red-500/30"
                           >
                             {allergy}
                           </Badge>
@@ -158,7 +158,7 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
                           <Badge 
                             key={i}
                             variant="outline"
-                            className="bg-white/50 dark:bg-black/20 border-status-tardy/30"
+                            className="bg-status-tardy/10 text-status-tardy-foreground border-status-tardy/30"
                           >
                             {condition}
                           </Badge>
@@ -172,7 +172,7 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
                     <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
                       <div className="flex items-center gap-2 mb-2">
                         <Pill className="size-4 text-primary" />
-                        <span className="text-sm font-semibold text-foreground">
+                        <span className="text-sm font-semibold text-[#E4E1EA]">
                           Medicacion
                         </span>
                       </div>
@@ -181,7 +181,7 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
                           <Badge 
                             key={i}
                             variant="outline"
-                            className="bg-white/50 dark:bg-black/20 border-primary/30"
+                            className="bg-[#8A2BE2]/10 text-[#D0BCFF] border-[#8A2BE2]/30"
                           >
                             {med}
                           </Badge>
@@ -192,11 +192,11 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
 
                   {/* Emergency Notes */}
                   {medical.emergencyNotes && (
-                    <div className="p-4 rounded-xl bg-muted/50 border border-border/50">
-                      <p className="text-xs text-muted-foreground mb-1">
+                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
+                      <p className="text-xs text-white/40 mb-1">
                         Notas de Emergencia
                       </p>
-                      <p className="text-sm text-foreground">
+                      <p className="text-sm text-[#E4E1EA]">
                         {medical.emergencyNotes}
                       </p>
                     </div>
@@ -206,8 +206,8 @@ export function MedicalContactCard({ medical, tutors }: MedicalContactCardProps)
 
               {/* Emergency Contacts */}
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Phone className="size-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold text-[#E4E1EA] flex items-center gap-2">
+                  <Phone className="size-4 text-[#D0BCFF]/60" />
                   Contactos de Emergencia
                 </h4>
 
@@ -240,32 +240,32 @@ function TutorCard({ tutor, isPrimary }: TutorCardProps) {
   return (
     <div 
       className={cn(
-        "p-4 rounded-xl border transition-colors",
+        "p-4 rounded-xl border transition-all duration-200",
         isPrimary 
-          ? "bg-primary/5 border-primary/20" 
-          : "bg-accent/30 border-border/30"
+          ? "bg-[#8A2BE2]/10 border-[#8A2BE2]/25 hover:border-[#8A2BE2]/40" 
+          : "bg-white/[0.02] border-white/10 hover:border-white/20"
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div 
+            <div 
             className={cn(
               "p-2 rounded-full",
-              isPrimary ? "bg-primary/10" : "bg-muted"
+              isPrimary ? "bg-[#8A2BE2]/20 border border-[#8A2BE2]/30" : "bg-white/[0.05] border border-white/10"
             )}
           >
-            <User className={cn("size-4", isPrimary ? "text-primary" : "text-muted-foreground")} />
+            <User className={cn("size-4", isPrimary ? "text-[#D0BCFF]" : "text-white/50")} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-sm font-semibold text-[#E4E1EA]">
                 {tutor.name}
               </p>
               {tutor.isVerified && (
                 <CheckCircle2 className="size-3.5 text-status-present" />
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-white/40">
               {getRelationshipLabel(tutor.relationship)}
               {isPrimary && " - Contacto Principal"}
             </p>
@@ -298,7 +298,7 @@ function TutorCard({ tutor, isPrimary }: TutorCardProps) {
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
+      <div className="mt-3 flex items-center gap-4 text-sm text-white/40">
         <span className="flex items-center gap-1.5">
           <Phone className="size-3.5" />
           {tutor.phone}

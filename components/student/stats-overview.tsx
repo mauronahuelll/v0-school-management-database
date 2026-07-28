@@ -40,14 +40,14 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="relative overflow-hidden hero-card p-8"
+          className="relative overflow-hidden bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-xl p-8 hover:border-[#8A2BE2]/30 transition-all duration-300"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#8A2BE2]/5 to-transparent pointer-events-none" />
           
           <div className="relative">
             <div className="flex items-start justify-between mb-4">
-              <div className="p-2.5 rounded-xl bg-primary/10">
-                <BookOpen className="size-5 text-primary" />
+              <div className="p-2.5 rounded-xl bg-[#8A2BE2]/20 border border-[#8A2BE2]/30">
+                <BookOpen className="size-5 text-[#D0BCFF]" />
               </div>
               {stats.grades.generalAverage !== null && (
                 <Badge 
@@ -56,7 +56,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
               )}
             </div>
 
-            <p className="text-sm text-muted-foreground mb-2">Promedio General</p>
+            <p className="text-sm text-white/50 mb-2">Promedio General</p>
             
             <div className="flex items-baseline gap-2">
               <span 
@@ -66,7 +66,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
                     ? stats.grades.generalAverage >= minPassingGrade
                       ? "text-status-present"
                       : "text-status-absent"
-                    : "text-muted-foreground"
+                    : "text-white/40"
                 )}
               >
                 {stats.grades.generalAverage !== null 
@@ -74,10 +74,10 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
                   : "—"
                 }
               </span>
-              <span className="text-lg text-muted-foreground">/10</span>
+              <span className="text-lg text-white/40">/10</span>
             </div>
 
-            <p className="text-sm text-muted-foreground mt-4">
+            <p className="text-sm text-white/50 mt-4">
               {stats.grades.passingSubjects} de {stats.grades.totalSubjects} materias aprobadas
             </p>
           </div>
@@ -88,11 +88,11 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.15 }}
-          className="relative overflow-hidden hero-card p-8"
+          className="relative overflow-hidden bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-xl p-8 hover:border-[#8A2BE2]/30 transition-all duration-300"
         >
           <div 
             className={cn(
-              "absolute inset-0 bg-gradient-to-br to-transparent",
+              "absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none",
               isAbsenceCritical 
                 ? "from-status-absent/10" 
                 : isAbsenceWarning 
@@ -139,7 +139,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
               )}
             </div>
 
-            <p className="text-sm text-muted-foreground mb-2">Inasistencias</p>
+            <p className="text-sm text-white/50 mb-2">Inasistencias</p>
             
             <div className="flex items-baseline gap-2">
               <span 
@@ -149,18 +149,18 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
                     ? "text-status-absent" 
                     : isAbsenceWarning 
                       ? "text-status-tardy"
-                      : "text-foreground"
+                      : "text-[#E4E1EA]"
                 )}
               >
                 {roundToDecimals(stats.attendance.totalAbsences)}
               </span>
-              <span className="text-lg text-muted-foreground">
+              <span className="text-lg text-white/40">
                 /{absenceLimit}
               </span>
             </div>
 
             {/* Progress bar */}
-            <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
+            <div className="mt-4 h-2 bg-white/10 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(absencePercentage, 100)}%` }}
@@ -176,7 +176,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
               />
             </div>
 
-            <p className="text-sm text-muted-foreground mt-3">
+            <p className="text-sm text-white/50 mt-3">
               {stats.attendance.daysPresent} dias de asistencia ({stats.attendance.attendanceRate.toFixed(0)}%)
             </p>
           </div>
@@ -224,9 +224,9 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="hero-card p-8"
+          className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-xl p-8 hover:border-[#8A2BE2]/30 transition-all duration-300"
         >
-          <h3 className="text-sm font-semibold text-foreground mb-4">
+          <h3 className="text-sm font-semibold text-[#E4E1EA] mb-4">
             Promedios por Materia
           </h3>
           
@@ -245,7 +245,7 @@ export function StatsOverview({ stats, minPassingGrade = 6 }: StatsOverviewProps
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-medium text-foreground truncate">
+                  <span className="text-sm font-medium text-[#E4E1EA] truncate">
                     {subject.subjectName}
                   </span>
                   <TrendIcon trend={subject.trend} />
@@ -303,7 +303,7 @@ function TrendIcon({ trend }: { trend: "UP" | "DOWN" | "STABLE" }) {
   if (trend === "DOWN") {
     return <TrendingDown className="size-3.5 text-status-absent" />;
   }
-  return <Minus className="size-3.5 text-muted-foreground" />;
+  return <Minus className="size-3.5 text-white/40" />;
 }
 
 interface StatCardProps {
@@ -324,10 +324,17 @@ function StatCard({
   badge,
 }: StatCardProps) {
   const variants = {
-    default: "bg-card",
-    success: "bg-status-present-soft/30",
-    warning: "bg-status-tardy-soft/30",
-    danger: "bg-status-absent-soft/30",
+    default: "bg-white/[0.02]",
+    success: "bg-status-present-soft/20",
+    warning: "bg-status-tardy-soft/20",
+    danger: "bg-status-absent-soft/20",
+  };
+
+  const borderVariants = {
+    default: "border-white/10 hover:border-[#8A2BE2]/25",
+    success: "border-status-present/20 hover:border-status-present/40",
+    warning: "border-status-tardy/20 hover:border-status-tardy/40",
+    danger: "border-status-absent/20 hover:border-status-absent/40",
   };
 
   return (
@@ -336,15 +343,16 @@ function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
       className={cn(
-        "relative p-4 rounded-xl border border-border/50 shadow-sm transition-theme",
-        variants[variant]
+        "relative p-4 rounded-xl border backdrop-blur-xl shadow-[0_4px_20px_rgb(0,0,0,0.3)] transition-all duration-300",
+        variants[variant],
+        borderVariants[variant]
       )}
     >
-      <div className="flex items-center gap-2 text-muted-foreground mb-2">
+      <div className="flex items-center gap-2 text-white/50 mb-2">
         {icon}
         <span className="text-xs">{label}</span>
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
+      <p className="text-2xl font-bold text-[#E4E1EA]">{value}</p>
       
       {badge && (
         <span className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded-full bg-status-absent-soft text-status-absent font-medium">

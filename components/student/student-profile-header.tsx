@@ -40,7 +40,7 @@ export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial, 
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="relative overflow-hidden hero-card"
+      className="relative overflow-hidden bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-xl"
     >
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
@@ -53,9 +53,9 @@ export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial, 
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1, duration: 0.3 }}
           >
-            <Avatar className="size-28 md:size-32 ring-4 ring-background shadow-lg">
+            <Avatar className="size-28 md:size-32 ring-2 ring-[#8A2BE2]/50 ring-offset-2 ring-offset-[#0A0A0F] shadow-[0_0_25px_rgba(138,43,226,0.2)]">
               <AvatarImage src={profile.photoUrl} alt={profile.firstName} />
-              <AvatarFallback className="bg-primary/10 text-primary text-3xl font-bold">
+              <AvatarFallback className="bg-[#8A2BE2]/20 text-[#D0BCFF] text-3xl font-bold">
                 {initials}
               </AvatarFallback>
             </Avatar>
@@ -66,7 +66,7 @@ export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial, 
             {/* Name & Status */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground text-balance">
+                <h1 className="text-2xl md:text-3xl font-bold text-[#E4E1EA] text-balance">
                   {profile.lastName}, {profile.firstName}
                 </h1>
                 <div className="flex items-center gap-3 mt-2">
@@ -130,10 +130,10 @@ export function StudentProfileHeader({ profile, onExportPDF, onExportHistorial, 
             </div>
 
             {/* Course Info */}
-            <div className="flex items-center gap-2 pt-2 text-muted-foreground">
+            <div className="flex items-center gap-2 pt-2 text-white/50">
               <MapPin className="size-4" />
               <span className="text-sm">
-                <span className="font-medium text-foreground">
+                <span className="font-medium text-[#E4E1EA]">
                   {profile.courseName} "{profile.divisionName}"
                 </span>
                 {" - "}
@@ -158,11 +158,11 @@ function InfoItem({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3 p-4 rounded-xl glass-panel">
-      <div className="text-muted-foreground">{icon}</div>
+    <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] backdrop-blur-xl border border-white/10 hover:border-[#8A2BE2]/25 transition-all duration-200">
+      <div className="text-[#D0BCFF]/60">{icon}</div>
       <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">{label}</p>
-        <p className="text-sm font-semibold text-foreground truncate mt-0.5">{value}</p>
+        <p className="text-[11px] uppercase tracking-wider text-white/40 truncate">{label}</p>
+        <p className="text-sm font-semibold text-[#E4E1EA] truncate mt-0.5">{value}</p>
       </div>
     </div>
   );

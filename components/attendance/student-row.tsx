@@ -43,16 +43,16 @@ export const StudentRow = memo(function StudentRow({
   const getStatusStyles = (status: AttendanceStatus): string => {
     const styles: Record<AttendanceStatus, string> = {
       PRESENT: cn(
-        "bg-status-present text-status-present-foreground",
-        "hover:bg-status-present/90 shadow-sm shadow-status-present/20"
+        "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+        "hover:bg-emerald-500/20 shadow-sm shadow-emerald-500/10"
       ),
       ABSENT: cn(
-        "bg-status-absent text-status-absent-foreground",
-        "hover:bg-status-absent/90 shadow-sm shadow-status-absent/20"
+        "bg-red-500/10 text-red-400 border border-red-500/20",
+        "hover:bg-red-500/20 shadow-sm shadow-red-500/10"
       ),
       TARDY: cn(
-        "bg-status-tardy text-status-tardy-foreground",
-        "hover:bg-status-tardy/90 shadow-sm shadow-status-tardy/20"
+        "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+        "hover:bg-amber-500/20 shadow-sm shadow-amber-500/10"
       ),
     };
     return styles[status];
@@ -64,15 +64,13 @@ export const StudentRow = memo(function StudentRow({
   return (
     <div
       className={cn(
-        // Base styles with generous padding for "breathing room"
+        // Base styles con padding generoso
         "group flex items-center gap-5 px-6 py-4 lg:px-8",
-        "border-b border-border/60 transition-theme",
-        // License mode: diagonal stripes pattern + reduced opacity
+        "border-b border-white/5 transition-colors",
+        // License mode: diagonal stripes + opacidad reducida
         isOnLicense && "license-stripes opacity-70",
-        // Normal hover state
-        !isOnLicense && "hover:bg-accent/40",
-        // Subtle alternating rows
-        !isOnLicense && index % 2 === 0 && "bg-card/50"
+        // Hover glassmorphism
+        !isOnLicense && "hover:bg-white/[0.04]"
       )}
     >
       {/* Row number with better visibility */}
@@ -147,7 +145,7 @@ export const StudentRow = memo(function StudentRow({
           variant="secondary"
           className={cn(
             "min-w-28 justify-center py-2 px-4 text-xs font-semibold",
-            "bg-status-license/80 text-status-license-foreground border border-status-license"
+            "bg-amber-500/10 text-amber-400 border border-amber-500/20"
           )}
         >
           EN LICENCIA
