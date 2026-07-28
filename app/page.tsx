@@ -454,7 +454,11 @@ export default function LoginPage() {
               Selecciona tu perfil de trabajo
             </p>
 
-            {/* Grilla libre — sin max-h ni overflow interno, el documento hace el scroll */}
+            {/* Contenedor scrollable con scrollbar estilizada glassmorphism */}
+            <div
+              className="max-h-[52vh] overflow-y-auto pr-1"
+              style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(208,188,255,0.25) transparent" }}
+            >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {availableContexts.map((ctx) => {
                 const RoleIcon = ROLE_ICONS[ctx.role as keyof typeof ROLE_ICONS] ?? Shield
@@ -493,6 +497,7 @@ export default function LoginPage() {
                 )
               })}
             </div>
+            </div>{/* cierre scrollable */}
 
             <p className="text-[10px] text-white/20 text-center mt-6 leading-relaxed">
               Podes cambiar de perfil en cualquier momento desde el menu lateral.
@@ -502,7 +507,7 @@ export default function LoginPage() {
 
         {/* ════════════════════════════════════════════════════════════════
             STEP: school-select
-        ════�����════��══════════════════════════════════════════════════════ */}
+        ════�������════��══════════════════════════════════════════════════════ */}
         {step === "school-select" && (
           <div className="p-8 sm:p-10">
             <div className="text-center mb-7">
