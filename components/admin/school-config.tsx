@@ -38,6 +38,7 @@ import {
   type GradingScaleType,
   type RolePermission,
 } from "@/lib/context/school-settings-context"
+import { useAuth } from "@/lib/context/auth-context"
 
 // ============================================
 // MAIN COMPONENT
@@ -52,6 +53,10 @@ export function SchoolConfigurator() {
     resetToDefaults,
     isLoading 
   } = useSchoolSettings()
+
+  // RBAC: solo ADMIN puede ver y modificar la Matriz de Permisos
+  const { role } = useAuth()
+  const isAdmin = role === "ADMIN"
   
   const [isSaving, setIsSaving] = useState(false)
   const [localYear, setLocalYear] = useState(settings.academicYear.toString())
@@ -249,148 +254,150 @@ export function SchoolConfigurator() {
         </section>
       </div>
 
-      {/* Role Permissions Section */}
-      <section className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md">
-        <div className="flex items-center gap-2 mb-6">
-          <Shield className="size-5 text-primary" />
-          <h3 className="font-semibold text-foreground">Matriz de Permisos por Rol</h3>
-        </div>
+      {/* Role Permissions Section — RBAC: exclusivo para ADMIN, no existe en el DOM para otros roles */}
+      {isAdmin && (
+        <section className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md">
+          <div className="flex items-center gap-2 mb-6">
+            <Shield className="size-5 text-primary" />
+            <h3 className="font-semibold text-foreground">Matriz de Permisos por Rol</h3>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="text-left py-3 px-4 font-semibold text-foreground">Rol</th>
-                <th className="text-center py-3 px-2 font-medium text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-help">Ver Notas</TooltipTrigger>
-                      <TooltipContent>Puede ver calificaciones</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="text-center py-3 px-2 font-medium text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-help">Editar Notas</TooltipTrigger>
-                      <TooltipContent>Puede modificar calificaciones</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="text-center py-3 px-2 font-medium text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-help">Publicar</TooltipTrigger>
-                      <TooltipContent>Puede publicar calificaciones oficiales</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="text-center py-3 px-2 font-medium text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-help">Ver Asist.</TooltipTrigger>
-                      <TooltipContent>Puede ver partes de asistencia</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="text-center py-3 px-2 font-medium text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-help">Editar Asist.</TooltipTrigger>
-                      <TooltipContent>Puede tomar asistencia</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="text-center py-3 px-2 font-medium text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-help">Convivencia</TooltipTrigger>
-                      <TooltipContent>Puede gestionar sanciones</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="text-center py-3 px-2 font-medium text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-help">Admin</TooltipTrigger>
-                      <TooltipContent>Acceso a panel de administracion</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {settings.rolePermissions.map((role) => (
-                <tr key={role.roleId} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "size-8 rounded-lg flex items-center justify-center text-xs font-bold",
-                        role.roleId === "ADMIN" ? "bg-primary/20 text-primary" :
-                        role.roleId === "DOCENTE" ? "bg-blue-500/20 text-blue-400" :
-                        role.roleId === "PRECEPTOR" ? "bg-amber-500/20 text-amber-400" :
-                        "bg-green-500/20 text-green-400"
-                      )}>
-                        {role.roleName[0]}
-                      </div>
-                      <span className="font-medium text-foreground">{role.roleName}</span>
-                    </div>
-                  </td>
-                  <td className="text-center py-3 px-2">
-                    <PermissionToggle
-                      checked={role.canViewGrades}
-                      onChange={(v) => handlePermissionToggle(role.roleId, "canViewGrades", v)}
-                      disabled={role.roleId === "ADMIN"}
-                    />
-                  </td>
-                  <td className="text-center py-3 px-2">
-                    <PermissionToggle
-                      checked={role.canEditGrades}
-                      onChange={(v) => handlePermissionToggle(role.roleId, "canEditGrades", v)}
-                      disabled={role.roleId === "ADMIN"}
-                    />
-                  </td>
-                  <td className="text-center py-3 px-2">
-                    <PermissionToggle
-                      checked={role.canPublishGrades}
-                      onChange={(v) => handlePermissionToggle(role.roleId, "canPublishGrades", v)}
-                      disabled={role.roleId === "ADMIN"}
-                    />
-                  </td>
-                  <td className="text-center py-3 px-2">
-                    <PermissionToggle
-                      checked={role.canViewAttendance}
-                      onChange={(v) => handlePermissionToggle(role.roleId, "canViewAttendance", v)}
-                      disabled={role.roleId === "ADMIN"}
-                    />
-                  </td>
-                  <td className="text-center py-3 px-2">
-                    <PermissionToggle
-                      checked={role.canEditAttendance}
-                      onChange={(v) => handlePermissionToggle(role.roleId, "canEditAttendance", v)}
-                      disabled={role.roleId === "ADMIN"}
-                    />
-                  </td>
-                  <td className="text-center py-3 px-2">
-                    <PermissionToggle
-                      checked={role.canEditBehavior}
-                      onChange={(v) => handlePermissionToggle(role.roleId, "canEditBehavior", v)}
-                      disabled={role.roleId === "ADMIN"}
-                    />
-                  </td>
-                  <td className="text-center py-3 px-2">
-                    <PermissionToggle
-                      checked={role.canAccessAdmin}
-                      onChange={(v) => handlePermissionToggle(role.roleId, "canAccessAdmin", v)}
-                      disabled={role.roleId === "ADMIN"}
-                    />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Rol</th>
+                  <th className="text-center py-3 px-2 font-medium text-muted-foreground">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">Ver Notas</TooltipTrigger>
+                        <TooltipContent>Puede ver calificaciones</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="text-center py-3 px-2 font-medium text-muted-foreground">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">Editar Notas</TooltipTrigger>
+                        <TooltipContent>Puede modificar calificaciones</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="text-center py-3 px-2 font-medium text-muted-foreground">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">Publicar</TooltipTrigger>
+                        <TooltipContent>Puede publicar calificaciones oficiales</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="text-center py-3 px-2 font-medium text-muted-foreground">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">Ver Asist.</TooltipTrigger>
+                        <TooltipContent>Puede ver partes de asistencia</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="text-center py-3 px-2 font-medium text-muted-foreground">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">Editar Asist.</TooltipTrigger>
+                        <TooltipContent>Puede tomar asistencia</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="text-center py-3 px-2 font-medium text-muted-foreground">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">Convivencia</TooltipTrigger>
+                        <TooltipContent>Puede gestionar sanciones</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="text-center py-3 px-2 font-medium text-muted-foreground">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">Admin</TooltipTrigger>
+                        <TooltipContent>Acceso a panel de administracion</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {settings.rolePermissions.map((role) => (
+                  <tr key={role.roleId} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "size-8 rounded-lg flex items-center justify-center text-xs font-bold",
+                          role.roleId === "ADMIN" ? "bg-primary/20 text-primary" :
+                          role.roleId === "DOCENTE" ? "bg-blue-500/20 text-blue-400" :
+                          role.roleId === "PRECEPTOR" ? "bg-amber-500/20 text-amber-400" :
+                          "bg-green-500/20 text-green-400"
+                        )}>
+                          {role.roleName[0]}
+                        </div>
+                        <span className="font-medium text-foreground">{role.roleName}</span>
+                      </div>
+                    </td>
+                    <td className="text-center py-3 px-2">
+                      <PermissionToggle
+                        checked={role.canViewGrades}
+                        onChange={(v) => handlePermissionToggle(role.roleId, "canViewGrades", v)}
+                        disabled={role.roleId === "ADMIN"}
+                      />
+                    </td>
+                    <td className="text-center py-3 px-2">
+                      <PermissionToggle
+                        checked={role.canEditGrades}
+                        onChange={(v) => handlePermissionToggle(role.roleId, "canEditGrades", v)}
+                        disabled={role.roleId === "ADMIN"}
+                      />
+                    </td>
+                    <td className="text-center py-3 px-2">
+                      <PermissionToggle
+                        checked={role.canPublishGrades}
+                        onChange={(v) => handlePermissionToggle(role.roleId, "canPublishGrades", v)}
+                        disabled={role.roleId === "ADMIN"}
+                      />
+                    </td>
+                    <td className="text-center py-3 px-2">
+                      <PermissionToggle
+                        checked={role.canViewAttendance}
+                        onChange={(v) => handlePermissionToggle(role.roleId, "canViewAttendance", v)}
+                        disabled={role.roleId === "ADMIN"}
+                      />
+                    </td>
+                    <td className="text-center py-3 px-2">
+                      <PermissionToggle
+                        checked={role.canEditAttendance}
+                        onChange={(v) => handlePermissionToggle(role.roleId, "canEditAttendance", v)}
+                        disabled={role.roleId === "ADMIN"}
+                      />
+                    </td>
+                    <td className="text-center py-3 px-2">
+                      <PermissionToggle
+                        checked={role.canEditBehavior}
+                        onChange={(v) => handlePermissionToggle(role.roleId, "canEditBehavior", v)}
+                        disabled={role.roleId === "ADMIN"}
+                      />
+                    </td>
+                    <td className="text-center py-3 px-2">
+                      <PermissionToggle
+                        checked={role.canAccessAdmin}
+                        onChange={(v) => handlePermissionToggle(role.roleId, "canAccessAdmin", v)}
+                        disabled={role.roleId === "ADMIN"}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

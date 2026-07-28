@@ -1,169 +1,288 @@
 "use client"
 
 import { useAuth, type UserContextProfile } from "@/lib/context/auth-context"
-import { School, BookOpen, Users, Home, GraduationCap, LogOut, Sparkles } from "lucide-react"
+import {
+  School,
+  BookOpen,
+  Users,
+  Home,
+  LogOut,
+  ArrowRight,
+  Sparkles,
+  ShieldCheck,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Role icons mapping
-const ROLE_ICONS = {
-  ADMIN: School,
-  DOCENTE: BookOpen,
+// ── Mapeos de roles y niveles ─────────────────────────────────────────────────
+
+const ROLE_ICONS: Record<string, React.ElementType> = {
+  ADMIN:     School,
+  DOCENTE:   BookOpen,
   PRECEPTOR: Users,
-  FAMILIA: Home,
+  FAMILIA:   Home,
 }
 
-// Role descriptions
-const ROLE_DESCRIPTIONS = {
-  ADMIN: "Gestion completa de la institucion",
-  DOCENTE: "Calificaciones y seguimiento academico",
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN:     "Administracion",
+  DOCENTE:   "Docente",
+  PRECEPTOR: "Preceptor",
+  FAMILIA:   "Familia",
+}
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  ADMIN:     "Gestion completa de la institucion",
+  DOCENTE:   "Calificaciones y seguimiento academico",
   PRECEPTOR: "Asistencia y convivencia escolar",
-  FAMILIA: "Portal de seguimiento del alumno",
+  FAMILIA:   "Portal de seguimiento del alumno",
 }
 
-// Level labels
-const LEVEL_LABELS = {
-  INICIAL: "Nivel Inicial",
-  PRIMARIO: "Nivel Primario",
-  SECUNDARIO: "Nivel Secundario",
-  TERCIARIO: "Nivel Terciario",
+// ── Configuracion de nivel: badge y colores ───────────────────────────────────
+
+type NivelKey = "INICIAL" | "PRIMARIO" | "SECUNDARIO" | "TERCIARIO"
+
+const NIVEL_CONFIG: Record<NivelKey, {
+  label:      string
+  badge:      string
+  dot:        string
+  iconBg:     string
+  iconBorder: string
+  hoverBorder:string
+  hoverGlow:  string
+  hoverBg:    string
+}> = {
+  SECUNDARIO: {
+    label:       "Secundario",
+    badge:       "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    dot:         "bg-emerald-400",
+    iconBg:      "bg-emerald-500/10",
+    iconBorder:  "border-emerald-500/20",
+    hoverBorder: "hover:border-emerald-500/40",
+    hoverGlow:   "hover:shadow-[0_0_30px_rgba(16,185,129,0.12)]",
+    hoverBg:     "hover:bg-emerald-500/[0.04]",
+  },
+  PRIMARIO: {
+    label:       "Primario",
+    badge:       "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20",
+    dot:         "bg-cyan-400",
+    iconBg:      "bg-cyan-500/10",
+    iconBorder:  "border-cyan-500/20",
+    hoverBorder: "hover:border-cyan-500/40",
+    hoverGlow:   "hover:shadow-[0_0_30px_rgba(6,182,212,0.12)]",
+    hoverBg:     "hover:bg-cyan-500/[0.04]",
+  },
+  INICIAL: {
+    label:       "Inicial",
+    badge:       "bg-pink-500/10 text-pink-400 border border-pink-500/20",
+    dot:         "bg-pink-400",
+    iconBg:      "bg-pink-500/10",
+    iconBorder:  "border-pink-500/20",
+    hoverBorder: "hover:border-pink-500/40",
+    hoverGlow:   "hover:shadow-[0_0_30px_rgba(236,72,153,0.12)]",
+    hoverBg:     "hover:bg-pink-500/[0.04]",
+  },
+  TERCIARIO: {
+    label:       "Terciario",
+    badge:       "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    dot:         "bg-amber-400",
+    iconBg:      "bg-amber-500/10",
+    iconBorder:  "border-amber-500/20",
+    hoverBorder: "hover:border-amber-500/40",
+    hoverGlow:   "hover:shadow-[0_0_30px_rgba(245,158,11,0.12)]",
+    hoverBg:     "hover:bg-amber-500/[0.04]",
+  },
 }
 
-// Level colors
-const LEVEL_COLORS = {
-  INICIAL: "text-pink-400",
-  PRIMARIO: "text-blue-400",
-  SECUNDARIO: "text-emerald-400",
-  TERCIARIO: "text-amber-400",
+// ── Tarjeta de perfil ─────────────────────────────────────────────────────────
+
+function ProfileCard({
+  ctx,
+  onSelect,
+}: {
+  ctx: UserContextProfile
+  onSelect: (id: string) => void
+}) {
+  const RoleIcon = ROLE_ICONS[ctx.role] ?? ShieldCheck
+  const nivel    = NIVEL_CONFIG[ctx.level as NivelKey] ?? NIVEL_CONFIG.SECUNDARIO
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(ctx.id)}
+      className={cn(
+        // Base glassmorphism
+        "group relative w-full text-left rounded-3xl p-6",
+        "bg-white/[0.02] backdrop-blur-2xl border border-white/10",
+        // Hover state
+        "transition-all duration-300",
+        nivel.hoverBg,
+        nivel.hoverBorder,
+        nivel.hoverGlow,
+        "hover:-translate-y-0.5",
+      )}
+    >
+      {/* Badge de nivel — esquina superior derecha */}
+      <span className={cn(
+        "absolute top-4 right-4 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full",
+        nivel.badge,
+      )}>
+        {nivel.label}
+      </span>
+
+      {/* Icono del rol */}
+      <div className={cn(
+        "size-12 rounded-2xl flex items-center justify-center mb-4",
+        "border transition-colors duration-300",
+        nivel.iconBg,
+        nivel.iconBorder,
+        `group-hover:${nivel.iconBg.replace("/10", "/20")}`,
+      )}>
+        <RoleIcon className="size-5 text-white/70 group-hover:text-white/90 transition-colors" />
+      </div>
+
+      {/* Rol */}
+      <p className="text-[11px] font-bold uppercase tracking-widest text-white/35 mb-1">
+        {ROLE_LABELS[ctx.role] ?? ctx.role}
+      </p>
+
+      {/* Institución */}
+      <h3 className="text-base font-semibold text-[#e4e1ea] leading-snug mb-1 group-hover:text-white transition-colors">
+        {ctx.schoolName}
+      </h3>
+
+      {/* Descripcion */}
+      <p className="text-sm text-white/40 leading-snug line-clamp-2">
+        {ctx.description ?? ROLE_DESCRIPTIONS[ctx.role]}
+      </p>
+
+      {/* Flecha de accion */}
+      <div className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-1 group-hover:translate-x-0">
+        <ArrowRight className="size-4 text-white/50" />
+      </div>
+    </button>
+  )
 }
+
+// ── Componente principal ──────────────────────────────────────────────────────
 
 export function ContextSelector() {
   const { user, availableContexts, switchContext, logout } = useAuth()
 
-  if (!user || availableContexts.length === 0) {
-    return null
-  }
+  if (!user) return null
 
-  const handleSelectContext = (context: UserContextProfile) => {
-    switchContext(context.id)
-  }
+  const handleSelect = (id: string) => switchContext(id)
+
+  // Iniciales del avatar
+  const initials = user.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Halo adicional centrado — se superpone al fondo global del body */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/8 via-transparent to-transparent pointer-events-none" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/6 blur-[140px] rounded-full pointer-events-none" />
-      
-      {/* Subtle grid pattern */}
-      <div 
-        className="absolute inset-0 opacity-[0.02]"
+    /*
+     * ROOT: min-h-[100dvh] + overflow-y-auto
+     * ─ Sin h-screen, sin max-h-screen, sin overflow-hidden, sin items-center.
+     * ─ Los fondos son `fixed` → no se mueven con el scroll bajo ninguna circunstancia.
+     */
+    <div className="relative min-h-[100dvh] w-full bg-[#050508] overflow-y-auto overflow-x-hidden">
+
+      {/* FONDO 1: gradiente radial superior púrpura */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-0 pointer-events-none"
         style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px',
+          background:
+            "radial-gradient(ellipse 70% 45% at 50% 0%, rgba(138,43,226,0.22) 0%, transparent 70%)",
         }}
       />
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">Bienvenido a Sequency</span>
+      {/* FONDO 2: halo difuso inferior derecho */}
+      <div
+        aria-hidden="true"
+        className="fixed bottom-0 right-0 w-[700px] h-[700px] z-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at center, rgba(208,188,255,0.06) 0%, transparent 65%)",
+          filter: "blur(60px)",
+        }}
+      />
+
+      {/*
+       * CONTENEDOR CENTRAL
+       * ─ max-w-4xl centrado, pb-32 garantiza que la última tarjeta
+       *   nunca toque el borde del viewport.
+       */}
+      <main className="relative z-10 w-full max-w-4xl mx-auto pt-20 pb-32 px-4 md:px-8 flex flex-col">
+
+        {/* ── CABECERA ──────────────────────────────────────────────────── */}
+        <div className="text-center space-y-4 mb-12 mt-8">
+          {/* Logo SQ */}
+          <div className="mx-auto size-16 rounded-2xl flex items-center justify-center relative">
+            <div className="absolute inset-0 rounded-2xl bg-[#d0bcff]/15 blur-lg" />
+            <div className="relative size-full rounded-2xl border border-[#d0bcff]/25 bg-gradient-to-br from-[#d0bcff]/15 via-black/50 to-[#d0bcff]/8 flex items-center justify-center backdrop-blur-sm">
+              <span className="text-2xl font-bold bg-gradient-to-b from-[#e4e1ea] to-[#b89bf2] bg-clip-text text-transparent select-none">
+                SQ
+              </span>
+            </div>
           </div>
-          
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-            Hola, <span className="text-primary">{user.name?.split(" ")[0]}</span>
-          </h1>
-          <p className="text-base md:text-lg text-muted-foreground">
-            Como vas a ingresar hoy?
+
+          {/* Badge Sequency */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#8A2BE2]/10 border border-[#8A2BE2]/20">
+            <Sparkles className="size-3 text-[#d0bcff]" />
+            <span className="text-[11px] font-semibold text-[#d0bcff] tracking-wide">
+              Sequency — Hub Academico
+            </span>
+          </div>
+
+          {/* Avatar + Saludo */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="size-12 rounded-full flex items-center justify-center bg-gradient-to-br from-[#8A2BE2]/40 to-[#d0bcff]/20 border border-[#d0bcff]/20 text-sm font-bold text-[#e4e1ea]">
+              {initials}
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-[#e4e1ea] tracking-tight">
+                Hola,{" "}
+                <span className="bg-gradient-to-r from-[#d0bcff] to-[#b89bf2] bg-clip-text text-transparent">
+                  {user.name.split(" ")[0]}
+                </span>
+              </h1>
+              <p className="text-sm text-white/40 mt-1">
+                Selecciona el perfil con el que queres ingresar hoy
+              </p>
+            </div>
+          </div>
+
+          {/* Email */}
+          <p className="text-[11px] text-white/25">
+            {user.email}
           </p>
         </div>
 
-        {/* Context Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {availableContexts.map((context) => {
-            const RoleIcon = ROLE_ICONS[context.role] || GraduationCap
-            const levelColor = LEVEL_COLORS[context.level] || "text-muted-foreground"
-            
-            return (
-              <button
-                key={context.id}
-                onClick={() => handleSelectContext(context)}
-                className={cn(
-                  "group relative flex flex-col p-5 rounded-2xl text-left",
-                  "bg-white/[0.02] hover:bg-white/[0.05]",
-                  "border border-white/10 hover:border-primary/50",
-                  "transition-all duration-300 ease-out",
-                  "hover:shadow-lg hover:shadow-primary/5",
-                  "hover:-translate-y-0.5"
-                )}
-              >
-                {/* Hover glow effect */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                
-                {/* Content */}
-                <div className="relative z-10">
-                  {/* Icon and Role */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 group-hover:bg-primary/20 group-hover:border-primary/30 transition-colors">
-                      <RoleIcon className="w-6 h-6 text-primary" />
-                    </div>
-                    <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-white/5",
-                      levelColor
-                    )}>
-                      {LEVEL_LABELS[context.level]}
-                    </span>
-                  </div>
-
-                  {/* Role Title */}
-                  <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-primary transition-colors">
-                    {context.role}
-                  </h3>
-
-                  {/* School Name */}
-                  <p className="text-sm text-foreground/80 mb-2">
-                    {context.schoolName}
-                  </p>
-
-                  {/* Description */}
-                  <p className="text-xs text-muted-foreground">
-                    {context.description || ROLE_DESCRIPTIONS[context.role]}
-                  </p>
-                </div>
-
-                {/* Arrow indicator on hover */}
-                <div className="absolute bottom-5 right-5 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg 
-                    className="w-4 h-4 text-primary" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </button>
-            )
-          })}
+        {/* ── GRILLA DE TARJETAS ─────────────────────────────────────────── */}
+        {/*
+         * grid sin restriccion de altura — crece hacia abajo libremente.
+         * El scroll del documento (min-h-[100dvh] overflow-y-auto) es el árbitro.
+         */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {availableContexts.map((ctx) => (
+            <ProfileCard key={ctx.id} ctx={ctx} onSelect={handleSelect} />
+          ))}
         </div>
 
-        {/* Footer */}
-        <div className="flex flex-col items-center gap-4">
-          <p className="text-xs text-muted-foreground text-center">
-            Ingresando como <span className="text-foreground font-medium">{user.email}</span>
-          </p>
-          
+        {/* ── FOOTER / LOGOUT ────────────────────────────────────────────── */}
+        <div className="mt-12 flex justify-center">
           <button
+            type="button"
             onClick={logout}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm text-white/30 hover:text-red-400 hover:bg-red-500/[0.07] transition-all duration-200"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="size-4" />
             Cerrar sesion y cambiar cuenta
           </button>
         </div>
-      </div>
+
+      </main>
     </div>
   )
 }

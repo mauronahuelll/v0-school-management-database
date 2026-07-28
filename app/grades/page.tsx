@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { GradesGrid } from "@/components/grades";
 import { AcademicTrackingBoard } from "@/components/grades/academic-tracking-board";
+import { PrimaryGradesView } from "@/components/grades/primary-grades-view";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/context/auth-context";
@@ -10,7 +11,7 @@ import {
   BookOpen, Lock, AlertTriangle, Calculator, Hash, FileText, Loader2, Sliders, 
   Plus, Trash2, Pencil, X, Check, Grid3X3, ClipboardSignature, CheckCircle2,
   Bell, User, FileStack, Send, Download, BarChart3, AlertCircle, Eye, EyeOff,
-  TrendingUp, BookMarked
+  TrendingUp, BookMarked, BookHeart, Sparkles
 } from "lucide-react";
 import {
   Sheet,
@@ -206,7 +207,8 @@ export default function GradesPage() {
   const [mounted, setMounted] = useState(false);
   
   // Get auth context for role-based rendering
-  const { role: currentRole } = useAuth();
+  const { role: currentRole, activeContext } = useAuth();
+  const isNivelInicial = activeContext?.level === "INICIAL";
 
   // PRECEPTOR solo puede ver la tab de Cierres — aterriza directamente ahí
   const [activeTab, setActiveTab] = useState(() =>
@@ -769,7 +771,105 @@ export default function GradesPage() {
     );
   }
 
-  // Default view for DOCENTE, PRECEPTOR, and other roles
+  // ──────────────────────────────────────────────────────────────────────────
+  // NIVEL INICIAL: Vista cualitativa exclusiva — sin números, sin promedios
+  // Activa cuando el contexto activo del docente pertenece a nivel INICIAL.
+  // ──────────────────────────────────────────────────────────────────────────
+  if (isNivelInicial) {
+    const MOCK_SALA_STUDENTS: import("@/lib/types/grades").StudentGradeRow[] = [
+      { studentId: "ni-s1", firstName: "Luca", lastName: "Bernal", enrollmentNumber: "2024-NI-01", grades: {}, average: null, isPassing: true, isComplete: false },
+      { studentId: "ni-s2", firstName: "Valentina", lastName: "Ruiz", enrollmentNumber: "2024-NI-02", grades: {}, average: null, isPassing: true, isComplete: false },
+      { studentId: "ni-s3", firstName: "Matias", lastName: "Torres", enrollmentNumber: "2024-NI-03", grades: {}, average: null, isPassing: true, isComplete: false },
+      { studentId: "ni-s4", firstName: "Emma", lastName: "Paredes", enrollmentNumber: "2024-NI-04", grades: {}, average: null, isPassing: true, isComplete: false },
+      { studentId: "ni-s5", firstName: "Thiago", lastName: "Molina", enrollmentNumber: "2024-NI-05", grades: {}, average: null, isPassing: true, isComplete: false },
+      { studentId: "ni-s6", firstName: "Sofía", lastName: "Gimenez", enrollmentNumber: "2024-NI-06", grades: {}, average: null, isPassing: true, isComplete: false },
+      { studentId: "ni-s7", firstName: "Santiago", lastName: "Romero", enrollmentNumber: "2024-NI-07", grades: {}, average: null, isPassing: true, isComplete: false },
+      { studentId: "ni-s8", firstName: "Catalina", lastName: "Mendoza", enrollmentNumber: "2024-NI-08", grades: {}, average: null, isPassing: true, isComplete: false },
+    ];
+
+    const MOCK_INITIAL_COURSE: import("@/lib/types/grades").CourseGradeInfo = {
+      courseId: "sala-azul-2024",
+      courseName: "Sala Azul",
+      divisionId: "sala-a",
+      divisionName: "A",
+      periodId: "2024-cuatrim-1",
+      periodName: "1° Cuatrimestre 2024",
+      educationLevel: "INITIAL",
+      publicationStatus: "DRAFT",
+      subject: {
+        id: "desarrollo-ni",
+        name: "Desarrollo Integral",
+        shortName: "DES",
+        teacherId: "teacher-inicial-1",
+        teacherName: activeContext?.description ?? "Docente",
+        weeklyHours: 25,
+        gradeScale: {
+          type: "CONCEPTUAL",
+          minPassing: 0,
+          maxGrade: 0,
+          conceptualValues: ["Logrado", "En Proceso", "Aun no logrado"],
+        },
+        hasCustomScale: true,
+      },
+      assessments: [
+        { id: "obs-1", name: "Informe 1° Cuatrimestre", type: "EXAM", weight: 1, maxValue: 0 },
+      ],
+      students: MOCK_SALA_STUDENTS,
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Header Nivel Inicial */}
+        <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-[#d0bcff]/10 border border-[#d0bcff]/20">
+                <BookHeart className="size-5 text-[#d0bcff]" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">
+                  Informes de Progreso
+                </h1>
+                <p className="text-sm text-white/40 mt-0.5">
+                  Nivel Inicial · Evaluacion cualitativa del desarrollo integral
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#d0bcff]/[0.06] border border-[#d0bcff]/15">
+            <Sparkles className="size-4 text-[#d0bcff]/60" />
+            <span className="text-xs text-[#d0bcff]/70 font-medium">
+              Modalidad cualitativa — sin calificaciones numericas
+            </span>
+          </div>
+        </header>
+
+        {/* GradesGrid con educationLevel INITIAL — activa QualitativeReportList */}
+        <GradesGrid
+          courseInfo={MOCK_INITIAL_COURSE}
+          onGradeUpdate={async () => {}}
+          onPublish={async () => {}}
+          onUnpublish={async () => {}}
+          canPublish={currentRole === "DOCENTE"}
+          isReadOnly={currentRole === "PRECEPTOR"}
+          userRole={currentRole}
+        />
+
+        <Toaster position="top-right" richColors />
+      </div>
+    );
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // NIVEL PRIMARIO: Grilla numérica + campo amplio de Observaciones Trimestrales
+  // ──────────────────────────────────────────────────────────────────────────
+  if (activeContext?.level === "PRIMARIO") {
+    return <PrimaryGradesView currentRole={currentRole} />;
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Default view for DOCENTE, PRECEPTOR, and other roles (SECUNDARIO)
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -777,7 +877,7 @@ export default function GradesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">Calificaciones</h1>
           <p className="text-sm text-white/40 mt-1">
-            Gestion de notas y promedios del periodo activo
+            Calificaciones numericas · 4to Año — Matematica
           </p>
         </div>
 

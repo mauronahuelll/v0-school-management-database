@@ -74,7 +74,7 @@ function statusLabel(status: string): string {
 const AVAILABLE_COURSES: CourseInfo[] = [
   {
     id: "course-4b",
-    name: "4to Ano",
+    name: "4to Año",
     year: 4,
     divisionId: "div-b",
     divisionName: "B",
@@ -83,7 +83,7 @@ const AVAILABLE_COURSES: CourseInfo[] = [
   },
   {
     id: "course-5a",
-    name: "5to Ano",
+    name: "5to Año",
     year: 5,
     divisionId: "div-a",
     divisionName: "A",
@@ -92,7 +92,7 @@ const AVAILABLE_COURSES: CourseInfo[] = [
   },
   {
     id: "course-3c",
-    name: "3er Ano",
+    name: "3er Año",
     year: 3,
     divisionId: "div-c",
     divisionName: "C",
@@ -102,6 +102,26 @@ const AVAILABLE_COURSES: CourseInfo[] = [
 ];
 
 const MOCK_COURSE: CourseInfo = AVAILABLE_COURSES[0];
+
+// ── Mock específico para Nivel INICIAL (Sala de 5) ──────────────────────────
+const MOCK_SALA_COURSE: CourseInfo = {
+  id: "sala-5-ositos",
+  name: "Sala de 5 — Ositos",
+  year: 5,
+  divisionId: "sala-ositos",
+  divisionName: "Ositos",
+  shift: "MORNING",
+  studentCount: 18,
+};
+
+const MOCK_SALA_STUDENTS: StudentAttendance[] = [
+  { id: "si-1", firstName: "Abril",    lastName: "Acosta",    enrollmentNumber: "JI-001", status: "PRESENT", stats: { totalAbsences: 1, totalTardies: 0 } },
+  { id: "si-2", firstName: "Bautista", lastName: "Blanco",    enrollmentNumber: "JI-002", status: "PRESENT", stats: { totalAbsences: 0, totalTardies: 0 } },
+  { id: "si-3", firstName: "Catalina", lastName: "Cardozo",   enrollmentNumber: "JI-003", status: "PRESENT", stats: { totalAbsences: 2, totalTardies: 1 } },
+  { id: "si-4", firstName: "Delfina",  lastName: "Diaz",      enrollmentNumber: "JI-004", status: "ABSENT",  stats: { totalAbsences: 3, totalTardies: 0 } },
+  { id: "si-5", firstName: "Emanuel",  lastName: "Escobar",   enrollmentNumber: "JI-005", status: "PRESENT", stats: { totalAbsences: 0, totalTardies: 0 } },
+  { id: "si-6", firstName: "Florencia",lastName: "Fuentes",   enrollmentNumber: "JI-006", status: "PRESENT", stats: { totalAbsences: 1, totalTardies: 0 } },
+];
 
 const MOCK_STUDENTS: StudentAttendance[] = [
   {
@@ -358,13 +378,16 @@ interface StudentDailyAttendanceProps {
   selectedCourse: CourseInfo;
   availableCourses: CourseInfo[];
   onCourseChange: (courseId: string) => void;
+  /** INICIAL: activa columna "Autorizado a Retirar" */
+  isInitialLevel?: boolean;
 }
 
 function StudentDailyAttendance({ 
   students, 
   selectedCourse, 
   availableCourses, 
-  onCourseChange 
+  onCourseChange,
+  isInitialLevel = false,
 }: StudentDailyAttendanceProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -443,6 +466,7 @@ function StudentDailyAttendance({
         onSaveLicense={handleSaveLicense}
         onDeactivateLicense={handleDeactivateLicense}
         onCourseChange={onCourseChange}
+        isInitialLevel={isInitialLevel}
       />
     </div>
   );
@@ -836,13 +860,16 @@ export default function AttendancePageDemo() {
   const [mounted, setMounted] = useState(false);
   const { activeContext } = useAuth();
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [currentLevel, setCurrentLevel] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<CourseInfo>(MOCK_COURSE);
   const [students, setStudents] = useState<StudentAttendance[]>(MOCK_STUDENTS);
 
   useEffect(() => {
     setMounted(true);
-    const role = activeContext?.role || localStorage.getItem("sequency_dev_role") || "ADMIN";
+    const role  = activeContext?.role  || localStorage.getItem("sequency_dev_role") || "ADMIN";
+    const level = activeContext?.level || null;
     setCurrentRole(role);
+    setCurrentLevel(level);
   }, [activeContext]);
 
   const handleCourseChange = useCallback((courseId: string) => {
@@ -857,11 +884,12 @@ export default function AttendancePageDemo() {
   if (!mounted || !currentRole) return null;
 
   // ============================================
-  // ROLE-BASED RENDERING (Separation of Concerns)
+  // LEVEL + ROLE BASED RENDERING
+  // ADMIN                  → Panel RRHH (gestión de personal)
+  // DOCENTE/PRECEPTOR INICIAL → Parte Diario con columna "Autorizado a Retirar"
+  // DOCENTE/PRECEPTOR otros  → Parte Diario con métricas de ausentismo
   // ============================================
-  // ADMIN: Sees RRHH Panel (staff attendance management)
-  // DOCENTE/PRECEPTOR: Sees Student Daily Attendance (student roll call)
-  
+
   if (currentRole === "ADMIN") {
     return (
       <>
@@ -871,7 +899,23 @@ export default function AttendancePageDemo() {
     );
   }
 
-  // Default view for DOCENTE, PRECEPTOR, and other roles
+  // NIVEL INICIAL — datos de sala y columna de retiro
+  if (currentLevel === "INICIAL") {
+    return (
+      <>
+        <StudentDailyAttendance
+          students={MOCK_SALA_STUDENTS}
+          selectedCourse={MOCK_SALA_COURSE}
+          availableCourses={[MOCK_SALA_COURSE]}
+          onCourseChange={() => {}}
+          isInitialLevel
+        />
+        <Toaster theme="dark" />
+      </>
+    );
+  }
+
+  // Default: PRIMARIO / SECUNDARIO
   return (
     <>
       <StudentDailyAttendance

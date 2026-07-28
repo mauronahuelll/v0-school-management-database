@@ -135,7 +135,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (needsContextSelection) {
     return (
-      <main className="w-screen h-screen overflow-hidden">
+      <main className="w-full min-h-[100dvh] overflow-y-auto overflow-x-hidden">
         <ContextSelector />
         <Toaster position="bottom-center" />
       </main>
@@ -148,7 +148,7 @@ export function AppShell({ children }: AppShellProps) {
   // ====================================================================
   if (!isAuthenticated) {
     return (
-      <main className="w-screen h-screen overflow-hidden">
+      <main className="w-full min-h-[100dvh] overflow-y-auto overflow-x-hidden">
         {children}
         <Toaster position="bottom-center" />
       </main>

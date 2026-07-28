@@ -32,6 +32,12 @@ import { cn } from "@/lib/utils";
 import { printAsPdf, downloadDoc } from "@/lib/utils/export-engine";
 import { formatDateToLocalISO } from "@/lib/utils/date-utils";
 import { MonthGrid, type DayEvent } from "@/components/calendar/month-grid";
+import {
+  unitLabel,
+  EVENT_CATEGORIES_BY_NIVEL,
+  calendarAccentColor,
+  type NivelEducativo,
+} from "@/lib/level-config";
 
 // ============================================
 // COMPLIANCE: Document Export Format Logic
@@ -217,6 +223,17 @@ export default function CalendarPage() {
   
   const currentTeacherId = activeContext?.id || "teacher-001";
   const childName = "Santiago Martinez";
+
+  // ── Level Isolation ────────────────────────────────────────────────────────
+  const nivel = (activeContext?.level ?? "SECUNDARIO") as NivelEducativo;
+  const levelCategories    = EVENT_CATEGORIES_BY_NIVEL[nivel];
+  const levelAccent        = calendarAccentColor(nivel);
+  const levelUnitLabel     = unitLabel(nivel);
+  // Estado: evento de nivel (para DOCENTE no-ADMIN que puede agendar hitos propios del nivel)
+  const [levelEventDialogOpen, setLevelEventDialogOpen] = useState(false);
+  const [newLevelEventTitle, setNewLevelEventTitle] = useState("");
+  const [newLevelEventCategory, setNewLevelEventCategory] = useState(levelCategories[0]?.value ?? "");
+  // ──────────────────────────────────────────────────────────────────────────
 
   // ========================================
   // Logica de Sincronizacion e Inmunidad a Hydration Mismatch
@@ -855,9 +872,42 @@ export default function CalendarPage() {
             </div>
           </div>
           
+          {/* ── Panel de categorías de eventos por nivel — Level Isolated ── */}
+          <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl backdrop-blur-md space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                Categorias — {levelUnitLabel}
+              </p>
+              <span
+                className="text-[10px] font-mono px-2 py-0.5 rounded-lg font-bold uppercase"
+                style={{ backgroundColor: `${levelAccent}15`, color: levelAccent }}
+              >
+                {nivel}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {levelCategories.map((cat) => (
+                <span
+                  key={cat.value}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+                    cat.badgeClass
+                  )}
+                >
+                  <span className={cn("size-1.5 rounded-full", cat.dotClass)} />
+                  {cat.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
           <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl space-y-4 backdrop-blur-md">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-purple-400">Fechas Importantes</h2>
+              <h2
+                className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: levelAccent }}
+              >
+                Fechas Importantes</h2>
               {currentRole === "DOCENTE" && (
                 <Button 
                   size="sm" 

@@ -264,30 +264,36 @@ export default function LoginPage() {
 
   if (!mounted) return null
 
+  // El contenedor raíz NO usa flex centering — scroll nativo del documento
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-[#050508] text-[#E4E1EA] selection:bg-[#8A2BE2]/30">
+    <div className="relative min-h-screen w-full bg-[#050508] text-[#E4E1EA] selection:bg-[#8A2BE2]/30 overflow-x-hidden">
 
-      {/* ── Luces volumetricas de fondo ─────────────────────────────────── */}
+      {/* ── Fondos fijos — no se mueven con el scroll ───────────────────── */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
+        className="fixed inset-0 pointer-events-none z-0"
         style={{
           background:
             "radial-gradient(ellipse 80% 55% at 50% -5%, rgba(138,43,226,0.22) 0%, transparent 65%), " +
             "radial-gradient(ellipse 55% 45% at 100% 100%, rgba(208,188,255,0.06) 0%, transparent 55%)",
         }}
       />
-      <CircuitBackground />
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <CircuitBackground />
+      </div>
 
-      {/* ── Tarjeta Glassmorphism ───────────────────────────────────────── */}
-      <div
-        className={cn(
-          "relative z-10 w-full mx-4 rounded-[2rem] border border-white/10",
-          "bg-white/[0.02] backdrop-blur-3xl shadow-[0_0_50px_rgba(138,43,226,0.15)] overflow-hidden",
-          "transition-all duration-500",
-          step === "context-select" ? "max-w-md" : "max-w-md",
-        )}
-      >
+      {/* ── Contenedor con scroll nativo (sin items-center) ─────────────── */}
+      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col pt-16 pb-32 px-4 md:px-8">
+
+        {/* Tarjeta Glassmorphism — centrada con mx-auto */}
+        <div
+          className={cn(
+            "w-full mx-auto rounded-[2rem] border border-white/10",
+            "bg-white/[0.02] backdrop-blur-3xl shadow-[0_0_50px_rgba(138,43,226,0.15)] overflow-hidden",
+            "transition-all duration-500",
+            step === "context-select" ? "max-w-2xl" : "max-w-md",
+          )}
+        >
         {/* Reflejo cristal superior */}
         <div className="absolute top-0 left-1/4 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-[#D0BCFF]/50 to-transparent pointer-events-none" />
         {/* Brillo interior degradado */}
@@ -430,6 +436,7 @@ export default function LoginPage() {
         ════════════════════════════════════════════════════════════════ */}
         {step === "context-select" && user && (
           <div className="p-8 sm:p-10">
+            {/* Header con avatar */}
             <div className="text-center mb-6">
               <div className={cn(
                 "size-14 rounded-full mx-auto flex items-center justify-center mb-3",
@@ -447,10 +454,12 @@ export default function LoginPage() {
               Selecciona tu perfil de trabajo
             </p>
 
+            {/* Contenedor scrollable con scrollbar estilizada glassmorphism */}
             <div
-              className="space-y-2 max-h-80 overflow-y-auto pr-1"
-              style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(208,188,255,0.15) transparent" }}
+              className="max-h-[52vh] overflow-y-auto pr-1"
+              style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(208,188,255,0.25) transparent" }}
             >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {availableContexts.map((ctx) => {
                 const RoleIcon = ROLE_ICONS[ctx.role as keyof typeof ROLE_ICONS] ?? Shield
                 return (
@@ -476,11 +485,11 @@ export default function LoginPage() {
                         <span className="text-[9px] font-bold text-[#D0BCFF]/60 uppercase tracking-widest">{ctx.role}</span>
                         <span className="text-[9px] text-white/25">{LEVEL_LABELS[ctx.level] ?? ctx.level}</span>
                       </div>
-                      <p className="text-sm font-semibold text-[#e4e1ea] group-hover:text-[#D0BCFF] transition-colors truncate">
+                      <p className="text-sm font-semibold text-[#e4e1ea] group-hover:text-[#D0BCFF] transition-colors">
                         {ctx.schoolName}
                       </p>
                       {ctx.description && (
-                        <p className="text-xs text-white/30 truncate mt-0.5">{ctx.description}</p>
+                        <p className="text-xs text-white/30 mt-0.5 leading-snug">{ctx.description}</p>
                       )}
                     </div>
                     <ChevronRight className="size-4 text-white/20 group-hover:text-[#D0BCFF]/60 group-hover:translate-x-0.5 transition-all shrink-0 mt-3" />
@@ -488,8 +497,9 @@ export default function LoginPage() {
                 )
               })}
             </div>
+            </div>{/* cierre scrollable */}
 
-            <p className="text-[10px] text-white/20 text-center mt-5 leading-relaxed">
+            <p className="text-[10px] text-white/20 text-center mt-6 leading-relaxed">
               Podes cambiar de perfil en cualquier momento desde el menu lateral.
             </p>
           </div>
@@ -497,7 +507,7 @@ export default function LoginPage() {
 
         {/* ════════════════════════════════════════════════════════════════
             STEP: school-select
-        ═════════��══════════════════════════════════════════════════════ */}
+        ════�������════��══════════════════════════════════════════════════════ */}
         {step === "school-select" && (
           <div className="p-8 sm:p-10">
             <div className="text-center mb-7">
@@ -555,6 +565,7 @@ export default function LoginPage() {
           </div>
         )}
 
+      </div>
       </div>
     </div>
   )

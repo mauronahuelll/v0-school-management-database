@@ -1,8 +1,10 @@
 "use client";
 
-import { memo } from "react";
+"use client";
+
+import { memo, useState } from "react";
 import Link from "next/link";
-import { Calendar, AlertCircle } from "lucide-react";
+import { Calendar, AlertCircle, UserCheck, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,6 +24,8 @@ interface StudentRowProps {
   onStatusChange: (studentId: string, newStatus: AttendanceStatus) => void;
   onOpenLicense: (student: StudentAttendance) => void;
   isDisabled?: boolean;
+  /** INICIAL: muestra columna "Autorizado a Retirar" en lugar de métricas de ausentismo */
+  isInitialLevel?: boolean;
 }
 
 export const StudentRow = memo(function StudentRow({
@@ -30,7 +34,12 @@ export const StudentRow = memo(function StudentRow({
   onStatusChange,
   onOpenLicense,
   isDisabled = false,
+  isInitialLevel = false,
 }: StudentRowProps) {
+  // INICIAL: estado local de "quién retira"
+  const [authorizedPerson, setAuthorizedPerson] = useState<string>(
+    (student as StudentAttendance & { authorizedPickup?: string }).authorizedPickup ?? ""
+  );
   const isOnLicense = student.licenseMode?.isActive ?? false;
   const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
 
@@ -120,24 +129,51 @@ export const StudentRow = memo(function StudentRow({
         </span>
       </div>
 
-      {/* Absence counter with color coding */}
-      <div className="hidden sm:flex flex-col items-end gap-0.5 mr-3">
-        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-          Faltas
-        </span>
-        <span
-          className={cn(
-            "text-sm font-bold tabular-nums",
-            student.stats.totalAbsences >= 20
-              ? "text-status-absent"
-              : student.stats.totalAbsences >= 15
-              ? "text-status-tardy"
-              : "text-foreground"
-          )}
-        >
-          {roundToDecimals(student.stats.totalAbsences)}
-        </span>
-      </div>
+      {/* INICIAL: columna Autorizado a Retirar | PRIMARIO/SECUNDARIO: contador de Faltas */}
+      {isInitialLevel ? (
+        <div className="hidden sm:flex flex-col items-end gap-1 mr-3 min-w-[160px]">
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+            Autorizado a Retirar
+          </span>
+          <div className="flex items-center gap-1.5">
+            {authorizedPerson ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <UserCheck className="size-3" />
+                {authorizedPerson}
+              </span>
+            ) : (
+              <button
+                onClick={() => {
+                  const name = window.prompt("Nombre de quien retira al alumno:");
+                  if (name?.trim()) setAuthorizedPerson(name.trim());
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/[0.03] text-white/30 border border-dashed border-white/15 hover:border-amber-500/40 hover:text-amber-400/80 transition-colors"
+              >
+                <UserX className="size-3" />
+                No registrado
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="hidden sm:flex flex-col items-end gap-0.5 mr-3">
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+            Faltas
+          </span>
+          <span
+            className={cn(
+              "text-sm font-bold tabular-nums",
+              student.stats.totalAbsences >= 20
+                ? "text-status-absent"
+                : student.stats.totalAbsences >= 15
+                ? "text-status-tardy"
+                : "text-foreground"
+            )}
+          >
+            {roundToDecimals(student.stats.totalAbsences)}
+          </span>
+        </div>
+      )}
 
       {/* Status button or License badge */}
       {isOnLicense ? (
