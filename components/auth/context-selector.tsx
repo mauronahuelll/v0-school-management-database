@@ -54,11 +54,11 @@ export function ContextSelector() {
       <div className="fixed top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#8A2BE2]/20 via-[#050508] to-[#050508] pointer-events-none z-0" />
       <div className="fixed bottom-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#D0BCFF]/5 via-transparent to-transparent blur-3xl pointer-events-none z-0" />
 
-      {/* CONTENEDOR DEL CONTENIDO — crece libremente, centrado horizontalmente */}
-      <div className="relative z-10 w-full min-h-screen flex flex-col items-center justify-center py-24 px-4 md:px-8">
+      {/* CONTENEDOR DEL CONTENIDO — sin flex centering, scroll nativo del documento */}
+      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col pt-16 pb-32 px-4 md:px-8">
 
-        {/* HEADER */}
-        <div className="text-center space-y-4 mb-8">
+        {/* CABECERA centrada textualmente */}
+        <div className="text-center space-y-4 mb-12 mt-8">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-medium text-primary">Bienvenido a Sequency</span>
@@ -73,7 +73,7 @@ export function ContextSelector() {
         </div>
 
         {/* GRILLA DE TARJETAS — sin h-full ni max-h, crece libremente */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl pb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
           {availableContexts.map((context) => {
             const RoleIcon = ROLE_ICONS[context.role] || GraduationCap
             const levelColor = LEVEL_COLORS[context.level] || "text-muted-foreground"
@@ -142,7 +142,7 @@ export function ContextSelector() {
         </div>
 
         {/* BOTON DE CERRAR SESION */}
-        <div className="mt-8 flex flex-col items-center gap-4">
+        <div className="mt-12 flex flex-col items-center gap-4">
           <p className="text-xs text-muted-foreground text-center">
             Ingresando como <span className="text-foreground font-medium">{user.email}</span>
           </p>

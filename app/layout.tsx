@@ -55,7 +55,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning className={`${geist.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans antialiased bg-background overflow-hidden">
+      <body className="font-sans antialiased bg-background">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
