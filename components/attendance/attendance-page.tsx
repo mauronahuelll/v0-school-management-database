@@ -34,6 +34,8 @@ interface AttendancePageProps {
   onSaveLicense: (data: LicenseFormData) => Promise<void>;
   onDeactivateLicense: (studentId: string) => Promise<void>;
   onCourseChange?: (courseId: string) => void;
+  /** INICIAL: activa columna "Autorizado a Retirar" y oculta métricas de ausentismo */
+  isInitialLevel?: boolean;
 }
 
 export function AttendancePage({
@@ -47,6 +49,7 @@ export function AttendancePage({
   onSaveLicense,
   onDeactivateLicense,
   onCourseChange: onCourseChangeProp,
+  isInitialLevel = false,
 }: AttendancePageProps) {
   const [students, setStudents] = useState<StudentAttendance[]>(initialStudents);
   const [selectedStudent, setSelectedStudent] = useState<StudentAttendance | null>(null);
@@ -258,6 +261,7 @@ export function AttendancePage({
               onStatusChange={handleStatusChange}
               onOpenLicense={handleOpenLicense}
               isDisabled={isSubmitting}
+              isInitialLevel={isInitialLevel}
             />
           ))}
         </div>

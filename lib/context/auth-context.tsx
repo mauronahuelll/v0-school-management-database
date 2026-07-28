@@ -78,7 +78,9 @@ const MOCK_USER: User = {
 }
 
 // Mock contexts - same user with different "hats"
+// Cubre los TRES niveles educativos: INICIAL, PRIMARIO y SECUNDARIO
 const MOCK_CONTEXTS: UserContextProfile[] = [
+  // ── ADMIN ────────────────────────────────────────────────────────────────
   {
     id: "ctx-admin-1",
     schoolId: "inst-1",
@@ -87,16 +89,36 @@ const MOCK_CONTEXTS: UserContextProfile[] = [
     role: "ADMIN",
     description: "Directora General",
   },
+
+  // ── DOCENTE ───────────────────────────────────────────────────────────────
   {
-    id: "ctx-docente-1",
+    id: "ctx-docente-secundario",
     schoolId: "inst-1",
     schoolName: "Padre Marquez",
     level: "SECUNDARIO",
     role: "DOCENTE",
-    description: "Docente de Matematica - 4to y 5to Ano",
+    description: "Docente de Matematica - 4to Año",
   },
   {
-    id: "ctx-familia-1",
+    id: "ctx-docente-primario",
+    schoolId: "inst-3",
+    schoolName: "Tecnica N3",
+    level: "PRIMARIO",
+    role: "DOCENTE",
+    description: "Maestra de 3er Grado - Seccion B",
+  },
+  {
+    id: "ctx-docente-inicial",
+    schoolId: "inst-2",
+    schoolName: "San Martin",
+    level: "INICIAL",
+    role: "DOCENTE",
+    description: "Maestra de Sala de 5 - Ositos",
+  },
+
+  // ── FAMILIA ────────────────────────────────────────────────────────────────
+  {
+    id: "ctx-familia-inicial",
     schoolId: "inst-2",
     schoolName: "San Martin",
     level: "INICIAL",
@@ -104,29 +126,48 @@ const MOCK_CONTEXTS: UserContextProfile[] = [
     description: "Madre de Lucia Martinez (Sala de 5)",
   },
   {
-    id: "ctx-preceptor-1",
+    id: "ctx-familia-primario",
     schoolId: "inst-3",
     schoolName: "Tecnica N3",
-    level: "SECUNDARIO",
-    role: "PRECEPTOR",
-    description: "Preceptor Turno Manana",
+    level: "PRIMARIO",
+    role: "FAMILIA",
+    description: "Padre de Matias Gomez (3er Grado)",
   },
   {
-    id: "ctx-docente-inicial-1",
-    schoolId: "inst-2",
-    schoolName: "San Martin",
-    level: "INICIAL",
-    role: "DOCENTE",
-    description: "Maestra de Sala de 5 - Ositos",
+    id: "ctx-familia-secundario",
+    schoolId: "inst-1",
+    schoolName: "Padre Marquez",
+    level: "SECUNDARIO",
+    role: "FAMILIA",
+    description: "Madre de Valentina Ruiz (4to Año)",
+  },
+
+  // ── PRECEPTOR ──────────────────────────────────────────────────────────────
+  {
+    id: "ctx-preceptor-secundario",
+    schoolId: "inst-1",
+    schoolName: "Padre Marquez",
+    level: "SECUNDARIO",
+    role: "PRECEPTOR",
+    description: "Preceptor Turno Mañana - 4to y 5to Año",
+  },
+  {
+    id: "ctx-preceptor-primario",
+    schoolId: "inst-3",
+    schoolName: "Tecnica N3",
+    level: "PRIMARIO",
+    role: "PRECEPTOR",
+    description: "Preceptor - 3er y 4to Grado",
   },
 ]
 
 // Alternative mock for quick role-based login (dev console)
+// Apunta a SECUNDARIO como default para DOCENTE/FAMILIA/PRECEPTOR
 const DEV_ROLE_CONTEXTS: Record<Role, UserContextProfile> = {
-  ADMIN: MOCK_CONTEXTS[0],
-  DOCENTE: MOCK_CONTEXTS[1],
-  FAMILIA: MOCK_CONTEXTS[2],
-  PRECEPTOR: MOCK_CONTEXTS[3],
+  ADMIN:     MOCK_CONTEXTS[0], // ctx-admin-1 (SECUNDARIO)
+  DOCENTE:   MOCK_CONTEXTS[1], // ctx-docente-secundario
+  FAMILIA:   MOCK_CONTEXTS[4], // ctx-familia-inicial
+  PRECEPTOR: MOCK_CONTEXTS[7], // ctx-preceptor-secundario
 }
 
 // ============================================================================

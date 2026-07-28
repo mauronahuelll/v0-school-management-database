@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { GradesGrid } from "@/components/grades";
 import { AcademicTrackingBoard } from "@/components/grades/academic-tracking-board";
+import { PrimaryGradesView } from "@/components/grades/primary-grades-view";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/context/auth-context";
@@ -860,7 +861,15 @@ export default function GradesPage() {
   }
   // ──────────────────────────────────────────────────────────────────────────
 
-  // Default view for DOCENTE, PRECEPTOR, and other roles
+  // ──────────────────────────────────────────────────────────────────────────
+  // NIVEL PRIMARIO: Grilla numérica + campo amplio de Observaciones Trimestrales
+  // ──────────────────────────────────────────────────────────────────────────
+  if (activeContext?.level === "PRIMARIO") {
+    return <PrimaryGradesView currentRole={currentRole} />;
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Default view for DOCENTE, PRECEPTOR, and other roles (SECUNDARIO)
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -868,7 +877,7 @@ export default function GradesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#e4e1ea]">Calificaciones</h1>
           <p className="text-sm text-white/40 mt-1">
-            Gestion de notas y promedios del periodo activo
+            Calificaciones numericas · 4to Año — Matematica
           </p>
         </div>
 

@@ -308,18 +308,48 @@ interface GlobalNavProps {
   className?: string;
 }
 
+// ─── Helpers de nomenclatura por nivel ───────────────────────────────────────
+
+/** Devuelve el label correcto para el ítem "grades" según el nivel activo. */
+function gradeLabelForLevel(level: string | null | undefined): { label: string; icon: typeof BookOpen } {
+  switch (level) {
+    case "INICIAL":   return { label: "Informes de Progreso", icon: BookHeart as typeof BookOpen };
+    case "PRIMARIO":  return { label: "Calificaciones",       icon: BookOpen };
+    case "SECUNDARIO":return { label: "Calificaciones",       icon: BookOpen };
+    default:          return { label: "Calificaciones",       icon: BookOpen };
+  }
+}
+
+/** Devuelve la nomenclatura de unidad académica según el nivel. */
+export function unitLabelForLevel(level: string | null | undefined): string {
+  switch (level) {
+    case "INICIAL":    return "Salas";
+    case "PRIMARIO":   return "Grados";
+    case "SECUNDARIO": return "Años";
+    default:           return "Cursos";
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function GlobalNav({ className }: GlobalNavProps) {
   const pathname = usePathname();
   const { role, activeContext } = useAuth();
-  const isInitialLevel = activeContext?.level === "INICIAL";
+  const level = activeContext?.level ?? null;
+  const isInitialLevel = level === "INICIAL";
 
-  // Mutar el item "grades" según el nivel educativo del contexto activo
-  const navItems = getNavItems(role ?? "FAMILIA").map((item) => {
-    if (item.id === "grades" && isInitialLevel) {
-      return { ...item, label: "Informes de Progreso", icon: BookHeart };
-    }
-    return item;
-  });
+  // Mutar items de nav según nivel educativo del contexto activo
+  const navItems = getNavItems(role ?? "FAMILIA")
+    // 1. Renombrar "grades" con nomenclatura correcta para el nivel
+    .map((item) => {
+      if (item.id === "grades") {
+        const { label, icon } = gradeLabelForLevel(level);
+        return { ...item, label, icon };
+      }
+      return item;
+    })
+    // 2. Ocultar "Convivencia" para Nivel Inicial — foco en vínculo familiar
+    .filter((item) => !(item.id === "behavior" && isInitialLevel));
   
   // Communication Dialog State
   const [isCommDialogOpen, setIsCommDialogOpen] = useState(false);
