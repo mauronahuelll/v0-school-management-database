@@ -48,14 +48,14 @@ export function ContextSelector() {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Halo adicional centrado — se superpone al fondo global del body */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/8 via-transparent to-transparent pointer-events-none" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/6 blur-[140px] rounded-full pointer-events-none" />
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8 py-12 overflow-y-auto">
+      {/* Halo adicional centrado — fixed para que no se corte al hacer scroll */}
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/8 via-transparent to-transparent pointer-events-none z-0" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/6 blur-[140px] rounded-full pointer-events-none z-0" />
       
-      {/* Subtle grid pattern */}
+      {/* Subtle grid pattern — fixed para cubrir toda la pantalla siempre */}
       <div 
-        className="absolute inset-0 opacity-[0.02]"
+        className="fixed inset-0 opacity-[0.02] z-0"
         style={{
           backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
                            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
@@ -81,7 +81,7 @@ export function ContextSelector() {
         </div>
 
         {/* Context Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 pb-2">
           {availableContexts.map((context) => {
             const RoleIcon = ROLE_ICONS[context.role] || GraduationCap
             const levelColor = LEVEL_COLORS[context.level] || "text-muted-foreground"
