@@ -68,6 +68,13 @@ import {
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import {
+  unitLabel,
+  unitLabelSingular,
+  AUDIENCE_OPTIONS_BY_NIVEL,
+  canSendDirectToStudents,
+  type NivelEducativo,
+} from "@/lib/level-config";
 
 // ============================================
 // TYPES
@@ -441,6 +448,17 @@ export default function CommunicationsPage() {
   const isSender = currentRole === "ADMIN" || currentRole === "DOCENTE" || currentRole === "PRECEPTOR";
   // Visibilidad asimetrica: solo ADMIN y PRECEPTOR pueden redactar tramites/circulares.
   const canCompose = currentRole === "ADMIN" || currentRole === "PRECEPTOR";
+
+  // ── Level Isolation ────────────────────────────────────────────────────────
+  const nivel = (activeContext?.level ?? "SECUNDARIO") as NivelEducativo;
+  // Opciones de audiencia aisladas — sin cruce entre niveles
+  const levelAudienceOptions = AUDIENCE_OPTIONS_BY_NIVEL[nivel];
+  const levelUnitLabel       = unitLabel(nivel);
+  const levelUnitSingular    = unitLabelSingular(nivel);
+  const showStudentToggle    = canSendDirectToStudents(nivel);
+  // Toggle exclusivo SECUNDARIO: habilita enviar mensaje directo a los alumnos
+  const [sendDirectToStudents, setSendDirectToStudents] = useState(false);
+  // ──────────────────────────────────────────────────────────────────────────
 
   const [communications, setCommunications] = useState<Communication[]>(
     // La fuente inicial depende del rol: la asignacion real ocurre despues de montar (ver useEffect)
@@ -1348,20 +1366,45 @@ export default function CommunicationsPage() {
                 </Label>
               </RadioGroup>
 
-              {/* Opcion A: Curso Completo */}
+              {/* Opcion A: Curso Completo — opciones aisladas por nivel */}
               {audienceMode === "full" && (
-                <Select value={composeAudience} onValueChange={setComposeAudience}>
-                  <SelectTrigger className="bg-white/[0.02] border-white/10">
-                    <SelectValue placeholder="Seleccionar curso..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1a1a2e] border-white/10">
-                    {AUDIENCE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  {/* Label dinámico según nivel */}
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
+                    {levelUnitLabel} disponibles
+                  </p>
+                  <Select value={composeAudience} onValueChange={setComposeAudience}>
+                    <SelectTrigger className="bg-white/[0.02] border-white/10">
+                      <SelectValue placeholder={`Seleccionar ${levelUnitSingular}...`} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a2e] border-white/10">
+                      {levelAudienceOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Toggle exclusivo SECUNDARIO: mensaje directo a los alumnos */}
+                  {showStudentToggle && (
+                    <label className="flex items-center justify-between gap-3 mt-2 px-3 py-2.5 rounded-xl bg-purple-500/[0.05] border border-purple-500/20 cursor-pointer">
+                      <div>
+                        <p className="text-xs font-medium text-[#e4e1ea]">
+                          Enviar mensaje directo a los alumnos
+                        </p>
+                        <p className="text-[11px] text-white/40">
+                          Ademas de las familias, los propios alumnos recibirán el comunicado
+                        </p>
+                      </div>
+                      <Switch
+                        checked={sendDirectToStudents}
+                        onCheckedChange={setSendDirectToStudents}
+                        className="shrink-0 data-[state=checked]:bg-purple-500"
+                      />
+                    </label>
+                  )}
+                </div>
               )}
 
               {/* Opcion B: Seleccion Personalizada (cross-course) */}

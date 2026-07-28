@@ -40,6 +40,11 @@ import {
 import { OperationalAlerts, getAlertsCount } from "@/components/dashboard/operational-alerts"
 import { cn } from "@/lib/utils";
 import { printAsPdf } from "@/lib/utils/export-engine";
+import {
+  unitLabel,
+  NIVEL_METRICS,
+  type NivelEducativo,
+} from "@/lib/level-config";
 
 // ============================================
 // TYPES
@@ -701,6 +706,16 @@ export default function DashboardPage() {
 
   const role = activeContext?.role || null
   const schoolId = activeContext?.schoolId || "inst-1"
+  // ── Level Isolation ────────────────────────────────────────────────────────
+  const nivel = (activeContext?.level ?? "SECUNDARIO") as NivelEducativo
+  const levelMetrics = NIVEL_METRICS[nivel]
+  const nivelUnitLabel = unitLabel(nivel)
+  // Titular del módulo DOCENTE según nivel
+  const docenteViewTitle =
+    nivel === "INICIAL"   ? "Panel de Maestra Jardinera" :
+    nivel === "PRIMARIO"  ? "Panel Docente — Primaria" :
+                            "Panel Docente — Secundaria"
+  // ──────────────────────────────────────────────────────────────────────────
 
   // Drill-down Sheet state
   const [drillDownOpen, setDrillDownOpen] = useState(false)
@@ -1002,7 +1017,7 @@ export default function DashboardPage() {
       )}
 
       {/* ============================================ */}
-      {/* DASHBOARD DOCENTE */}
+      {/* DASHBOARD DOCENTE — Level Isolated          */}
       {/* ============================================ */}
       {role === "DOCENTE" && (
         <motion.div
@@ -1011,22 +1026,89 @@ export default function DashboardPage() {
           transition={{ delay: 0.1 }}
           className="space-y-6"
         >
-          {/* Critical Metrics */}
+          {/* Nivel badge */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">Nivel</span>
+              <span className={cn(
+                "text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg",
+                nivel === "INICIAL"    ? "bg-pink-500/10 text-pink-400"   :
+                nivel === "PRIMARIO"   ? "bg-cyan-500/10 text-cyan-400"   :
+                                         "bg-purple-500/10 text-purple-400"
+              )}>
+                {nivel}
+              </span>
+              <span className="text-xs text-white/50">{docenteViewTitle}</span>
+            </div>
+            <span className="text-xs text-white/25">{nivelUnitLabel} activos</span>
+          </div>
+
+          {/* Métricas aisladas por nivel — sin cruce de datos */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {DOCENTE_METRICS.map((metric, i) => (
-              <CriticalMetricCard key={i} metric={metric} onClick={() => openDrillDown(metric)} />
+            {levelMetrics.map((metric, i) => (
+              <div
+                key={i}
+                className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md space-y-3"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
+                  {metric.label}
+                </p>
+                <p className={cn(
+                  "text-3xl font-bold tabular-nums",
+                  metric.status === "critical" ? "text-red-400"   :
+                  metric.status === "warning"  ? "text-amber-400" : "text-[#e4e1ea]"
+                )}>
+                  {metric.value}
+                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-white/40">{metric.subtext}</p>
+                  <span className={cn(
+                    "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border",
+                    metric.status === "critical" ? "bg-red-500/10 text-red-400 border-red-500/20"     :
+                    metric.status === "warning"  ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                                   "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  )}>
+                    {metric.status === "critical" ? "Critico" : metric.status === "warning" ? "Atencion" : "Normal"}
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
 
-          {/* Action Inbox */}
-          {hasDocenteActions ? (
-            <ActionSection 
-              title="Tareas Pendientes" 
-              items={DOCENTE_ACTIONS} 
-              icon={BookOpen} 
+          {/* Action Inbox — INICIAL oculta métricas de TED/TEP (no aplica a jardín) */}
+          {nivel !== "INICIAL" && hasDocenteActions ? (
+            <ActionSection
+              title="Tareas Pendientes"
+              items={DOCENTE_ACTIONS}
+              icon={BookOpen}
             />
-          ) : (
+          ) : nivel !== "INICIAL" ? (
             <ZeroInboxState />
+          ) : null}
+
+          {/* INICIAL: acciones específicas de maestra jardinera */}
+          {nivel === "INICIAL" && (
+            <div className="p-5 rounded-2xl bg-pink-500/[0.04] border border-pink-500/[0.12] space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1.5 rounded-lg bg-pink-500/10 border border-pink-500/20">
+                  <Stethoscope className="size-4 text-pink-400" />
+                </div>
+                <p className="text-sm font-semibold text-[#e4e1ea]">Recordatorios del Jardin</p>
+              </div>
+              {[
+                { label: "Alumnos con restriccion alimentaria", value: "2", href: "/students" },
+                { label: "Autorizaciones de retiro pendientes", value: "3", href: "/attendance" },
+                { label: "Informes cualitativos sin redactar",  value: "5", href: "/grades"     },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                >
+                  <span className="text-sm text-white/70">{item.label}</span>
+                  <span className="text-sm font-bold text-pink-400">{item.value}</span>
+                </div>
+              ))}
+            </div>
           )}
         </motion.div>
       )}
