@@ -7,7 +7,7 @@ import {
   ArrowLeft, User, BarChart2, CalendarCheck, ShieldCheck, Users,
   ClipboardList, ShieldAlert, Stethoscope, Lock, Upload, FileText,
   CheckCircle2, Clock, AlertCircle, Plus, X, Paperclip, ChevronRight,
-  Building2, Brain,
+  Building2, Brain, BookHeart, Sparkles, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -127,7 +127,7 @@ const STATUS_CONFIG: Record<ReferralStatus, { label: string; icon: React.ReactNo
 // CLINICAL CABINET TAB COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ClinicalCabinetTab({ studentName }: { studentName: string }) {
+function ClinicalCabinetTab({ studentName, isFamilia = false }: { studentName: string; isFamilia?: boolean }) {
   const [expandedId, setExpandedId] = useState<string | null>("r1");
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -174,17 +174,32 @@ function ClinicalCabinetTab({ studentName }: { studentName: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Confidentiality banner */}
+      {/* Confidentiality banner — mensaje diferente por rol */}
       <motion.div
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20"
+        className={cn(
+          "flex items-center gap-3 px-4 py-3 rounded-xl border",
+          isFamilia
+            ? "bg-blue-500/[0.06] border-blue-500/20"
+            : "bg-red-500/[0.06] border-red-500/20"
+        )}
       >
-        <Lock className="h-4 w-4 text-red-400 shrink-0" />
-        <p className="text-xs text-red-300/80">
-          <span className="font-semibold text-red-300">Informacion altamente confidencial.</span>{" "}
-          Este modulo es de acceso restringido. Su contenido esta protegido por las normativas de
-          privacidad escolar y no es visible para docentes, preceptores ni familias.
+        <Lock className={cn("h-4 w-4 shrink-0", isFamilia ? "text-blue-400" : "text-red-400")} />
+        <p className={cn("text-xs", isFamilia ? "text-blue-300/80" : "text-red-300/80")}>
+          {isFamilia ? (
+            <>
+              <span className="font-semibold text-blue-300">Informes y Derivaciones.</span>{" "}
+              Aqui puedes consultar el historial de derivaciones de tu hijo/a y cargar informes de
+              profesionales externos (fonoaudiologia, psicologia, pediatria, etc.).
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-red-300">Informacion altamente confidencial.</span>{" "}
+              Este modulo es de acceso restringido. Su contenido esta protegido por las normativas de
+              privacidad escolar y no es visible para docentes ni preceptores.
+            </>
+          )}
         </p>
       </motion.div>
 
@@ -438,16 +453,17 @@ function ClinicalCabinetTab({ studentName }: { studentName: string }) {
               </div>
             </div>
 
-            {/* Submit */}
+            {/* Submit — gradiente distinto para familia (especificación UI) */}
             <button
               type="submit"
               disabled={isSaving || !professional || !diagnosis}
               className={cn(
-                "w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm",
-                "bg-gradient-to-r from-[#8A2BE2] to-[#6B1FA8]",
-                "shadow-[0_0_24px_rgba(138,43,226,0.4)] hover:shadow-[0_0_36px_rgba(138,43,226,0.6)]",
-                "text-white transition-all duration-300 hover:from-[#9B3CF5] hover:to-[#7B2BBB]",
-                "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                "w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm",
+                "transition-all duration-300",
+                "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none",
+                isFamilia
+                  ? "bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black shadow-[0_0_24px_rgba(138,43,226,0.35)] hover:shadow-[0_0_36px_rgba(138,43,226,0.55)]"
+                  : "bg-gradient-to-r from-[#8A2BE2] to-[#6B1FA8] text-white shadow-[0_0_24px_rgba(138,43,226,0.4)] hover:shadow-[0_0_36px_rgba(138,43,226,0.6)] hover:from-[#9B3CF5] hover:to-[#7B2BBB]"
               )}
             >
               {isSaving ? (
@@ -464,6 +480,220 @@ function ClinicalCabinetTab({ studentName }: { studentName: string }) {
             </button>
           </form>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INITIAL LEVEL — Qualitative Progress Tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+type QualitativeLevel = "LOGRADO" | "EN_PROCESO" | "NO_INICIADO";
+
+interface DevelopmentArea {
+  id: string;
+  area: string;
+  icon: React.ReactNode;
+  progress: QualitativeLevel;
+  teacherComment: string;
+  period: string;
+}
+
+const PROGRESS_CONFIG: Record<QualitativeLevel, { label: string; badge: string; dot: string }> = {
+  LOGRADO: {
+    label: "Logrado",
+    badge: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    dot: "bg-emerald-400",
+  },
+  EN_PROCESO: {
+    label: "En Proceso",
+    badge: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    dot: "bg-amber-400",
+  },
+  NO_INICIADO: {
+    label: "No Iniciado",
+    badge: "bg-white/[0.04] text-white/40 border border-white/10",
+    dot: "bg-white/30",
+  },
+};
+
+const MOCK_DEVELOPMENT_AREAS: DevelopmentArea[] = [
+  {
+    id: "da1",
+    area: "Desarrollo Socioemocional",
+    icon: <Star className="h-4 w-4" />,
+    progress: "LOGRADO",
+    teacherComment: "Lucia demuestra una excelente capacidad para regular sus emociones y establecer vinculos positivos con sus pares. Participa activamente en actividades grupales y muestra empatia ante situaciones de conflicto.",
+    period: "2do Trimestre 2025",
+  },
+  {
+    id: "da2",
+    area: "Practicas del Lenguaje",
+    icon: <BookHeart className="h-4 w-4" />,
+    progress: "EN_PROCESO",
+    teacherComment: "Avanza en la conciencia fonologica. Reconoce su nombre escrito y algunas letras del abecedario. Se sugiere reforzar en casa la lectura de cuentos cortos e identificacion de palabras cotidianas.",
+    period: "2do Trimestre 2025",
+  },
+  {
+    id: "da3",
+    area: "Pensamiento Matematico",
+    icon: <Sparkles className="h-4 w-4" />,
+    progress: "LOGRADO",
+    teacherComment: "Realiza conteos hasta el 20 con precision. Identifica formas geometricas basicas en el entorno y puede establecer correspondencias uno a uno. Demuestra interes por las actividades de medicion.",
+    period: "2do Trimestre 2025",
+  },
+  {
+    id: "da4",
+    area: "Educacion Fisica y Motricidad",
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    progress: "LOGRADO",
+    teacherComment: "Coordinacion motriz acorde a la edad. Participa con entusiasmo en todas las actividades fisicas. Trabaja bien en equipo durante los juegos cooperativos.",
+    period: "2do Trimestre 2025",
+  },
+  {
+    id: "da5",
+    area: "Artes y Expresion",
+    icon: <Brain className="h-4 w-4" />,
+    progress: "EN_PROCESO",
+    teacherComment: "Muestra creatividad en sus producciones plasticas. En proceso de afianzar el control del trazo y la coordinacion visomotriz fina. Se recomienda actividades de recorte y enhebrado en casa.",
+    period: "2do Trimestre 2025",
+  },
+];
+
+function InitialProgressTab({ studentName }: { studentName: string }) {
+  const [expandedArea, setExpandedArea] = useState<string | null>("da1");
+
+  const logrado = MOCK_DEVELOPMENT_AREAS.filter(a => a.progress === "LOGRADO").length;
+  const enProceso = MOCK_DEVELOPMENT_AREAS.filter(a => a.progress === "EN_PROCESO").length;
+
+  return (
+    <div className="space-y-5">
+      {/* Header card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-pink-500/10 border border-pink-500/20">
+            <BookHeart className="h-5 w-5 text-pink-400" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-[#E4E1EA] uppercase tracking-wider">
+              Informes de Progreso — Nivel Inicial
+            </h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              {studentName} · 2do Trimestre 2025 · Sala de 5
+            </p>
+          </div>
+        </div>
+        {/* Summary chips */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="size-1.5 rounded-full bg-emerald-400" />
+            {logrado} Logrado{logrado !== 1 ? "s" : ""}
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span className="size-1.5 rounded-full bg-amber-400" />
+            {enProceso} En Proceso
+          </span>
+        </div>
+      </div>
+
+      {/* Development Area Cards */}
+      <div className="space-y-3">
+        {MOCK_DEVELOPMENT_AREAS.map((area, index) => {
+          const cfg = PROGRESS_CONFIG[area.progress];
+          const isExpanded = expandedArea === area.id;
+
+          return (
+            <motion.div
+              key={area.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.04 }}
+              className={cn(
+                "rounded-2xl border transition-all duration-200 overflow-hidden",
+                isExpanded
+                  ? "bg-white/[0.04] border-white/15"
+                  : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.03] hover:border-white/10"
+              )}
+            >
+              {/* Row */}
+              <button
+                onClick={() => setExpandedArea(isExpanded ? null : area.id)}
+                className="w-full flex items-center justify-between gap-4 px-5 py-4"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn(
+                    "p-2 rounded-xl border shrink-0",
+                    area.progress === "LOGRADO"
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      : area.progress === "EN_PROCESO"
+                        ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                        : "bg-white/[0.04] border-white/10 text-white/30"
+                  )}>
+                    {area.icon}
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="text-sm font-semibold text-[#E4E1EA] truncate">{area.area}</p>
+                    <p className="text-xs text-white/40">{area.period}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={cn(
+                    "hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold",
+                    cfg.badge
+                  )}>
+                    <span className={cn("size-1.5 rounded-full", cfg.dot)} />
+                    {cfg.label}
+                  </span>
+                  <ChevronRight className={cn(
+                    "h-4 w-4 text-white/30 transition-transform duration-200",
+                    isExpanded && "rotate-90"
+                  )} />
+                </div>
+              </button>
+
+              {/* Expanded: teacher comment */}
+              <AnimatePresence initial={false}>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-5 pb-5">
+                      <Separator className="mb-4 bg-white/[0.06]" />
+                      <div className="flex items-start gap-3">
+                        <div className="p-1.5 rounded-lg bg-[#8A2BE2]/10 border border-[#8A2BE2]/20 shrink-0 mt-0.5">
+                          <BookHeart className="h-3.5 w-3.5 text-[#D0BCFF]" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">
+                            Observaciones de la Maestra
+                          </p>
+                          <p className="text-sm text-white/70 leading-relaxed">
+                            {area.teacherComment}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Footer note */}
+      <div className="flex items-start gap-2.5 p-4 rounded-xl bg-[#8A2BE2]/[0.06] border border-[#8A2BE2]/15">
+        <Sparkles className="h-4 w-4 text-[#D0BCFF]/70 shrink-0 mt-0.5" />
+        <p className="text-xs text-white/50 leading-relaxed">
+          Los informes de progreso del Nivel Inicial son de caracter cualitativo y no incluyen
+          calificaciones numericas. Reflejan el desarrollo integral del nino/a en cada area de aprendizaje
+          segun las expectativas del curriculo oficial para la Sala de 5.
+        </p>
       </div>
     </div>
   );
@@ -490,8 +720,14 @@ export function Student360View({
   // RBAC: deriva si el usuario es familia para ocultarle acciones administrativas
   const isFamilia = activeContext?.role === "FAMILIA";
 
-  // RBAC: Gabinete Clínico solo visible para ADMIN (máximo privilegio del sistema)
-  const canViewClinical = activeContext?.role === "ADMIN";
+  // Nivel Inicial: se detecta por el nivel del contexto activo o por el nombre del curso
+  const isInitialLevel =
+    activeContext?.level === "INICIAL" ||
+    /jardin|jardín|inicial|sala\s+de\s+[0-9]/i.test(data.profile.courseName);
+
+  // RBAC: Gabinete Clínico visible para ADMIN y FAMILIA (padres pueden cargar informes externos)
+  const canViewClinical =
+    activeContext?.role === "ADMIN" || activeContext?.role === "FAMILIA";
 
   // RBAC: FAMILIA siempre vuelve a su dashboard multihijo; el personal vuelve
   // a la página anterior de la que vino (Secretaría, Notas, Parte Diario, etc.)
@@ -558,14 +794,17 @@ export function Student360View({
               Resumen
             </TabsTrigger>
 
-            {/* 2 — Calificaciones */}
+            {/* 2 — Calificaciones / Informes de Progreso (Nivel Inicial) */}
             <TabsTrigger
               value="calificaciones"
               className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#D0BCFF] data-[state=active]:shadow-[0_0_15px_rgba(138,43,226,0.2)]"
             >
-              <BarChart2 className="h-4 w-4 mr-2" />
-              Calificaciones
-              {pendingSubjectsCount > 0 && !isFamilia && (
+              {isInitialLevel
+                ? <BookHeart className="h-4 w-4 mr-2" />
+                : <BarChart2 className="h-4 w-4 mr-2" />
+              }
+              {isInitialLevel ? "Informes de Progreso" : "Calificaciones"}
+              {pendingSubjectsCount > 0 && !isFamilia && !isInitialLevel && (
                 <Badge
                   variant="outline"
                   className="ml-2 bg-[#ffb4ab]/20 text-[#ffb4ab] border-[#ffb4ab]/30 text-[10px] px-1.5"
@@ -614,15 +853,20 @@ export function Student360View({
               Datos Complementarios
             </TabsTrigger>
 
-            {/* 7 — Gabinete Clínico (ADMIN only) */}
+            {/* 7 — Gabinete Clínico (ADMIN + FAMILIA) */}
             {canViewClinical && (
               <TabsTrigger
                 value="gabinete-clinico"
-                className="text-white/50 hover:text-white transition-all rounded-lg data-[state=active]:bg-red-500/15 data-[state=active]:text-red-300 data-[state=active]:shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+                className={cn(
+                  "text-white/50 hover:text-white transition-all rounded-lg",
+                  isFamilia
+                    ? "data-[state=active]:bg-blue-500/15 data-[state=active]:text-blue-300 data-[state=active]:shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                    : "data-[state=active]:bg-red-500/15 data-[state=active]:text-red-300 data-[state=active]:shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+                )}
               >
                 <Stethoscope className="h-4 w-4 mr-2" />
-                Gabinete Clinico
-                <Lock className="h-3 w-3 ml-1.5 opacity-60" />
+                {isFamilia ? "Informes de Salud" : "Gabinete Clinico"}
+                {!isFamilia && <Lock className="h-3 w-3 ml-1.5 opacity-60" />}
               </TabsTrigger>
             )}
           </TabsList>
@@ -643,12 +887,18 @@ export function Student360View({
             </div>
           </TabsContent>
 
-          {/* ── Tab 2: Calificaciones ── */}
-          {/* StudentTrayectoria deriva su propio canEdit desde activeContext.role internamente */}
+          {/* ── Tab 2: Calificaciones / Informes de Progreso ── */}
           <TabsContent value="calificaciones" className="mt-6">
-            <StudentTrayectoria
-              studentName={`${data.profile.firstName} ${data.profile.lastName}`}
-            />
+            {isInitialLevel ? (
+              <InitialProgressTab
+                studentName={`${data.profile.firstName} ${data.profile.lastName}`}
+              />
+            ) : (
+              /* StudentTrayectoria deriva su propio canEdit desde activeContext.role internamente */
+              <StudentTrayectoria
+                studentName={`${data.profile.firstName} ${data.profile.lastName}`}
+              />
+            )}
           </TabsContent>
 
           {/* ── Tab 3: Asistencia ── */}
@@ -721,10 +971,13 @@ export function Student360View({
             />
           </TabsContent>
 
-          {/* ── Tab 7: Gabinete Clínico (ADMIN only) ── */}
+          {/* ── Tab 7: Gabinete Clínico (ADMIN + FAMILIA) ── */}
           {canViewClinical && (
             <TabsContent value="gabinete-clinico" className="mt-6">
-              <ClinicalCabinetTab studentName={`${data.profile.firstName} ${data.profile.lastName}`} />
+              <ClinicalCabinetTab
+                studentName={`${data.profile.firstName} ${data.profile.lastName}`}
+                isFamilia={isFamilia}
+              />
             </TabsContent>
           )}
         </Tabs>

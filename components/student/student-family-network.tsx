@@ -176,6 +176,34 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
   const [contacts, setContacts] = useState<FamilyContact[]>(MOCK_CONTACTS);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<FamilyContact | null>(null);
+
+  // "Vincular Nuevo Contacto" ghost card dialog
+  const [isLinkContactOpen, setIsLinkContactOpen] = useState(false);
+  const [isSavingLink, setIsSavingLink] = useState(false);
+  const [linkForm, setLinkForm] = useState({ name: "", relationship: "", phone: "", dni: "" });
+
+  const handleLinkContact = async () => {
+    if (!linkForm.name || !linkForm.relationship || !linkForm.phone) return;
+    setIsSavingLink(true);
+    await new Promise((r) => setTimeout(r, 900));
+    const newContact: FamilyContact = {
+      id: `lc-${Date.now()}`,
+      fullName: linkForm.name,
+      relationship: linkForm.relationship,
+      phone: linkForm.phone,
+      dni: linkForm.dni || undefined,
+      hasAccount: false,
+      isPrimaryTutor: false,
+      roles: ["AUTORIZADO_RETIRO"],
+    };
+    setContacts((prev) => [...prev, newContact]);
+    setIsSavingLink(false);
+    setIsLinkContactOpen(false);
+    setLinkForm({ name: "", relationship: "", phone: "", dni: "" });
+    toast.success("Contacto vinculado correctamente", {
+      description: `${linkForm.name} fue agregado a la red familiar.`,
+    });
+  };
   
   // Account creation dialog state
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
@@ -355,6 +383,14 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
 
   return (
     <div className="space-y-6">
+      {/* Banner de seguridad institucional */}
+      <div className="flex items-center gap-2.5 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+        <Info className="h-4 w-4 text-blue-400 shrink-0" />
+        <p className="text-xs text-blue-400 leading-relaxed">
+          <span className="font-semibold">Informacion:</span> Para desvincular o eliminar a un contacto autorizado existente, debe comunicarse con la Secretaria de la institucion por protocolos de seguridad infantil.
+        </p>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -482,23 +518,137 @@ export function StudentFamilyNetwork({ studentId, studentName, userRole = "DOCEN
       </div>
 
       {/* Other Authorized Contacts */}
-      {otherContacts.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Otros Contactos Autorizados
-          </h4>
+      <div className="space-y-3">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Otros Contactos Autorizados
+        </h4>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {otherContacts.map((contact) => (
-              <ContactCard 
-                key={contact.id} 
-                contact={contact} 
-                onEdit={canEdit ? () => handleOpenSheet(contact) : undefined}
-              />
-            ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {otherContacts.map((contact) => (
+            <ContactCard
+              key={contact.id}
+              contact={contact}
+              onEdit={canEdit ? () => handleOpenSheet(contact) : undefined}
+              isFamilia={userRole === "FAMILIA"}
+            />
+          ))}
+
+          {/* Ghost card — Vincular Nuevo Contacto (visible para todos, también para FAMILIA) */}
+          <motion.button
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={() => setIsLinkContactOpen(true)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-2 min-h-[100px] rounded-xl",
+              "border border-dashed border-white/20 hover:border-[#8A2BE2]/50",
+              "bg-transparent hover:bg-white/5 cursor-pointer transition-all duration-200",
+              "text-white/30 hover:text-[#D0BCFF]/80"
+            )}
+          >
+            <div className="p-2 rounded-full border border-dashed border-current transition-colors">
+              <UserPlus className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-semibold">+ Vincular Nuevo Contacto</span>
+          </motion.button>
         </div>
-      )}
+      </div>
+
+      {/* Dialog — Vincular Nuevo Contacto (Dark Glassmorphism) */}
+      <Dialog open={isLinkContactOpen} onOpenChange={setIsLinkContactOpen}>
+        <DialogContent className="sm:max-w-[440px] bg-[#131319] border border-white/10 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.06]">
+            <DialogTitle className="flex items-center gap-2 text-[#e4e1ea] text-base">
+              <div className="p-1.5 rounded-lg bg-[#8A2BE2]/15 border border-[#8A2BE2]/25">
+                <UserPlus className="h-4 w-4 text-[#D0BCFF]" />
+              </div>
+              Vincular Nuevo Contacto
+            </DialogTitle>
+            <DialogDescription className="text-white/40 text-sm">
+              Completa los datos para agregar un contacto autorizado a la red familiar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm text-[#e4e1ea]">Nombre Completo <span className="text-[#D0BCFF]">*</span></Label>
+              <Input
+                value={linkForm.name}
+                onChange={(e) => setLinkForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="Nombre y Apellido"
+                className="bg-white/[0.02] border-white/10 text-[#e4e1ea] placeholder:text-white/25"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-[#e4e1ea]">Vinculo / Parentesco <span className="text-[#D0BCFF]">*</span></Label>
+              <Select value={linkForm.relationship} onValueChange={(v) => setLinkForm((p) => ({ ...p, relationship: v }))}>
+                <SelectTrigger className="bg-white/[0.02] border-white/10 text-[#e4e1ea]">
+                  <SelectValue placeholder="Seleccionar parentesco" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  <SelectItem value="Madre">Madre</SelectItem>
+                  <SelectItem value="Padre">Padre</SelectItem>
+                  <SelectItem value="Abuela Materna">Abuela Materna</SelectItem>
+                  <SelectItem value="Abuelo Materno">Abuelo Materno</SelectItem>
+                  <SelectItem value="Abuela Paterna">Abuela Paterna</SelectItem>
+                  <SelectItem value="Abuelo Paterno">Abuelo Paterno</SelectItem>
+                  <SelectItem value="Tio/a">Tio/a</SelectItem>
+                  <SelectItem value="Hermano/a Mayor">Hermano/a Mayor</SelectItem>
+                  <SelectItem value="Tutor Legal">Tutor Legal</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-[#e4e1ea]">Telefono <span className="text-[#D0BCFF]">*</span></Label>
+              <Input
+                value={linkForm.phone}
+                onChange={(e) => setLinkForm((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="+54 11 1234-5678"
+                className="bg-white/[0.02] border-white/10 text-[#e4e1ea] placeholder:text-white/25"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-[#e4e1ea]">DNI <span className="text-white/30">(opcional)</span></Label>
+              <Input
+                value={linkForm.dni}
+                onChange={(e) => setLinkForm((p) => ({ ...p, dni: e.target.value }))}
+                placeholder="Ej: 30.456.789"
+                className="bg-white/[0.02] border-white/10 text-[#e4e1ea] placeholder:text-white/25"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-white/[0.06] bg-white/[0.01] gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsLinkContactOpen(false)}
+              className="border-white/10 text-white/60 hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleLinkContact}
+              disabled={isSavingLink || !linkForm.name || !linkForm.relationship || !linkForm.phone}
+              className="bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black font-bold hover:opacity-90 gap-2 disabled:opacity-40"
+            >
+              {isSavingLink ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Vinculando...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4" />
+                  Vincular Contacto
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Legend */}
       <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
@@ -989,12 +1139,14 @@ function ActiveTutorCard({
 }
 
 // Contact Card Component
-function ContactCard({ 
-  contact, 
-  onEdit 
-}: { 
-  contact: FamilyContact; 
+function ContactCard({
+  contact,
+  onEdit,
+  isFamilia = false,
+}: {
+  contact: FamilyContact;
   onEdit?: () => void;
+  isFamilia?: boolean;
 }) {
   return (
     <motion.div
@@ -1031,7 +1183,8 @@ function ContactCard({
           </div>
         </div>
         
-        {onEdit && (
+        {/* RBAC: FAMILIA no puede editar/eliminar contactos */}
+        {onEdit && !isFamilia && (
           <Button
             variant="ghost"
             size="icon"
