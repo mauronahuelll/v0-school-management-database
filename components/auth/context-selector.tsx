@@ -48,31 +48,23 @@ export function ContextSelector() {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8 py-12 overflow-y-auto">
-      {/* Halo adicional centrado — fixed para que no se corte al hacer scroll */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/8 via-transparent to-transparent pointer-events-none z-0" />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/6 blur-[140px] rounded-full pointer-events-none z-0" />
-      
-      {/* Subtle grid pattern — fixed para cubrir toda la pantalla siempre */}
-      <div 
-        className="fixed inset-0 opacity-[0.02] z-0"
-        style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px',
-        }}
-      />
+    <div className="relative min-h-screen w-full bg-[#050508] overflow-y-auto overflow-x-hidden">
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6">
+      {/* FONDOS — fixed para no moverse con el scroll bajo ninguna circunstancia */}
+      <div className="fixed top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#8A2BE2]/20 via-[#050508] to-[#050508] pointer-events-none z-0" />
+      <div className="fixed bottom-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#D0BCFF]/5 via-transparent to-transparent blur-3xl pointer-events-none z-0" />
+
+      {/* CONTENEDOR DEL CONTENIDO — crece libremente, centrado horizontalmente */}
+      <div className="relative z-10 w-full min-h-screen flex flex-col items-center justify-center py-24 px-4 md:px-8">
+
+        {/* HEADER */}
+        <div className="text-center space-y-4 mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-medium text-primary">Bienvenido a Sequency</span>
           </div>
-          
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
             Hola, <span className="text-primary">{user.name?.split(" ")[0]}</span>
           </h1>
           <p className="text-base md:text-lg text-muted-foreground">
@@ -80,12 +72,12 @@ export function ContextSelector() {
           </p>
         </div>
 
-        {/* Context Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 pb-2">
+        {/* GRILLA DE TARJETAS — sin h-full ni max-h, crece libremente */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl pb-12">
           {availableContexts.map((context) => {
             const RoleIcon = ROLE_ICONS[context.role] || GraduationCap
             const levelColor = LEVEL_COLORS[context.level] || "text-muted-foreground"
-            
+
             return (
               <button
                 key={context.id}
@@ -101,7 +93,7 @@ export function ContextSelector() {
               >
                 {/* Hover glow effect */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                
+
                 {/* Content */}
                 <div className="relative z-10">
                   {/* Icon and Role */}
@@ -135,10 +127,10 @@ export function ContextSelector() {
 
                 {/* Arrow indicator on hover */}
                 <div className="absolute bottom-5 right-5 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg 
-                    className="w-4 h-4 text-primary" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
+                  <svg
+                    className="w-4 h-4 text-primary"
+                    fill="none"
+                    viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -149,12 +141,12 @@ export function ContextSelector() {
           })}
         </div>
 
-        {/* Footer */}
-        <div className="flex flex-col items-center gap-4">
+        {/* BOTON DE CERRAR SESION */}
+        <div className="mt-8 flex flex-col items-center gap-4">
           <p className="text-xs text-muted-foreground text-center">
             Ingresando como <span className="text-foreground font-medium">{user.email}</span>
           </p>
-          
+
           <button
             onClick={logout}
             className="inline-flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
@@ -163,6 +155,7 @@ export function ContextSelector() {
             Cerrar sesion y cambiar cuenta
           </button>
         </div>
+
       </div>
     </div>
   )
