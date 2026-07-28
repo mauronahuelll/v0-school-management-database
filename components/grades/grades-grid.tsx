@@ -15,10 +15,34 @@ import {
   EyeOff,
   Lock,
   AlertTriangle,
+  Send,
+  PenLine,
+  FileText,
+  Sparkles,
+  ChevronDown,
+  X,
+  Save,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -96,9 +120,52 @@ export function GradesGrid({
   const [isPeriodLocked, setIsPeriodLocked] = useState(false);
   const [isLockDialogOpen, setIsLockDialogOpen] = useState(false);
 
+  // Draft mode state
+  const [isDraftMode, setIsDraftMode] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  // Tracks which "studentId:assessmentId" cells have been edited in draft mode
+  const [draftCells, setDraftCells] = useState<Set<string>>(new Set());
+
+  const handleDraftGradeUpdate = useCallback(
+    async (studentId: string, assessmentId: string, value: number | null) => {
+      await onGradeUpdate(studentId, assessmentId, value);
+      if (isDraftMode) {
+        setDraftCells((prev) => {
+          const next = new Set(prev);
+          next.add(`${studentId}:${assessmentId}`);
+          return next;
+        });
+      }
+    },
+    [onGradeUpdate, isDraftMode]
+  );
+
+  const handlePublishDraft = useCallback(async () => {
+    setIsPublishing(true);
+    try {
+      await onPublish();
+      setDraftCells(new Set());
+      setIsDraftMode(false);
+      toast.success("Calificaciones publicadas", {
+        description: "Las familias ya pueden ver las calificaciones actualizadas.",
+        duration: 5000,
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [onPublish]);
+
   const { subject, assessments, students, periodName, courseName, divisionName } =
     courseInfo;
   const scale = subject.gradeScale;
+
+  /**
+   * Nivel Inicial: si educationLevel es "INITIAL" O si el nombre del curso
+   * contiene "Jardín", "Jardin", "Inicial" o "Pre-escolar" (fallback semántico).
+   */
+  const isInitialLevel =
+    courseInfo.educationLevel === "INITIAL" ||
+    /jardin|jardín|inicial|pre-escolar|preescolar/i.test(courseName);
 
   // Determine if user can edit grades based on role
   // DOCENTE and PRECEPTOR can edit, others cannot
@@ -249,6 +316,57 @@ export function GradesGrid({
               />
             </div>
 
+            {/* Draft mode toggle + Publish */}
+            <div className="flex items-center gap-3">
+              {canEditGrades && (
+                <div className={cn(
+                  "flex items-center gap-2.5 px-3.5 py-2 rounded-xl border transition-all duration-300",
+                  isDraftMode
+                    ? "bg-amber-500/10 border-amber-500/25"
+                    : "bg-white/[0.02] border-white/10"
+                )}>
+                  <PenLine className={cn(
+                    "size-3.5 transition-colors",
+                    isDraftMode ? "text-amber-400" : "text-white/40"
+                  )} />
+                  <Label
+                    htmlFor="draft-mode-grid"
+                    className={cn(
+                      "text-xs font-medium cursor-pointer transition-colors select-none hidden sm:block",
+                      isDraftMode ? "text-amber-300" : "text-white/50"
+                    )}
+                  >
+                    {isDraftMode ? "Borrador activo" : "Modo Borrador"}
+                  </Label>
+                  <Switch
+                    id="draft-mode-grid"
+                    checked={isDraftMode}
+                    onCheckedChange={(checked) => {
+                      setIsDraftMode(checked);
+                      if (!checked) setDraftCells(new Set());
+                    }}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </div>
+              )}
+
+              {isDraftMode && draftCells.size > 0 && (
+                <Button
+                  onClick={handlePublishDraft}
+                  disabled={isPublishing}
+                  className="gap-2 bg-[#8A2BE2] hover:bg-[#7B22D6] text-white border-0 shadow-[0_0_20px_rgba(138,43,226,0.35)] hover:shadow-[0_0_30px_rgba(138,43,226,0.5)] transition-all duration-300"
+                >
+                  <Send className="size-4" />
+                  <span className="hidden lg:inline">
+                    {isPublishing ? "Publicando..." : `Publicar Calificaciones a Familias (${draftCells.size})`}
+                  </span>
+                  <span className="lg:hidden">
+                    {isPublishing ? "..." : "Publicar"}
+                  </span>
+                </Button>
+              )}
+            </div>
+
             {/* Lock Period Button */}
             <div className="flex items-center gap-3">
               {userRole === "ADMIN" && !isPeriodLocked && (
@@ -306,6 +424,20 @@ export function GradesGrid({
       </header>
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Draft mode banner */}
+        {isDraftMode && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+            <div className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <p className="text-sm text-amber-300">
+              <span className="font-semibold">Edicion Preliminar activa.</span>{" "}
+              Las celdas editadas muestran un indicador ambar. Los cambios no son visibles para las familias hasta publicarlos.
+              {draftCells.size > 0 && (
+                <span className="ml-2 font-semibold">{draftCells.size} {draftCells.size === 1 ? "nota pendiente" : "notas pendientes"} de publicacion.</span>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Publication Banner */}
         <PublicationBanner
           periodName={periodName}
@@ -366,8 +498,19 @@ export function GradesGrid({
           </DropdownMenu>
         </div>
 
-        {/* Grades Table */}
-        <div className={cn(
+        {/* Qualitative Reports (Nivel Inicial) */}
+        {isInitialLevel && (
+          <QualitativeReportList
+            students={filteredStudents}
+            periodName={periodName}
+            subjectName={subject.name}
+            isReadOnly={!canEditGrades}
+            isPeriodLocked={isPeriodLocked}
+          />
+        )}
+
+        {/* Grades Table (todos los demás niveles) */}
+        {!isInitialLevel && <div className={cn(
           "bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative",
           isPeriodLocked && "opacity-60 pointer-events-none"
         )}>
@@ -461,9 +604,11 @@ export function GradesGrid({
                     assessments={assessments}
                     scale={scale}
                     isPublished={courseInfo.publicationStatus === "PUBLISHED"}
-                    onGradeUpdate={onGradeUpdate}
+                    onGradeUpdate={handleDraftGradeUpdate}
                     isReadOnly={!canEditGrades}
                     index={index}
+                    isDraftMode={isDraftMode}
+                    draftCells={draftCells}
                   />
                 ))}
               </tbody>
@@ -482,9 +627,380 @@ export function GradesGrid({
               </p>
             </div>
           )}
-        </div>
+        </div>}
       </main>
     </div>
+  );
+}
+
+// ============================================
+// QUALITATIVE REPORTS — NIVEL INICIAL
+// ============================================
+
+type ProgressValue = "LOGRADO" | "EN_PROCESO" | "AUN_NO_LOGRADO" | "";
+
+const PROGRESS_OPTIONS: {
+  value: Exclude<ProgressValue, "">;
+  label: string;
+  badge: string;
+  dot: string;
+}[] = [
+  {
+    value: "LOGRADO",
+    label: "Logrado",
+    badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    dot: "bg-emerald-400",
+  },
+  {
+    value: "EN_PROCESO",
+    label: "En Proceso",
+    badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    dot: "bg-amber-400",
+  },
+  {
+    value: "AUN_NO_LOGRADO",
+    label: "Aun no logrado",
+    badge: "bg-red-500/10 text-red-400 border-red-500/20",
+    dot: "bg-red-400",
+  },
+];
+
+interface QualitativeReportListProps {
+  students: StudentGradeRow[];
+  periodName: string;
+  subjectName: string;
+  isReadOnly: boolean;
+  isPeriodLocked: boolean;
+}
+
+function QualitativeReportList({
+  students,
+  periodName,
+  subjectName,
+  isReadOnly,
+  isPeriodLocked,
+}: QualitativeReportListProps) {
+  return (
+    <div className={cn(
+      "bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative",
+      isPeriodLocked && "opacity-60 pointer-events-none"
+    )}>
+      {/* Locked overlay */}
+      {isPeriodLocked && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="flex items-center gap-3 px-6 py-4 rounded-xl bg-amber-500/20 border border-amber-500/30">
+            <Lock className="size-6 text-amber-400" />
+            <div>
+              <p className="font-semibold text-amber-200">Periodo Cerrado</p>
+              <p className="text-xs text-amber-200/70">Informes congelados para boletin</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0A0A0F]/80 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-[#8A2BE2]/20 border border-[#8A2BE2]/30">
+            <Sparkles className="size-4 text-[#D0BCFF]" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-[#E4E1EA] uppercase tracking-wider">
+              Informes Cualitativos — Nivel Inicial
+            </h2>
+            <p className="text-xs text-white/40 mt-0.5">
+              {subjectName} · {periodName} · {students.length} alumno{students.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {PROGRESS_OPTIONS.map((opt) => (
+            <span
+              key={opt.value}
+              className={cn(
+                "hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+                opt.badge
+              )}
+            >
+              <span className={cn("size-1.5 rounded-full", opt.dot)} />
+              {opt.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Student rows */}
+      <div className="divide-y divide-white/[0.04]">
+        {students.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Users className="size-12 text-white/20 mb-4" />
+            <p className="text-sm text-white/40">No se encontraron alumnos</p>
+          </div>
+        ) : (
+          students.map((student, index) => (
+            <QualitativeStudentRow
+              key={student.studentId}
+              student={student}
+              index={index}
+              isReadOnly={isReadOnly}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// QUALITATIVE STUDENT ROW
+// ============================================
+
+interface QualitativeStudentRowProps {
+  student: StudentGradeRow;
+  index: number;
+  isReadOnly: boolean;
+}
+
+function QualitativeStudentRow({ student, index, isReadOnly }: QualitativeStudentRowProps) {
+  const [progress, setProgress] = useState<ProgressValue>("");
+  const [report, setReport] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [draftReport, setDraftReport] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
+  const progressConfig = PROGRESS_OPTIONS.find((o) => o.value === progress);
+
+  const handleOpenSheet = () => {
+    setDraftReport(report);
+    setSheetOpen(true);
+  };
+
+  const handleSaveReport = async () => {
+    setIsSaving(true);
+    // Simular guardado
+    await new Promise((r) => setTimeout(r, 800));
+    setReport(draftReport);
+    setIsSaving(false);
+    setSheetOpen(false);
+    toast.success("Informe guardado", {
+      description: `Observaciones de ${student.firstName} ${student.lastName} guardadas correctamente.`,
+      duration: 3000,
+    });
+  };
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.03 }}
+        className="flex flex-col sm:flex-row sm:items-center gap-4 px-6 py-5 hover:bg-white/[0.03] transition-colors group"
+      >
+        {/* Avatar + Name */}
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <Avatar className="size-11 shrink-0 ring-2 ring-[#8A2BE2]/20 ring-offset-1 ring-offset-[#0A0A0F]">
+            <AvatarImage src={student.photoUrl} alt={student.firstName} />
+            <AvatarFallback className="bg-[#8A2BE2]/20 text-[#D0BCFF] font-semibold text-sm">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <Link
+              href={`/student/${student.studentId}`}
+              className="font-semibold text-[#E4E1EA] text-[15px] hover:text-[#D0BCFF] transition-colors truncate block"
+            >
+              {student.lastName}, {student.firstName}
+            </Link>
+            <p className="text-xs text-white/40 mt-0.5">
+              Legajo: {student.enrollmentNumber}
+            </p>
+          </div>
+        </div>
+
+        {/* Progress Select */}
+        <div className="flex items-center gap-3 shrink-0">
+          {progressConfig && (
+            <span className={cn(
+              "hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+              progressConfig.badge
+            )}>
+              <span className={cn("size-1.5 rounded-full", progressConfig.dot)} />
+              {progressConfig.label}
+            </span>
+          )}
+
+          <Select
+            value={progress}
+            onValueChange={(v) => setProgress(v as ProgressValue)}
+            disabled={isReadOnly}
+          >
+            <SelectTrigger
+              className={cn(
+                "w-[180px] bg-black/40 border-white/10 text-white/60 rounded-xl transition-all duration-200",
+                "focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/50",
+                "hover:border-white/20 hover:text-white",
+                !progress && "text-white/30",
+                progressConfig && cn(progressConfig.badge, "border")
+              )}
+            >
+              <SelectValue placeholder="Seleccionar progreso..." />
+            </SelectTrigger>
+            <SelectContent className="bg-[#131319] border-white/10 rounded-xl">
+              {PROGRESS_OPTIONS.map((opt) => (
+                <SelectItem
+                  key={opt.value}
+                  value={opt.value}
+                  className="focus:bg-white/5 text-white/70 focus:text-white rounded-lg cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className={cn("size-2 rounded-full shrink-0", opt.dot)} />
+                    {opt.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Report preview + open button */}
+        <div className="flex items-center gap-3 shrink-0">
+          {report && (
+            <p className="hidden xl:block max-w-[200px] text-xs text-white/40 truncate italic">
+              &quot;{report}&quot;
+            </p>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenSheet}
+            disabled={isReadOnly}
+            className={cn(
+              "gap-2 border-white/10 text-white/60 hover:text-white hover:border-[#8A2BE2]/40 hover:bg-[#8A2BE2]/10 transition-all duration-200",
+              report && "border-[#8A2BE2]/25 text-[#D0BCFF]"
+            )}
+          >
+            <FileText className="size-3.5" />
+            {report ? "Editar Informe" : "Redactar Informe"}
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Report Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-lg bg-[#0d0d14]/95 backdrop-blur-2xl border-l border-white/10 p-0 flex flex-col"
+        >
+          {/* Sheet Header */}
+          <SheetHeader className="px-6 py-5 border-b border-white/10 bg-[#0A0A0F]/60">
+            <div className="flex items-start gap-4">
+              <Avatar className="size-12 shrink-0 ring-2 ring-[#8A2BE2]/30 ring-offset-2 ring-offset-[#0A0A0F]">
+                <AvatarImage src={student.photoUrl} alt={student.firstName} />
+                <AvatarFallback className="bg-[#8A2BE2]/20 text-[#D0BCFF] font-bold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <SheetTitle className="text-[#E4E1EA] text-lg font-bold text-left">
+                  {student.firstName} {student.lastName}
+                </SheetTitle>
+                <SheetDescription className="text-white/40 text-sm text-left mt-0.5">
+                  Informe cualitativo de desempeno cognitivo y social
+                </SheetDescription>
+                <p className="text-xs text-white/30 mt-1">
+                  Legajo: {student.enrollmentNumber}
+                </p>
+              </div>
+            </div>
+          </SheetHeader>
+
+          {/* Textarea area */}
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+            {/* Progress indicator in sheet */}
+            <div>
+              <Label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2 block">
+                Progreso registrado
+              </Label>
+              {progressConfig ? (
+                <span className={cn(
+                  "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border",
+                  progressConfig.badge
+                )}>
+                  <span className={cn("size-2 rounded-full", progressConfig.dot)} />
+                  {progressConfig.label}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-white/30 border border-white/[0.06] bg-white/[0.02]">
+                  Sin progreso seleccionado
+                </span>
+              )}
+            </div>
+
+            {/* Observations textarea */}
+            <div className="space-y-2">
+              <Label
+                htmlFor={`report-${student.studentId}`}
+                className="text-xs font-semibold text-white/50 uppercase tracking-wider block"
+              >
+                Observaciones de desempeno
+              </Label>
+              <Textarea
+                id={`report-${student.studentId}`}
+                value={draftReport}
+                onChange={(e) => setDraftReport(e.target.value)}
+                placeholder="Describe el desempeno cognitivo, emocional y social del alumno durante este periodo. Incluye logros, areas de mejora y recomendaciones para la familia..."
+                rows={12}
+                disabled={isReadOnly}
+                className={cn(
+                  "w-full resize-none rounded-xl",
+                  "bg-black/40 border-white/10 text-white placeholder:text-white/25",
+                  "focus:border-[#8A2BE2]/50 focus:ring-1 focus:ring-[#8A2BE2]/50",
+                  "transition-all duration-200 leading-relaxed"
+                )}
+              />
+              <p className="text-xs text-white/30 text-right">
+                {draftReport.length} caracteres
+              </p>
+            </div>
+
+            {/* Tips */}
+            <div className="p-4 rounded-xl bg-[#8A2BE2]/[0.06] border border-[#8A2BE2]/15">
+              <p className="text-xs font-semibold text-[#D0BCFF]/80 mb-1.5 flex items-center gap-1.5">
+                <Sparkles className="size-3" />
+                Guia de redaccion
+              </p>
+              <ul className="space-y-1 text-xs text-white/40 list-disc list-inside">
+                <li>Describe conductas observables, no juicios de valor</li>
+                <li>Menciona avances en autonomia, juego y lenguaje</li>
+                <li>Incluye como se relaciona con pares y adultos</li>
+                <li>Sugiere actividades para reforzar en casa</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Footer actions */}
+          <div className="px-6 py-4 border-t border-white/10 bg-[#0A0A0F]/60 flex items-center justify-end gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => setSheetOpen(false)}
+              className="text-white/50 hover:text-white hover:bg-white/5"
+            >
+              <X className="size-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveReport}
+              disabled={isSaving || isReadOnly}
+              className="gap-2 bg-[#8A2BE2] hover:bg-[#7B22D6] text-white border-0 shadow-[0_0_20px_rgba(138,43,226,0.3)] hover:shadow-[0_0_30px_rgba(138,43,226,0.5)] transition-all duration-300"
+            >
+              <Save className="size-4" />
+              {isSaving ? "Guardando..." : "Guardar Informe"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
@@ -509,6 +1025,8 @@ interface StudentRowProps {
   ) => Promise<void>;
   isReadOnly: boolean;
   index: number;
+  isDraftMode: boolean;
+  draftCells: Set<string>;
 }
 
 function StudentRow({
@@ -519,6 +1037,8 @@ function StudentRow({
   onGradeUpdate,
   isReadOnly,
   index,
+  isDraftMode,
+  draftCells,
 }: StudentRowProps) {
   const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
   const passing = student.average !== null && isPassingGrade(student.average, scale);
@@ -557,11 +1077,26 @@ function StudentRow({
         </div>
       </td>
 
-      {/* Grade Cells - More padding */}
+      {/* Grade Cells */}
       {assessments.map((assessment) => {
         const grade = student.grades[assessment.id] || null;
+        const cellKey = `${student.studentId}:${assessment.id}`;
+        const isPreliminary = isDraftMode && draftCells.has(cellKey);
         return (
-          <td key={assessment.id} className="px-4 py-5 text-center border-l border-white/[0.05]">
+          <td
+            key={assessment.id}
+            className={cn(
+              "px-4 py-5 text-center border-l border-white/[0.05] relative",
+              isPreliminary && "bg-amber-500/[0.04]"
+            )}
+          >
+            {/* Indicador de nota preliminar no publicada */}
+            {isPreliminary && (
+              <span
+                className="absolute top-2 right-2 size-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"
+                aria-label="Nota preliminar no publicada"
+              />
+            )}
             <GradeCell
               grade={grade}
               assessmentId={assessment.id}

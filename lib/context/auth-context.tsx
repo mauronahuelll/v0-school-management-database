@@ -111,6 +111,14 @@ const MOCK_CONTEXTS: UserContextProfile[] = [
     role: "PRECEPTOR",
     description: "Preceptor Turno Manana",
   },
+  {
+    id: "ctx-docente-inicial-1",
+    schoolId: "inst-2",
+    schoolName: "San Martin",
+    level: "INICIAL",
+    role: "DOCENTE",
+    description: "Maestra de Sala de 5 - Ositos",
+  },
 ]
 
 // Alternative mock for quick role-based login (dev console)

@@ -104,6 +104,8 @@ export interface CourseGradeInfo {
   publicationStatus: PublicationStatus;
   lastPublishedAt?: Date;
   lastPublishedBy?: string;
+  /** Nivel educativo del curso — "INITIAL" activa el modo de Informes Cualitativos */
+  educationLevel?: "PRIMARY" | "SECONDARY" | "TERTIARY" | "INITIAL";
 }
 
 // ============================================
