@@ -502,7 +502,7 @@ export default function LoginPage() {
 
         {/* ════════════════════════════════════════════════════════════════
             STEP: school-select
-        ═════════��══════════════════════════════════════════════════════ */}
+        ════���════��══════════════════════════════════════════════════════ */}
         {step === "school-select" && (
           <div className="p-8 sm:p-10">
             <div className="text-center mb-7">
@@ -560,7 +560,8 @@ export default function LoginPage() {
           </div>
         )}
 
-      </div>
-    </div>
+      </div>{/* cierre tarjeta glassmorphism */}
+      </div>{/* cierre wrapper max-w-5xl */}
+    </div>{/* cierre contenedor raíz */}
   )
 }
