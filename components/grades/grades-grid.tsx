@@ -871,13 +871,15 @@ function QualitativeStudentRow({ student, index, isReadOnly }: QualitativeStuden
             </p>
           )}
           <Button
-            variant="outline"
             size="sm"
             onClick={handleOpenSheet}
             disabled={isReadOnly}
             className={cn(
-              "gap-2 border-white/10 text-white/60 hover:text-white hover:border-[#8A2BE2]/40 hover:bg-[#8A2BE2]/10 transition-all duration-200",
-              report && "border-[#8A2BE2]/25 text-[#D0BCFF]"
+              "gap-2 text-white border-0 transition-all duration-300",
+              report
+                ? "bg-[#8A2BE2]/80 hover:bg-[#8A2BE2] shadow-[0_0_16px_rgba(138,43,226,0.4)] hover:shadow-[0_0_28px_rgba(138,43,226,0.65)]"
+                : "bg-gradient-to-r from-[#8A2BE2] to-[#5B6CF4] hover:from-[#9B3CF3] hover:to-[#6B7CF4] shadow-[0_0_14px_rgba(138,43,226,0.35)] hover:shadow-[0_0_24px_rgba(138,43,226,0.55)]",
+              "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
             )}
           >
             <FileText className="size-3.5" />

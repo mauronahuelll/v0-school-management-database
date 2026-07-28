@@ -22,6 +22,7 @@ import {
   Loader2,
   LineChart,
   BookOpen,
+  BookHeart,
   Scale,
   UserCircle,
   ChevronDown,
@@ -309,8 +310,16 @@ interface GlobalNavProps {
 
 export function GlobalNav({ className }: GlobalNavProps) {
   const pathname = usePathname();
-  const { role } = useAuth();
-  const navItems = getNavItems(role ?? "FAMILIA");
+  const { role, activeContext } = useAuth();
+  const isInitialLevel = activeContext?.level === "INICIAL";
+
+  // Mutar el item "grades" según el nivel educativo del contexto activo
+  const navItems = getNavItems(role ?? "FAMILIA").map((item) => {
+    if (item.id === "grades" && isInitialLevel) {
+      return { ...item, label: "Informes de Progreso", icon: BookHeart };
+    }
+    return item;
+  });
   
   // Communication Dialog State
   const [isCommDialogOpen, setIsCommDialogOpen] = useState(false);
