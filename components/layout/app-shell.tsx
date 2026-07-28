@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/context/auth-context"
 import { GlobalNav, ChildContextSwitcher } from "@/components/navigation/global-nav"
 import { ContextSelector } from "@/components/auth/context-selector"
-import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell, Upload, FileBarChart2, Settings, Megaphone, X } from "lucide-react"
+import { LogOut, ChevronDown, School, ChevronRight, Menu, Users, GraduationCap, BookOpen, Home, Search, Calendar, AlertTriangle, Zap, Bell, Upload, FileBarChart2, Settings, Megaphone, X, PenLine } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { Toaster } from "@/components/ui/sonner"
@@ -620,7 +620,7 @@ export function AppShell({ children }: AppShellProps) {
               >
                 <Bell className="w-4 h-4" />
                 <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
-                  {role === "ADMIN" ? "3" : role === "PRECEPTOR" ? "2" : role === "DOCENTE" ? "1" : "2"}
+                  {role === "ADMIN" ? "3" : role === "PRECEPTOR" ? "2" : role === "DOCENTE" ? "1" : "1"}
                 </span>
               </button>
               <button
@@ -766,9 +766,39 @@ export function AppShell({ children }: AppShellProps) {
               {role === "FAMILIA" && (
                 <>
                   <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Notificaciones</span>
-                  <div className="space-y-2 text-xs text-muted-foreground">
-                    <p>Reunion: <span className="text-primary">15 May, 18:00</span></p>
-                    <p><span className="text-secondary font-mono">2</span> documentos pendientes.</p>
+                  <div className="space-y-2">
+                    {/* Notificación de firma pendiente — clickeable → abre modal o navega a Documentación */}
+                    <button
+                      onClick={() => {
+                        setAlertsOpen(false);
+                        router.push("/communications?tab=documentacion");
+                      }}
+                      className="w-full flex items-start gap-3 p-3 rounded-xl bg-[#8A2BE2]/[0.08] border border-[#8A2BE2]/25 hover:bg-[#8A2BE2]/[0.14] hover:border-[#8A2BE2]/40 transition-all text-left group"
+                    >
+                      {/* Icono con pulso */}
+                      <div className="relative shrink-0 mt-0.5">
+                        <div className="size-8 rounded-lg bg-[#8A2BE2]/20 border border-[#8A2BE2]/30 flex items-center justify-center">
+                          <PenLine className="size-3.5 text-[#D0BCFF]" />
+                        </div>
+                        <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-[#8A2BE2] border border-[#0A0A0F]">
+                          <span className="absolute inset-0 rounded-full bg-[#D0BCFF] opacity-70 animate-ping" />
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-[#D0BCFF] leading-tight">
+                          Autorizacion pendiente de firma
+                        </p>
+                        <p className="text-[11px] text-white/45 mt-0.5 leading-tight">
+                          Viaje de Estudios a Cordoba
+                        </p>
+                        <p className="text-[10px] text-white/25 mt-1 flex items-center gap-1 group-hover:text-[#d0bcff]/60 transition-colors">
+                          Tocar para revisar y firmar
+                        </p>
+                      </div>
+                    </button>
+                    <p className="text-xs text-muted-foreground pt-1">
+                      Reunion de padres: <span className="text-primary">15 May, 18:00</span>
+                    </p>
                   </div>
                 </>
               )}

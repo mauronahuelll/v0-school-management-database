@@ -13,7 +13,7 @@ import {
   Stethoscope, FileWarning, GraduationCap,
   Upload, FileSpreadsheet, Megaphone, ShieldCheck,
   ChevronRight, Mail, BellRing, UserCheck, UserX as UserXIcon,
-  PenLine, CheckCheck, MapPin,
+  PenLine, CheckCheck,
 } from "lucide-react"
 import {
   Dialog,
@@ -1136,59 +1136,11 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          {/* ── Widget Tramites Pendientes ── */}
-          {!pendingDocSigned ? (
-            <div className={cn(
-              "relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5 rounded-2xl border",
-              "bg-[#8A2BE2]/10 border-[#8A2BE2]/50",
-              "shadow-[0_0_24px_rgba(138,43,226,0.12)]",
-              "transition-all duration-300"
-            )}>
-              {/* Pulso de alerta */}
-              <span className="absolute top-4 right-4 flex size-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D0BCFF] opacity-60" />
-                <span className="relative inline-flex rounded-full size-2.5 bg-[#8A2BE2]" />
-              </span>
-
-              {/* Icono */}
-              <div className="shrink-0 size-12 rounded-xl bg-[#8A2BE2]/20 border border-[#8A2BE2]/30 flex items-center justify-center">
-                <PenLine className="size-6 text-[#D0BCFF]" />
-              </div>
-
-              {/* Texto */}
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#D0BCFF]/70 mb-0.5">
-                  1 documento pendiente de firma
-                </p>
-                <h3 className="text-base font-bold text-[#E4E1EA] leading-snug">
-                  Autorizacion: Viaje de Estudios a Cordoba
-                </h3>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <MapPin className="size-3 text-white/30" />
-                  <p className="text-xs text-white/40">
-                    Requiere tu firma digital para ser procesado
-                  </p>
-                </div>
-              </div>
-
-              {/* CTA */}
-              <Button
-                onClick={() => { setSignatureModal(true); setSignatureChecked(false); }}
-                className="shrink-0 bg-gradient-to-r from-[#8A2BE2] to-[#D0BCFF] text-black font-bold hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(208,188,255,0.35)] transition-all border-0 gap-2"
-              >
-                <PenLine className="size-4" />
-                Revisar y Firmar
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4 p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] transition-all duration-500">
-              <div className="shrink-0 size-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                <CheckCheck className="size-6 text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-emerald-400">Estas al dia con tus tramites</p>
-                <p className="text-xs text-white/35 mt-0.5">No hay documentos pendientes de firma.</p>
-              </div>
+          {/* ── Widget Tramites Pendientes — reubicado a notificaciones (campanita) ── */}
+          {pendingDocSigned && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04]">
+              <CheckCheck className="size-4 text-emerald-400 shrink-0" />
+              <p className="text-xs text-emerald-400 font-medium">Estas al dia con tus tramites</p>
             </div>
           )}
 
